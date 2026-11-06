@@ -2,24 +2,23 @@
 
 All notable changes to InkRush are listed here. Its technical name and folder are `zzz-copy-das-sobur`.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries come from the plugin's `readme.txt` changelog. Dates come from the git history. Versions before 1.3.0 were made before this repository existed, so their dates are not recorded.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries come from the plugin's `readme.txt` changelog. Dates come from the project's git history. The public repository starts with 1.8.0, so earlier commits are not in it. Versions before 1.3.0 were made before this repository existed, so their dates are not recorded.
 
 Versions from 1.3.0 onward are test releases.
 
 ## [Unreleased]
 
-### Added
+Nothing yet.
 
-- Public repository documentation under the InkRush name: README, contributing guide, security and privacy policies, user guides in `docs/`, and GitHub issue and pull request templates. No plugin code was changed.
+## [1.8.0] - 2026-11-07
 
-## [1.8.0] - not yet released
-
-Version 1.8.0 is built and tested in a local setup, but has not been committed or released.
+The first public release: [InkRush 1.8.0 on GitHub](https://github.com/SAGORWDAS/inkrush/releases/tag/v1.8.0). It passed 231 automated tests in a local setup, and has not yet run on a live website.
 
 ### Added
 
 - Automatic stop on the Schedule page: automation can stop by itself after a number of days, or a number of published posts, whichever comes first. Both count from the last press of Start Automation and are off by default.
 - The Dashboard shows the limits and progress, and says when and why automation stopped by itself.
+- Public repository documentation under the InkRush name: README, contributing guide, security and privacy policies, user guides in `docs/`, and GitHub issue and pull request templates.
 
 ### Changed
 
@@ -29,9 +28,9 @@ Version 1.8.0 is built and tested in a local setup, but has not been committed o
 - Unchanged, so existing sites keep working: the folder inside the ZIP, slug, text domain, settings, database tables, hooks, page addresses and the `ZZZCopyDasSobur` user agent that publishers' robots.txt rules match.
 - Nothing about Start Automation or the Stop button. Reaching a limit stops automation in exactly the same way as Stop.
 
-## [1.7.0] - not yet released
+## [1.7.0] - not released separately
 
-Version 1.7.0 is built and tested in a local setup, but has not been committed or released.
+Version 1.7.0 was built and tested in a local setup, but never released on its own. Its changes are included in 1.8.0.
 
 ### Added
 
