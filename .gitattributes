@@ -1,0 +1,20 @@
+# Let Git manage line endings for text files. The repository stores them as LF.
+* text=auto
+
+# Binary files: never change them
+*.zip binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+
+# Leave these out of "git archive" exports, which should contain the plugin only
+/.github export-ignore
+/tests export-ignore
+/dist export-ignore
+/docs export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/REPORT-1.3.0.md export-ignore

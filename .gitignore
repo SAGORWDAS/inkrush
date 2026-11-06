@@ -1,0 +1,29 @@
+# Created while tests run
+tests/mock-state/
+
+# Secrets and local setup
+wp-config.php
+.env
+.env.*
+*.log
+.claude/
+
+# Private release reports, backups and database dumps: never publish
+release-reports/
+*.bak
+*.backup
+*.sql
+*.sql.gz
+*.sqlite
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencies (the plugin uses none)
+node_modules/
+vendor/

@@ -1,0 +1,504 @@
+/* InkRush: monochrome admin. System fonts only, no external assets. */
+.zzzc {
+	--z-ink: #111;
+	--z-muted: #5c5c5c;
+	--z-line: #d9d9d9;
+	--z-soft: #f4f4f4;
+	--z-paper: #fff;
+	color: var(--z-ink);
+	font-size: 14px;
+	line-height: 1.5;
+	max-width: 1280px;
+}
+
+.zzzc-title {
+	font-size: 22px !important;
+	font-weight: 700 !important;
+	margin: 8px 0 12px !important;
+	padding: 0 !important;
+}
+
+.zzzc-tagline {
+	color: var(--z-muted);
+	font-size: 13px;
+	font-weight: 400;
+	margin-left: 8px;
+}
+
+.zzzc-footer {
+	border-top: 1px solid var(--z-line);
+	color: var(--z-muted);
+	font-size: 12px;
+	margin: 24px 0 0;
+	padding-top: 8px;
+}
+
+.zzzc-footer a {
+	color: inherit;
+}
+
+.zzzc-page-title {
+	font-size: 17px;
+	font-weight: 600;
+	margin: 16px 0 12px;
+	padding: 0;
+}
+
+.zzzc-nav {
+	border-bottom: 1px solid var(--z-line);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px 18px;
+}
+
+.zzzc-nav a {
+	border-bottom: 2px solid transparent;
+	color: var(--z-muted);
+	padding: 8px 0;
+	text-decoration: none;
+}
+
+.zzzc-nav a:hover,
+.zzzc-nav a:focus {
+	color: var(--z-ink);
+}
+
+.zzzc-nav a.is-current {
+	border-bottom-color: var(--z-ink);
+	color: var(--z-ink);
+	font-weight: 600;
+}
+
+.zzzc-card {
+	background: var(--z-paper);
+	border: 1px solid var(--z-line);
+	border-radius: 4px;
+	margin: 0 0 16px;
+	padding: 16px 18px;
+}
+
+.zzzc-card h3 {
+	font-size: 14px;
+	font-weight: 600;
+	margin: 0 0 12px;
+}
+
+.zzzc-card-head {
+	align-items: center;
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+
+.zzzc-card-head h3 {
+	margin: 0;
+}
+
+.zzzc-state-row {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.zzzc-state {
+	border: 1px solid var(--z-ink);
+	border-radius: 3px;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	padding: 3px 10px;
+	text-transform: uppercase;
+}
+
+.zzzc-state.is-running {
+	background: var(--z-ink);
+	color: var(--z-paper);
+}
+
+.zzzc-state.is-error {
+	background: var(--z-ink);
+	color: var(--z-paper);
+	outline: 2px solid var(--z-ink);
+	outline-offset: 2px;
+}
+
+.zzzc-state.is-stopped,
+.zzzc-state.is-not_configured {
+	background: var(--z-soft);
+	border-color: var(--z-line);
+	color: var(--z-muted);
+}
+
+.zzzc-tag {
+	background: var(--z-soft);
+	border: 1px solid var(--z-line);
+	border-radius: 3px;
+	font-size: 12px;
+	padding: 1px 7px;
+	white-space: nowrap;
+}
+
+.zzzc-buttons {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.zzzc-inline {
+	display: inline-block;
+	margin: 0;
+}
+
+.zzzc .zzzc-btn {
+	background: var(--z-paper);
+	border: 1px solid var(--z-ink);
+	border-radius: 3px;
+	color: var(--z-ink);
+	cursor: pointer;
+	display: inline-block;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.4;
+	padding: 6px 12px;
+	text-decoration: none;
+}
+
+.zzzc .zzzc-btn:hover,
+.zzzc .zzzc-btn:focus {
+	background: var(--z-soft);
+}
+
+.zzzc .zzzc-btn:focus-visible,
+.zzzc input:focus-visible,
+.zzzc select:focus-visible,
+.zzzc textarea:focus-visible,
+.zzzc a:focus-visible {
+	box-shadow: none;
+	outline: 2px solid var(--z-ink);
+	outline-offset: 2px;
+}
+
+.zzzc .zzzc-btn.is-primary,
+.zzzc .zzzc-btn.is-on {
+	background: var(--z-ink);
+	color: var(--z-paper);
+}
+
+.zzzc .zzzc-btn.is-primary:hover,
+.zzzc .zzzc-btn.is-on:hover {
+	background: #333;
+}
+
+.zzzc .zzzc-btn.is-small {
+	font-size: 12px;
+	padding: 2px 8px;
+}
+
+.zzzc .zzzc-btn[disabled] {
+	cursor: wait;
+	opacity: 0.55;
+}
+
+.zzzc-notice {
+	background: var(--z-soft);
+	border: 1px solid var(--z-line);
+	border-left: 4px solid var(--z-ink);
+	margin: 0 0 16px;
+	padding: 10px 14px;
+}
+
+.zzzc-notice.is-error {
+	background: var(--z-paper);
+	border-color: var(--z-ink);
+	font-weight: 600;
+}
+
+.zzzc-alert {
+	border: 1px solid var(--z-ink);
+	font-weight: 600;
+	margin: 12px 0 0;
+	padding: 8px 12px;
+}
+
+.zzzc-setup {
+	border-top: 1px solid var(--z-line);
+	margin-top: 14px;
+	padding-top: 12px;
+}
+
+.zzzc-setup ul,
+.zzzc-list {
+	list-style: disc;
+	margin: 6px 0 0 20px;
+}
+
+.zzzc-kpis {
+	display: grid;
+	gap: 10px;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	margin-bottom: 16px;
+}
+
+.zzzc-kpi {
+	background: var(--z-paper);
+	border: 1px solid var(--z-line);
+	border-radius: 4px;
+	display: flex;
+	flex-direction: column;
+	padding: 10px 12px;
+}
+
+.zzzc-kpi-value {
+	font-size: 20px;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+}
+
+.zzzc-kpi-label {
+	color: var(--z-muted);
+	font-size: 12px;
+}
+
+.zzzc-columns {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.zzzc-dl {
+	display: grid;
+	gap: 6px 14px;
+	grid-template-columns: minmax(120px, max-content) 1fr;
+	margin: 0;
+}
+
+.zzzc-dl dt {
+	color: var(--z-muted);
+}
+
+.zzzc-dl dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.zzzc-table-wrap {
+	overflow-x: auto;
+}
+
+.zzzc-table {
+	border-collapse: collapse;
+	font-size: 13px;
+	width: 100%;
+}
+
+.zzzc-table th {
+	border-bottom: 1px solid var(--z-ink);
+	font-weight: 600;
+	padding: 6px 8px;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.zzzc-table td {
+	border-bottom: 1px solid var(--z-line);
+	padding: 6px 8px;
+	vertical-align: top;
+}
+
+.zzzc-nowrap {
+	white-space: nowrap;
+}
+
+.zzzc-sev {
+	border: 1px solid var(--z-line);
+	border-radius: 3px;
+	font-size: 11px;
+	padding: 0 5px;
+}
+
+.zzzc-sev.is-warning {
+	border-color: var(--z-ink);
+}
+
+.zzzc-sev.is-error {
+	background: var(--z-ink);
+	border-color: var(--z-ink);
+	color: var(--z-paper);
+}
+
+.zzzc-grid {
+	display: grid;
+	gap: 4px 20px;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.zzzc-field {
+	border: 0;
+	margin: 0 0 14px;
+	padding: 0;
+}
+
+.zzzc-field > label,
+.zzzc-field > legend {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 4px;
+	padding: 0;
+}
+
+.zzzc-check > label {
+	font-weight: 400;
+	margin-top: 24px;
+}
+
+.zzzc-field input[type="text"],
+.zzzc-field input[type="url"],
+.zzzc-field input[type="number"],
+.zzzc-field input[type="password"],
+.zzzc-field input[type="time"],
+.zzzc-field input[type="date"],
+.zzzc-field input[type="datetime-local"],
+.zzzc-field select,
+.zzzc-field textarea {
+	border: 1px solid #8c8c8c;
+	border-radius: 3px;
+	box-shadow: none;
+	max-width: 100%;
+	min-height: 32px;
+	width: 100%;
+}
+
+.zzzc-field textarea {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.zzzc-help {
+	color: var(--z-muted);
+	font-size: 12px;
+	margin: 4px 0 0;
+}
+
+.zzzc-field-error {
+	font-weight: 600;
+	margin: 4px 0 0;
+}
+
+.zzzc-days {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+}
+
+.zzzc-save {
+	align-items: center;
+	display: inline-flex;
+	gap: 12px;
+}
+
+.zzzc-unsaved {
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.zzzc-key-form {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.zzzc-key-form .zzzc-field {
+	margin: 0;
+	min-width: 280px;
+}
+
+.zzzc-result {
+	margin: 12px 0 0;
+}
+
+.zzzc-pre {
+	background: var(--z-soft);
+	border: 1px solid var(--z-line);
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12px;
+	margin: 6px 0 12px;
+	overflow-x: auto;
+	padding: 8px 10px;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.zzzc-preview {
+	border-bottom: 1px solid var(--z-line);
+	margin-bottom: 12px;
+	max-height: 480px;
+	overflow-y: auto;
+	padding-bottom: 12px;
+}
+
+.zzzc-preview table {
+	border-collapse: collapse;
+}
+
+.zzzc-preview td,
+.zzzc-preview th {
+	border: 1px solid var(--z-line);
+	padding: 4px 8px;
+}
+
+.zzzc-empty {
+	color: var(--z-muted);
+}
+
+.zzzc-pages {
+	align-items: center;
+	display: flex;
+	gap: 10px;
+	margin-top: 12px;
+}
+
+.zzzc-filter-links {
+	margin-bottom: 12px;
+}
+
+.zzzc-export {
+	margin-top: 10px;
+}
+
+@media (max-width: 782px) {
+	.zzzc-dl {
+		grid-template-columns: 1fr;
+	}
+
+	.zzzc-dl dd {
+		margin-bottom: 8px;
+	}
+}
+
+.zzzc-thumb {
+	border-radius: 2px;
+	display: block;
+	height: 45px;
+	margin-bottom: 4px;
+	object-fit: cover;
+	width: 80px;
+}
+
+.zzzc-image-large {
+	display: block;
+	height: auto;
+	margin-bottom: 12px;
+	max-width: 320px;
+	width: 100%;
+}
+
+#zzzc-image-text {
+	max-width: 640px;
+	width: 100%;
+}
