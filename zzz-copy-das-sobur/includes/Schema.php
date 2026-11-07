@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '10';
+	public const DB_VERSION = '11';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -47,6 +47,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '10', '<' ) ) {
 			self::upgrade_to_10();
+		}
+		if ( '' !== $previous && version_compare( $previous, '11', '<' ) ) {
+			self::upgrade_to_11();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -167,6 +170,14 @@ final class Schema {
 		update_option( 'zzzc_settings', $stored, false );
 		Settings::flush_cache();
 		Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. Only authorised authors are now credited with posts. %s, who was already credited, is now the one authorised author and the Post author. Nobody else was given access. Manage authors on the Authors page.', Authors::user_label( $user_id ) ), array( 'author_user_id' => $user_id ) );
+	}
+
+	/**
+	 * Version 11: each author can have their own schedule, used only in Multiple users mode.
+	 * New columns come from create_tables. The mode stays Single user, so nothing changes until the owner switches.
+	 */
+	private static function upgrade_to_11(): void {
+		Events::log( 'config', 'info', 'Upgraded plugin data. Authors can now have their own schedules in Multiple users mode, on the Authors page. Posting stays in Single user mode, exactly as before, until you switch.' );
 	}
 
 	private static function create_tables(): void {
@@ -311,11 +322,12 @@ final class Schema {
 
 		$tables[] = "CREATE TABLE {$p}slots (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  slot_key varchar(40) NOT NULL,
+  slot_key varchar(64) NOT NULL,
   local_date date NOT NULL,
   slot_index int(11) NOT NULL,
   due_at datetime NOT NULL,
   category_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  author_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
   status varchar(20) NOT NULL DEFAULT 'PENDING',
   status_reason varchar(255) NOT NULL DEFAULT '',
   article_job_id bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -336,7 +348,8 @@ final class Schema {
   PRIMARY KEY  (id),
   UNIQUE KEY slot_key (slot_key),
   KEY status_due (status,due_at),
-  KEY local_date (local_date)
+  KEY local_date (local_date),
+  KEY author_date (author_user_id,local_date)
 ) $charset;";
 
 		$tables[] = "CREATE TABLE {$p}generation_usage (
@@ -397,6 +410,21 @@ final class Schema {
   granted_at datetime NULL,
   changed_by bigint(20) unsigned NOT NULL DEFAULT 0,
   changed_at datetime NOT NULL,
+  sched_enabled tinyint(1) NOT NULL DEFAULT 0,
+  sched_timezone varchar(64) NOT NULL DEFAULT '',
+  sched_days varchar(20) NOT NULL DEFAULT '1,2,3,4,5,6,7',
+  sched_times text NULL,
+  sched_per_time int(11) NOT NULL DEFAULT 1,
+  sched_categories text NULL,
+  sched_from date NULL,
+  sched_until date NULL,
+  sched_skip_dates text NULL,
+  limit_day int(11) NOT NULL DEFAULT 0,
+  limit_week int(11) NOT NULL DEFAULT 0,
+  limit_month int(11) NOT NULL DEFAULT 0,
+  missed_rule varchar(10) NOT NULL DEFAULT 'next',
+  sched_changed_by bigint(20) unsigned NOT NULL DEFAULT 0,
+  sched_changed_at datetime NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY user_id (user_id),
   KEY status (status)

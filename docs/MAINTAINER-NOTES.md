@@ -7,13 +7,13 @@ Paths below are relative to the repository root.
 
 A WordPress plugin for one website. It finds news, reads accessible publisher text, writes articles through OpenRouter, and creates posts on a schedule, in the background, with featured images from Wikimedia Commons.
 
-**Current version: 1.8.0 (test release: automatic stop)**
+**Current version: 1.9.0 (test release: Multiple users mode)**
 
 ## What is here
 
 | Path | What it is |
 |---|---|
-| `dist/inkrush-1.8.0.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
+| `dist/inkrush-1.9.0.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
 | `dist/zzz-copy-das-sobur-1.7.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.6.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.5.0.zip` | An earlier version |
@@ -76,7 +76,7 @@ Posts are credited only to WordPress users a plugin administrator authorised on 
 
 Right before each post, the plugin checks that the Post author is active. If not, the article is held with the reason, and no new articles are written until an author is active. A held article can be retried on the Articles page. Every grant, pause and revoke is logged with who made it, and so is a plugin draft published by hand.
 
-This is Phase 1 of the owner's author plan. Phase 2 (schedules and limits per author, in a Multiple users mode) and Phase 3 (Dashboard card, history per author, 7-day preview) are not built yet.
+Phase 1 (1.7.0) of the owner's author plan is the access list above. Phase 2 (1.9.0) is **Multiple users mode**: a Posting mode on the Authors page, and per author a timezone, weekdays, From and Until, dates to skip, up to 24 post times, 1 to 5 posts at each time, categories, day, week and month limits, and a missed rule. The code is in `includes/AuthorSchedules.php`; slots carry `author_user_id`, and in Single user mode every slot query keeps to `author_user_id = 0`, so Single user mode is unchanged. Phase 3 (Dashboard Authors card, history per author, 7-day preview) is not built yet.
 
 ## For an AI or developer picking this up
 
@@ -113,7 +113,7 @@ Read these first:
 
 ### Current status
 
-- **Automated tests:** see the 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **Automated tests:** see the 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
 - **Versions 1.3.1 to 1.3.4, 1.4.1, 1.4.2, 1.5.0, 1.6.0 and 1.7.0** have only run in a local test setup. **1.4.0** ran on the owner's test website on 2026-11-06, for one post. See the 1.4.1 section of `TEST-RESULTS.md`.
 - **Images (1.3.0):** real Commons searches, downloads and credit lines were tested on a local site, not yet on the owner's test website or with Elementor. Some chosen images will not suit their story.
 - **Live test on the owner's separate test website, version 1.2.0:** a real story was found and read, then written with the real model, published at its slot, and the limit of 1 post held.

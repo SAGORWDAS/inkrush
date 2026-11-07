@@ -52,8 +52,12 @@ final class PastHour {
 
 	/**
 	 * The age limit at publishing, in minutes. It never widens, and is never longer than the gap between posts.
+	 * In Multiple users mode the site's interval is not used, so only the setting itself limits it.
 	 */
 	public static function max_age_minutes(): int {
+		if ( AuthorSchedules::multiple() ) {
+			return (int) Settings::get( 'past_hour_max_age_minutes' );
+		}
 		return min( (int) Settings::get( 'past_hour_max_age_minutes' ), (int) Settings::get( 'interval_hours' ) * 60 );
 	}
 
@@ -274,7 +278,7 @@ final class PastHour {
 		$now   = Clock::now();
 		$slots = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE status = %s AND due_at > %s AND due_at <= %s ORDER BY due_at ASC", // phpcs:ignore WordPress.DB
+				"SELECT * FROM {$table} WHERE status = %s AND due_at > %s AND due_at <= %s AND author_user_id " . ( AuthorSchedules::multiple() ? '> 0' : '= 0' ) . ' ORDER BY due_at ASC', // phpcs:ignore WordPress.DB
 				Schedule::PENDING,
 				Clock::mysql( $now ),
 				Clock::mysql( $now + self::prep_seconds() )
@@ -436,7 +440,7 @@ final class PastHour {
 		if ( Automation::get( 'paused_publishing' ) ) {
 			return 'Publishing is paused, so no article is written for this post.';
 		}
-		$author = Authors::publishing_problem();
+		$author = AuthorSchedules::multiple() ? AuthorSchedules::slot_problem( $slot, Clock::to_timestamp( $slot['due_at'] ) ) : Authors::publishing_problem();
 		if ( '' !== $author ) {
 			return $author . ' No article is written for this post.';
 		}
@@ -480,7 +484,7 @@ final class PastHour {
 			static function ( $row ) {
 				return (int) $row['id'];
 			},
-			Schedule::pool_for_date( (string) $slot['local_date'] )
+			Schedule::pool_for_date( (string) $slot['local_date'], AuthorSchedules::multiple() ? (int) ( $slot['author_user_id'] ?? 0 ) : 0 )
 		);
 		$usable  = in_array( $planned, $ids, true );
 
@@ -746,6 +750,13 @@ final class PastHour {
 			self::skip_slot( $slot, 'This post was waiting for a later time, and Past-Hour Posting never catches up.' );
 			return null;
 		}
+		if ( AuthorSchedules::multiple() ) {
+			$problem = AuthorSchedules::slot_problem( $slot );
+			if ( '' !== $problem ) {
+				self::skip_slot( $slot, $problem );
+				return null;
+			}
+		}
 		if ( empty( $slot['prep_started_at'] ) ) {
 			self::skip_slot( $slot, 'Preparation did not run before this time, because the worker was not running or research was paused.' );
 			return null;
@@ -895,7 +906,7 @@ final class PastHour {
 				FROM {$slots} s
 				LEFT JOIN {$items} i ON i.id = s.selected_item_id
 				LEFT JOIN {$jobs} j ON j.id = s.article_job_id
-				WHERE s.local_date IN (%s, %s) ORDER BY s.due_at ASC", // phpcs:ignore WordPress.DB
+				WHERE s.local_date IN (%s, %s) AND s.author_user_id " . ( AuthorSchedules::multiple() ? '> 0' : '= 0' ) . ' ORDER BY s.due_at ASC', // phpcs:ignore WordPress.DB
 				$today,
 				$tomorrow
 			),

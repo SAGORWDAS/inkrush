@@ -8,7 +8,25 @@ Versions from 1.3.0 onward are test releases.
 
 ## [Unreleased]
 
-Nothing yet.
+Planned as 1.9.0, a test release. It passed 247 automated tests in a local setup, and has not yet run on a live website.
+
+### Added
+
+- Multiple users mode, chosen in a new Posting mode card on the Authors page. Single user mode, with one Post author, stays the default and works exactly as before.
+- A schedule for each active author, from a Schedule button in their row: timezone, days of the week, From and Until dates, dates to skip, up to 24 post times at least 15 minutes apart, 1 to 5 posts at each time, their own categories, limits per day, week (Monday to Sunday) and month, and whether a missed time is published at their next time or skipped. The form shows how much of each limit is used.
+- A conflict check when saving: a time within 15 minutes of another active author's time is refused, checked over the next 14 days in every timezone, so daylight-saving changes are covered. A warning is shown when the authors' times together go above Maximum posts per day.
+- Each post is credited to the author whose time it is. Right before each post the author must be active and under their limits. Otherwise that time is closed with the reason in Logs, and the article waits for another author's time.
+- The Schedule page lists each author's times for today, the Dashboard's Next publish slot says who it is by, and the Publishing page says when the Post author is not used.
+- Logs record mode switches and schedule saves with who made them, times not used and why, and each post with its author.
+- A new feature section, F8 Multiple users mode, in the user guide. Later features are numbered one higher.
+
+### Changed
+
+- No research is started for an author who is paused, revoked, deleted or at a limit.
+- In Multiple users mode, Start Automation needs an active author with a schedule instead of a Post author.
+- Past-Hour Posting works in both modes. In Multiple users mode it searches each author's own categories, and the story age is not shortened by the Interval setting, which that mode does not use.
+- Maximum posts per day, Maximum article generations per day and Automatic stop still apply to the whole site, above every author.
+- Database version 11 adds the schedule columns and an author column for slots. Existing data is unchanged, and the mode stays Single user mode until you switch.
 
 ## [1.8.0] - 2026-11-07
 

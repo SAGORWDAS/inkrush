@@ -4,7 +4,7 @@
 
 InkRush is an AI-powered WordPress news automation plugin. It finds news stories from Google News RSS and publisher feeds, reads the publisher's text when the page allows it, rewrites the story into an article through your own [OpenRouter](https://openrouter.ai/) account, adds a featured image from Wikimedia Commons, and publishes WordPress posts on a schedule you set. It runs in the background after you press Start.
 
-- **Version:** 1.8.0 (a test release)
+- **Version:** 1.9.0 (a test release)
 - **Requires:** WordPress 6.5 or newer, PHP 8.1 or newer
 - **License:** GPL-2.0-or-later (see [LICENSE](LICENSE))
 - **Developed by:** Sagor Das
@@ -79,6 +79,7 @@ The only outside services it contacts are your news sources, OpenRouter and Wiki
 - Draft or Automatic Publish, for all categories or some.
 - WordPress categories created automatically, or mapped to your own.
 - Posts credited only to users you authorised on the **Authors** page.
+- **Multiple users mode**: each authorised author posts on their own schedule, with their own days, dates, post times, timezone, categories and limits, and is credited with those posts. Single user mode, with one Post author, stays the default.
 - A visible source line under each post, if you turn it on.
 
 **Running and monitoring**
@@ -117,7 +118,7 @@ These are the declared minimums. Which versions were actually tested is recorded
 
 ## Installation
 
-1. Get the plugin ZIP, `inkrush-1.8.0.zip`.
+1. Get the plugin ZIP, `inkrush-1.9.0.zip`.
 2. In WordPress, go to **Plugins > Add New > Upload Plugin**, choose the ZIP, install it and activate it.
 3. A new menu item, **InkRush**, appears.
 4. Work through the setup in [docs/INSTALLATION.md](docs/INSTALLATION.md): AI Settings, News Sources, Schedule, Authors, Publishing, then **Start Automation** on the Dashboard.
@@ -154,6 +155,7 @@ Full details are in [IMAGES.md](zzz-copy-das-sobur/docs/IMAGES.md).
 
 - **Automatic Publish** is the default: articles that pass the checks go live with no approval. Switch to **Draft** to review every post first.
 - Posts are credited only to WordPress users you granted access on the **Authors** page. Nobody has access through their WordPress role, administrators included, and the plugin never changes roles.
+- **Posting mode**, on the Authors page. In **Single user mode** (the default) every post is credited to the Post author, at the times on the Schedule page. In **Multiple users mode** each active author with a schedule posts at their own times and is credited with those posts. A time within 15 minutes of another author's time is refused when you save. The site's Maximum posts per day and Maximum article generations per day still apply above every author.
 - The source address and publisher are always stored with the post. A visible source line is optional.
 
 ## Scheduling and background work

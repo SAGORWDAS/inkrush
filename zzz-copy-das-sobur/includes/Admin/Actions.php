@@ -2,6 +2,7 @@
 namespace ZZZCopy\Admin;
 
 use ZZZCopy\Articles;
+use ZZZCopy\AuthorSchedules;
 use ZZZCopy\Authors;
 use ZZZCopy\AutoStop;
 use ZZZCopy\Automation;
@@ -29,7 +30,7 @@ final class Actions {
 		'save_category', 'delete_category', 'duplicate_category', 'move_category', 'toggle_category', 'save_source_rules',
 		'save_ai', 'save_key', 'clear_key', 'restore_prompt',
 		'save_schedule', 'save_auto_stop', 'regenerate_token',
-		'save_publishing', 'author_access', 'save_images', 'release_image', 'retry_image',
+		'save_publishing', 'author_access', 'save_author_mode', 'save_author_schedule', 'save_images', 'release_image', 'retry_image',
 		'retry_article', 'skip_article',
 		'export_logs',
 	);
@@ -469,6 +470,60 @@ final class Actions {
 			self::flash( 'success', $text );
 		}
 		self::redirect( 'zzzc-authors', $return );
+	}
+
+	private static function do_save_author_mode(): void {
+		$mode    = sanitize_key( (string) self::post( 'author_mode', '' ) );
+		$before  = (string) Settings::get( 'author_mode' );
+		$problem = AuthorSchedules::switch_mode( $mode );
+		if ( '' !== $problem ) {
+			self::flash( 'error', 'The posting mode was not changed. ' . $problem, array( 'author_mode' => $problem ) );
+		} elseif ( $before === $mode ) {
+			self::flash( 'success', 'Nothing changed.' );
+		} elseif ( AuthorSchedules::MULTIPLE === $mode ) {
+			$warnings = AuthorSchedules::capacity_warnings();
+			self::flash( $warnings ? 'warning' : 'success', trim( 'Multiple users mode is on. Each active author posts at their own times, and the Post author setting is not used. ' . implode( ' ', $warnings ) ) );
+		} else {
+			self::flash( 'success', 'Single user mode is on. Every post is credited to the Post author, at the times on the Schedule page.' );
+		}
+		self::redirect( 'zzzc-authors' );
+	}
+
+	private static function do_save_author_schedule(): void {
+		$user_id = absint( self::post( 'user_id', 0 ) );
+		$input   = array(
+			'enabled'     => '1' === (string) self::post( 'enabled', '' ) ? '1' : '',
+			'timezone'    => sanitize_text_field( (string) self::post( 'timezone', '' ) ),
+			'days'        => array_map( 'sanitize_key', (array) self::post( 'days', array() ) ),
+			'times'       => sanitize_textarea_field( (string) self::post( 'times', '' ) ),
+			'per_time'    => sanitize_text_field( (string) self::post( 'per_time', '1' ) ),
+			'categories'  => array_map( 'absint', (array) self::post( 'categories', array() ) ),
+			'from'        => sanitize_text_field( (string) self::post( 'from', '' ) ),
+			'until'       => sanitize_text_field( (string) self::post( 'until', '' ) ),
+			'skip_dates'  => sanitize_textarea_field( (string) self::post( 'skip_dates', '' ) ),
+			'limit_day'   => sanitize_text_field( (string) self::post( 'limit_day', '0' ) ),
+			'limit_week'  => sanitize_text_field( (string) self::post( 'limit_week', '0' ) ),
+			'limit_month' => sanitize_text_field( (string) self::post( 'limit_month', '0' ) ),
+			'missed_rule' => sanitize_key( (string) self::post( 'missed_rule', 'next' ) ),
+		);
+
+		$result = AuthorSchedules::save( $user_id, $input );
+		if ( $result['errors'] ) {
+			self::flash( 'error', 'The schedule was not saved. Fix the fields marked below.' . ( isset( $result['errors']['user'] ) ? ' ' . $result['errors']['user'] : '' ), $result['errors'], $input );
+			self::redirect( 'zzzc-authors', $user_id ? array( 'schedule' => $user_id ) : array() );
+			return;
+		}
+
+		$text = 'Schedule saved for ' . Authors::user_label( $user_id ) . '.';
+		if ( ! AuthorSchedules::multiple() ) {
+			$text .= ' It is used once Multiple users mode is switched on.';
+		}
+		if ( $result['warnings'] ) {
+			self::flash( 'warning', $text . ' ' . implode( ' ', $result['warnings'] ) );
+		} else {
+			self::flash( 'success', $text );
+		}
+		self::redirect( 'zzzc-authors', array( 'schedule' => $user_id ) );
 	}
 
 	/* ---- Logs ---- */

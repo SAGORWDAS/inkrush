@@ -13,7 +13,7 @@ The release was tested on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5. Older 
 ## Install
 
 1. In WordPress, go to Plugins > Add New > Upload Plugin.
-2. Choose `inkrush-1.8.0.zip`, install it and activate it.
+2. Choose `inkrush-1.9.0.zip`, install it and activate it.
 3. A new menu item, **InkRush**, appears.
 
 ## First-time setup

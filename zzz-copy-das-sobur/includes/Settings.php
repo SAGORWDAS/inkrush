@@ -56,6 +56,8 @@ final class Settings {
 			'category_auto_create'       => 1,
 			'attribution'                => 'meta',
 			'post_author'                => 0,
+			// Single user: every post is credited to the Post author. Multiple users: each author's own schedule.
+			'author_mode'                => 'single',
 			// AI.
 			'model_id'                   => 'openai/gpt-6-luna',
 			'ai_timeout'                 => 120,
@@ -236,6 +238,7 @@ final class Settings {
 			'tag_policy'    => array( 'trim_extra', 'strict' ),
 			'emdash_policy' => array( 'replace', 'hold', 'allow' ),
 			'image_attribution' => array( 'all', 'required' ),
+			'author_mode'   => array( 'single', 'multiple' ),
 		);
 
 		if ( isset( $choices[ $key ] ) ) {

@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,7 +24,7 @@ After setup, press Start Automation. The plugin keeps working in the background 
 5. Generates 20 tags with your exact saved tag prompt.
 6. Validates the result and holds anything that fails.
 7. At each publishing slot, finds a featured image on Wikimedia Commons with rules only, then creates a draft or published WordPress post.
-8. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role.
+8. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
 9. Optionally stops by itself after a number of days or published posts, whichever comes first.
 
 The only outside services are your news sources, OpenRouter and Wikimedia Commons. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
@@ -91,6 +91,9 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.9.0 =
+For testing. New Multiple users mode, chosen in the new Posting mode card on the Authors page. Each active author can have their own schedule: a timezone, days of the week, From and Until dates, dates to skip, up to 24 post times at least 15 minutes apart, 1 to 5 posts at each time, their own categories, limits per day, week (Monday to Sunday) and month, and whether a missed time is published at their next time or skipped. Each post is credited to the author whose time it is. A time within 15 minutes of another author's time is refused when saving, checked over the next 14 days in every timezone, and a warning is shown when the times together go above Maximum posts per day. Right before each post, the author must be active and under their limits; otherwise that time is closed and logged, and the article waits for another author. No research is started for an author who cannot post. Maximum posts per day, Maximum article generations per day and Automatic stop still apply to the whole site, and Past-Hour Posting works in both modes. The Schedule page lists each author's times for today, and the Dashboard shows who the next post is by. Single user mode, with one Post author, stays the default and works exactly as before.
 
 = 1.8.0 =
 For testing. New Automatic stop on the Schedule page: automation can stop by itself after a number of days, or a number of published posts, whichever comes first. Both are counted from the last press of Start Automation, count again from 0 at the next Start, and are off by default. Reaching a limit works exactly like the Stop button: future jobs are cancelled, a step already running finishes, and queued articles and history are kept. Drafts do not count as published. The Dashboard shows the limits and how far the current run has got, and says when and why automation stopped by itself. Start Automation and the Stop button work exactly as before.

@@ -22,6 +22,7 @@ zzz-copy-das-sobur/
     Prompts, OpenRouter, Generation, ContentParser, TagParser, Validator, Usage    AI
     Publisher, Articles                             WordPress posts, retry and skip
     Authors                                         Which users may be credited with posts
+    AuthorSchedules                                 Multiple users mode: each author's schedule, conflicts and limits
     Images/                                         Commons search, license rules, scoring, image history, import, credit line
     Events, Maintenance, RestTick                   Logs, retention, cron endpoint
     Admin/                                          Screens, form actions, AJAX
@@ -201,6 +202,16 @@ The request is: an editable system message (use only the source, ignore instruct
 - `guard_image` also logs a plugin post made public outside the worker, by a person or by WordPress on a schedule. The worker sets `Publisher::$worker_publishing` while it publishes, so its own posts are not counted.
 - The Authors page queries users 50 at a time with `WP_User_Query`. Changes go through `admin-post.php` with the usual capability and nonce checks, at most 200 users a request.
 
+### Multiple users mode
+
+- The setting `author_mode` is `single` (the default) or `multiple`. `AuthorSchedules::switch_mode()` refuses Multiple until `ready_ids()` has an active author whose schedule is on, with a day and a time. Switching deletes the other mode's future `PENDING` or `DEFERRED` slots that were not prepared yet, marks that mode's remaining open slots `SKIPPED`, rebuilds the future, and logs who switched.
+- Each author's schedule is stored in their `authors` row: `sched_enabled`, `sched_timezone`, `sched_days`, `sched_times` (JSON), `sched_per_time`, `sched_categories` (JSON), `sched_from`, `sched_until`, `sched_skip_dates` (JSON), `limit_day`, `limit_week`, `limit_month`, `missed_rule`, `sched_changed_by` and `sched_changed_at`.
+- `AuthorSchedules::save()` validates, then runs `conflicts()`: every occurrence of this author's times and every other active author's over the next 14 days, as UTC timestamps, sorted, with neighbouring pairs of two different authors under 15 minutes refused. Only pairs that include this author count. `capacity_warnings()` compares the authors' times on each of the next 7 site days with `daily_cap`.
+- Slots carry `author_user_id`, 0 for the site's own slots. Author slot keys look like `2026-11-08T23:30u12#1`: site date, UTC time, author and post number at that time. In Multiple users mode `Schedule::ensure_slots()` plans each ready author's times that fall on the site day, `fill_gaps()` adds only missing future times, and `pick_category()` uses the author's categories as the pool. In Single user mode every slot query keeps to `author_user_id = 0`, so nothing changes there.
+- `AuthorSchedules::slot_problem()` says why a slot's author cannot post: no author, not active, schedule off, or a day, week (Monday to Sunday) or month limit reached in the author's timezone. Limits count `post_links` rows by `author_user_id`, published only when `cap_scope` is `published`.
+- `Publisher::process()` closes a due slot with a problem as `MISSED` (code `author_unavailable`) before choosing an article, so the article stays queued for another author. `pick()` keeps to the author's categories, also in the fallback. `run_publish()` checks again right before the post; if the author can no longer post, `release_for_author()` puts the article back in the queue, or retires a Past-Hour article. The post is credited to the slot's author. A missed time follows the author's `missed_rule`, and a deferred time is caught up only after a later time of the same author has arrived.
+- `Planner::planned_category_ids()` counts only slots whose author can post at that time, so no research is started for an author who is paused, revoked, deleted or at a limit. `Authors::publishing_problem()` reports a problem in Multiple users mode only when no active author has a schedule.
+- Past-Hour Posting prepares only author slots in Multiple users mode, searches the author's categories, and does not cap the story age by `interval_hours`.
 ## Automatic stop
 
 - Two settings, `auto_stop_days` (0 to 365) and `auto_stop_posts` (0 to 10000). 0 means no limit, and both are 0 by default. They are saved by their own form on the Schedule page (`save_auto_stop`), so saving them does not rebuild the schedule.

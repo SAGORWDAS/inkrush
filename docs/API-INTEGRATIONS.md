@@ -60,7 +60,7 @@ Google offers no official news API. InkRush reads Google News RSS feeds for the 
 - RSS and Atom feeds you add are read directly.
 - Before reading a publisher page, the plugin reads that site's robots.txt and follows it. If robots.txt cannot be read, nothing is fetched, and it tries again later.
 - It does not bypass paywalls, logins, refusals or rate limits. It waits 5 seconds between requests to one site by default.
-- It identifies itself honestly, with a user agent of the form `ZZZCopyDasSobur/1.8.0 (+https://your-site/)`. `ZZZCopyDasSobur` is InkRush's original technical name. It is kept so that robots.txt rules publishers wrote for it keep applying.
+- It identifies itself honestly, with a user agent of the form `ZZZCopyDasSobur/1.9.0 (+https://your-site/)`. `ZZZCopyDasSobur` is InkRush's original technical name. It is kept so that robots.txt rules publishers wrote for it keep applying.
 - Outbound requests go only to public `http` and `https` addresses on ports 80 and 443. Private and local network addresses are refused.
 
 Reading a page does not give you the right to republish it. See [Copyright and editorial responsibility](../README.md#copyright-and-editorial-responsibility).

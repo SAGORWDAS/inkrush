@@ -84,9 +84,10 @@ final class Publisher {
 			return;
 		}
 
-		$due = $wpdb->get_results(
+		$multi = AuthorSchedules::multiple();
+		$due   = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$slots_table} WHERE local_date = %s AND status IN ('PENDING','DEFERRED') AND due_at <= %s ORDER BY due_at ASC", // phpcs:ignore WordPress.DB
+				"SELECT * FROM {$slots_table} WHERE local_date = %s AND status IN ('PENDING','DEFERRED') AND due_at <= %s" . ( $multi ? '' : ' AND author_user_id = 0' ) . ' ORDER BY due_at ASC', // phpcs:ignore WordPress.DB
 				$today,
 				Clock::mysql( $now )
 			),
@@ -94,6 +95,20 @@ final class Publisher {
 		);
 		if ( ! $due ) {
 			return;
+		}
+
+		// Multiple users mode: a time whose author cannot post now is closed, and its articles stay for others.
+		if ( $multi ) {
+			foreach ( $due as $index => $slot ) {
+				$problem = AuthorSchedules::slot_problem( $slot );
+				if ( '' !== $problem ) {
+					self::close_for_author( $slot, $problem );
+					unset( $due[ $index ] );
+				}
+			}
+			if ( ! $due ) {
+				return;
+			}
 		}
 
 		if ( self::cap_reached() ) {
@@ -114,7 +129,8 @@ final class Publisher {
 			}
 			$age = $now - Clock::to_timestamp( $slot['due_at'] );
 			if ( $age > $grace ) {
-				$reason = self::slot_miss_reason( $slot );
+				$reason  = self::slot_miss_reason( $slot );
+				$catchup = self::missed_rule( $slot );
 				if ( 'skip' === $catchup ) {
 					self::set_slot( (int) $slot['id'], Schedule::MISSED, $reason );
 					Events::log( 'publishing', 'warning', 'Slot missed: ' . $reason, array( 'status' => Schedule::MISSED, 'category_id' => (int) $slot['category_id'] ) );
@@ -132,24 +148,21 @@ final class Publisher {
 			}
 		}
 
-		if ( 'next' !== $catchup ) {
+		$catchup = (string) Settings::get( 'catchup' );
+		if ( ! $multi && 'next' !== $catchup ) {
 			return;
 		}
 
 		// Then: deferred slots, once a later slot time has arrived and the minimum gap has passed.
-		$latest_due = Clock::to_timestamp(
-			(string) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT MAX(due_at) FROM {$slots_table} WHERE local_date = %s AND due_at <= %s", // phpcs:ignore WordPress.DB
-					$today,
-					Clock::mysql( $now )
-				)
-			)
-		);
+		// In Multiple users mode, a later time of the same author.
+		$latest_due = self::latest_due( $today, $now, $multi ? -1 : 0 );
 		if ( $now - self::last_post_time() < (int) Settings::get( 'catchup_gap_minutes' ) * 60 ) {
 			return;
 		}
 		foreach ( $due as $slot ) {
+			if ( $multi ) {
+				$latest_due = self::latest_due( $today, $now, (int) $slot['author_user_id'] );
+			}
 			if ( Schedule::DEFERRED !== $slot['status'] || Clock::to_timestamp( $slot['due_at'] ) >= $latest_due ) {
 				continue;
 			}
@@ -169,7 +182,7 @@ final class Publisher {
 		$table = Db::table( 'slots' );
 		$due   = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE local_date = %s AND status IN ('PENDING','DEFERRED') AND due_at <= %s ORDER BY due_at ASC", // phpcs:ignore WordPress.DB
+				"SELECT * FROM {$table} WHERE local_date = %s AND status IN ('PENDING','DEFERRED') AND due_at <= %s" . ( AuthorSchedules::multiple() ? '' : ' AND author_user_id = 0' ) . ' ORDER BY due_at ASC', // phpcs:ignore WordPress.DB
 				$today,
 				Clock::mysql( $now )
 			),
@@ -182,6 +195,90 @@ final class Publisher {
 				return;
 			}
 		}
+	}
+
+	/**
+	 * The latest slot time already reached today. $author: 0 for the site's slots, -1 for none (not used),
+	 * or an author whose own times count.
+	 */
+	private static function latest_due( string $today, int $now, int $author ): int {
+		global $wpdb;
+		if ( $author < 0 ) {
+			return 0;
+		}
+		$table = Db::table( 'slots' );
+		return Clock::to_timestamp(
+			(string) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT MAX(due_at) FROM {$table} WHERE local_date = %s AND due_at <= %s AND author_user_id = %d", // phpcs:ignore WordPress.DB
+					$today,
+					Clock::mysql( $now ),
+					$author
+				)
+			)
+		);
+	}
+
+	/** What happens to a missed time: the site's rule, or in Multiple users mode the author's own. */
+	private static function missed_rule( array $slot ): string {
+		if ( AuthorSchedules::multiple() && (int) $slot['author_user_id'] ) {
+			return AuthorSchedules::get( (int) $slot['author_user_id'] )['missed_rule'];
+		}
+		return (string) Settings::get( 'catchup' );
+	}
+
+	/**
+	 * Closes a time whose author cannot post now. Nothing was written for it, so nothing is held.
+	 */
+	private static function close_for_author( array $slot, string $reason ): void {
+		self::set_slot( (int) $slot['id'], Schedule::MISSED, $reason );
+		Events::log(
+			'publishing',
+			'warning',
+			sprintf( 'The post time at %1$s was not used: %2$s', Schedule::format_local( $slot['due_at'] ), $reason ),
+			array(
+				'status'         => Schedule::MISSED,
+				'error_code'     => 'author_unavailable',
+				'category_id'    => (int) $slot['category_id'],
+				'author_user_id' => (int) $slot['author_user_id'],
+			)
+		);
+	}
+
+	/** The time a queue item was claimed for. */
+	private static function slot_for_queue( int $queue_id ): ?array {
+		global $wpdb;
+		$queue = Db::table( 'publishing_queue' );
+		$slots = Db::table( 'slots' );
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT s.* FROM {$slots} s JOIN {$queue} q ON q.slot_id = s.id WHERE q.id = %d", $queue_id ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		return $row ?: null;
+	}
+
+	/**
+	 * Multiple users mode: the time's author cannot post, checked right before the post. The article goes
+	 * back to the queue for another author's time, and the time is closed. A Past-Hour article, written
+	 * for this one time, is retired with it.
+	 */
+	private static function release_for_author( array $job, int $queue_id, ?array $slot, string $reason, array $context ): void {
+		global $wpdb;
+		if ( PastHour::applies( $job ) ) {
+			$wpdb->update( Db::table( 'publishing_queue' ), array( 'lock_owner' => '', 'lock_expires' => null, 'updated_at' => Clock::mysql() ), array( 'id' => $queue_id ) );
+			PastHour::final_check_failed( $job, 0, $reason );
+			return;
+		}
+		Lifecycle::transition( (int) $job['id'], Lifecycle::QUEUED );
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE " . Db::table( 'publishing_queue' ) . " SET queue_status = %s, lock_owner = '', lock_expires = NULL, slot_id = 0, attempts = GREATEST(attempts - 1, 0), updated_at = %s WHERE id = %d", // phpcs:ignore WordPress.DB
+				Lifecycle::QUEUED,
+				Clock::mysql(),
+				$queue_id
+			)
+		);
+		if ( $slot ) {
+			self::close_for_author( $slot, $reason );
+		}
+		Events::log( 'publishing', 'info', 'The article went back to the queue for another post time.', array_merge( $context, array( 'status' => Lifecycle::QUEUED, 'author_user_id' => $slot ? (int) $slot['author_user_id'] : 0 ) ) );
 	}
 
 	private static function slot_miss_reason( array $slot ): string {
@@ -239,10 +336,19 @@ final class Publisher {
 		// An article whose image is already found comes first, so a post time rarely waits for a search.
 		$ready = "COALESCE( r.status IN ('ready','assigned'), 0 ) DESC";
 
+		// Multiple users mode: only the author's own categories, when they chose any.
+		$only = '';
+		if ( AuthorSchedules::multiple() && (int) ( $slot['author_user_id'] ?? 0 ) ) {
+			$mine = AuthorSchedules::get( (int) $slot['author_user_id'] )['categories'];
+			if ( $mine ) {
+				$only = ' AND q.category_id IN (' . implode( ',', array_map( 'intval', $mine ) ) . ')';
+			}
+		}
+
 		if ( (int) $slot['category_id'] ) {
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT q.* FROM {$table} q LEFT JOIN {$runs} r ON r.article_job_id = q.article_job_id WHERE q.queue_status = %s AND q.category_id = %d AND ( q.retry_at IS NULL OR q.retry_at <= %s ) ORDER BY {$ready}, q.id DESC LIMIT 1", // phpcs:ignore WordPress.DB
+					"SELECT q.* FROM {$table} q LEFT JOIN {$runs} r ON r.article_job_id = q.article_job_id WHERE q.queue_status = %s AND q.category_id = %d AND ( q.retry_at IS NULL OR q.retry_at <= %s ){$only} ORDER BY {$ready}, q.id DESC LIMIT 1", // phpcs:ignore WordPress.DB
 					Lifecycle::QUEUED,
 					(int) $slot['category_id'],
 					$now
@@ -263,7 +369,7 @@ final class Publisher {
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT q.* FROM {$table} q LEFT JOIN {$runs} r ON r.article_job_id = q.article_job_id WHERE q.queue_status = %s AND ( q.retry_at IS NULL OR q.retry_at <= %s ) ORDER BY ( q.category_id = %d ) ASC, {$ready}, q.id DESC LIMIT 1", // phpcs:ignore WordPress.DB
+				"SELECT q.* FROM {$table} q LEFT JOIN {$runs} r ON r.article_job_id = q.article_job_id WHERE q.queue_status = %s AND ( q.retry_at IS NULL OR q.retry_at <= %s ){$only} ORDER BY ( q.category_id = %d ) ASC, {$ready}, q.id DESC LIMIT 1", // phpcs:ignore WordPress.DB
 				Lifecycle::QUEUED,
 				$now,
 				$last
@@ -391,12 +497,24 @@ final class Publisher {
 
 		// Only an authorised, active author is ever credited. Checked right before each post, so a change
 		// on the Authors page applies at once. A post already public before a crash is only finished off.
+		// In Multiple users mode the author is the one whose time this is, within their limits.
+		$credited = 0;
 		if ( ! $post_id || 'publish' !== get_post_status( $post_id ) ) {
-			$credited = $post_id ? (int) get_post_field( 'post_author', $post_id ) : Authors::credited_user();
-			$problem  = Authors::problem( $credited );
-			if ( '' !== $problem ) {
-				self::hold_for_author( $job, $queue_id, $problem, $context, $credited );
-				return;
+			if ( ! $post_id && AuthorSchedules::multiple() ) {
+				$slot    = self::slot_for_queue( $queue_id );
+				$problem = $slot ? AuthorSchedules::slot_problem( $slot ) : 'The post time chosen for this article no longer exists.';
+				if ( '' !== $problem ) {
+					self::release_for_author( $job, $queue_id, $slot, $problem, $context );
+					return;
+				}
+				$credited = (int) $slot['author_user_id'];
+			} else {
+				$credited = $post_id ? (int) get_post_field( 'post_author', $post_id ) : Authors::credited_user();
+				$problem  = Authors::problem( $credited );
+				if ( '' !== $problem ) {
+					self::hold_for_author( $job, $queue_id, $problem, $context, $credited );
+					return;
+				}
 			}
 		}
 
@@ -433,7 +551,7 @@ final class Publisher {
 		}
 
 		if ( ! $post_id ) {
-			$created = self::create_post( $job, $item, $content );
+			$created = self::create_post( $job, $item, $content, $credited );
 			if ( is_wp_error( $created ) ) {
 				self::publish_failed( $article_job_id, $queue_id, $created->get_error_code(), $created->get_error_message(), $attempt, $context );
 				return;
@@ -475,7 +593,7 @@ final class Publisher {
 	/**
 	 * @return int|\WP_Error Post id.
 	 */
-	private static function create_post( array $job, array $item, array $content ) {
+	private static function create_post( array $job, array $item, array $content, int $author = 0 ) {
 		$category = Categories::get( (int) $job['category_id'] );
 		if ( ! $category ) {
 			return new \WP_Error( 'category_missing', 'The news category for this article no longer exists.' );
@@ -503,7 +621,7 @@ final class Publisher {
 			'post_content_filtered' => 'zzzc:' . $job['job_uid'],
 			'post_status'           => 'draft',
 			'post_type'             => 'post',
-			'post_author'           => self::author_id(),
+			'post_author'           => $author && Authors::is_active( $author ) ? $author : self::author_id(),
 			'post_category'         => array( (int) $term_id ),
 			'meta_input'            => array(
 				self::META_JOB            => (string) $job['job_uid'],

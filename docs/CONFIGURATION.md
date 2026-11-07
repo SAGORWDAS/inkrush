@@ -111,6 +111,37 @@ The Schedule page also shows the server cron command, the web address and token 
 
 Grant, pause or revoke access for WordPress users, one at a time or in bulk. Only active authors can be credited with posts. WordPress roles are never changed.
 
+### Posting mode
+
+| Setting | Default | Choices |
+|---|---|---|
+| Who posts, and when | Single user mode | **Single user mode**: every post is credited to the Post author on the Publishing page, at the times on the Schedule page. **Multiple users mode**: each active author with a schedule posts at their own times and is credited with those posts |
+
+Multiple users mode can be switched on only when at least one active author has a schedule that is switched on and has a post time. Switching closes the times planned for the other mode that were not used yet, and plans the coming times again. Every switch is logged with who made it.
+
+In Multiple users mode the Schedule page's Daily target, Interval, First publishing time, When a slot has no article, Categories in rotation and slot categories, and the Post author, are not used. Each author's own categories take the place of Categories in rotation. Maximum posts per day, What counts toward the maximum, Slot grace period, Minimum gap before a catch-up post, Past-Hour Posting, Automatic stop, Rotation mode, Avoid repeating a category, the fallback to another category and the Research settings still apply.
+
+### Each author's schedule
+
+Open **Schedule** next to an active or paused author.
+
+| Setting | Default | Range or choices |
+|---|---|---|
+| Post on this schedule | Off | On or off. Off keeps the author's access but plans no times for them |
+| Timezone | The site timezone | A name such as `Europe/London`, or a fixed offset such as `+06:00`. The author's times, dates and limits all follow it |
+| Post times | None | Up to 24 times, in 24-hour form such as `09:00, 13:30`. At least 15 minutes apart, also across midnight, and at least 15 minutes from any other active author's time |
+| Posts at each time | 1 | 1 to 5. Several posts at one time go out one after another |
+| From, Until | Empty | Optional dates, in the author's calendar. Both days are included |
+| Days of the week | Every day | Any of Monday to Sunday |
+| Dates to skip | None | Up to 366 dates such as `2026-12-25` |
+| Categories | All enabled categories | Tick some to post only those. Their times, the article chosen, the fallback to another category and the research all keep to them |
+| Most posts a day, a week, a month | 0 (no limit) | 0 to 1,000. Counted in the author's calendar, weeks from Monday to Sunday, the same way as What counts toward the maximum |
+| When a time is missed | Publish at the author's next time today | Or skip it |
+
+The conflict check looks at every active author's times over the next 14 days, in UTC, so different timezones and daylight-saving changes are covered. A save that adds a time too close to another is refused, and the message names the other author and both times. When the authors' times on a day add up to more than Maximum posts per day, a warning is shown, and the posts after the maximum are not made.
+
+Right before each post, the plugin checks that the author whose time it is is active and under their limits. If not, that time is closed and logged with the reason, and the article stays queued for another author's time. No research is started for an author who is paused, revoked, deleted or at a limit.
+
 ## Publishing
 
 | Setting | Default | Choices or range |
@@ -118,7 +149,7 @@ Grant, pause or revoke access for WordPress users, one at a time or in bulk. Onl
 | Publishing mode | Automatic Publish | Draft, or Automatic Publish. Can also be set per category |
 | Tags | Reuse matching tags and create missing ones | Or only use tags that already exist |
 | Source attribution | Store in post data only | Or also add a visible source line |
-| Post author | None chosen | Active authors only |
+| Post author | None chosen | Active authors only. Used in Single user mode. In Multiple users mode each post is credited to the author whose time it is |
 | Create a WordPress category when none matches | On | On or off. With it off, every enabled category needs a mapped WordPress category |
 | Keep publisher text and rejected stories (days) | 30 | 1 to 3,650 |
 | Keep logs (days) | 90 | 1 to 3,650 |

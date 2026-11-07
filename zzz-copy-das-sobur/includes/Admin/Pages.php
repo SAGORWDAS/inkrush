@@ -2,6 +2,7 @@
 namespace ZZZCopy\Admin;
 
 use ZZZCopy\Articles;
+use ZZZCopy\AuthorSchedules;
 use ZZZCopy\Authors;
 use ZZZCopy\AutoStop;
 use ZZZCopy\Automation;
@@ -304,7 +305,8 @@ final class Pages {
 		echo '<dt>Next publish slot</dt><dd>';
 		if ( $active && $next ) {
 			$category = Categories::name( (int) $next['category_id'] );
-			echo esc_html( Schedule::format_local( $next['due_at'] ) . ( $category ? ' (' . $category . ')' : '' ) );
+			$who      = (int) ( $next['author_user_id'] ?? 0 ) ? ', by ' . Authors::user_label( (int) $next['author_user_id'] ) : '';
+			echo esc_html( Schedule::format_local( $next['due_at'] ) . ( $category || $who ? ' (' . ( $category ?: 'any category' ) . $who . ')' : '' ) );
 		} else {
 			echo esc_html( $active ? 'None planned' : 'Not scheduled' );
 		}
@@ -724,15 +726,32 @@ final class Pages {
 		$fits       = Schedule::slots_that_fit();
 		$target     = (int) Settings::get( 'daily_target' );
 
+		$multi = AuthorSchedules::multiple();
 		echo '<section class="zzzc-card"><h3>Today\'s slots</h3>';
-		if ( $fits < $target ) {
-			echo '<p class="zzzc-alert">' . esc_html( sprintf( 'Only %1$d of %2$d daily slots fit before midnight with this start time and interval. Reduce the interval or use an earlier start time.', $fits, $target ) ) . '</p>';
+		if ( $multi ) {
+			echo '<p>' . esc_html( 'Multiple users mode is on, so each author posts at the times on their own schedule. Daily target, Interval, First publishing time, When a slot has no article, Categories in rotation and the slot categories below are not used: each author\'s own categories are used instead. Maximum posts per day, Maximum article generations per day and the other settings still apply.' ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-authors' ) ) . '">Authors page</a></p>';
+			$planned = Schedule::author_slots( Schedule::today() );
+			if ( ! $planned ) {
+				echo '<p class="zzzc-empty">No author times are planned for today.</p>';
+			} else {
+				echo '<div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Slot</th><th>Local time</th><th>UTC</th><th>Author</th><th>Category</th><th>Status</th></tr></thead><tbody>';
+				foreach ( $planned as $index => $slot ) {
+					$status = ucfirst( strtolower( (string) $slot['status'] ) ) . ( ! empty( $slot['status_reason'] ) ? ': ' . $slot['status_reason'] : '' );
+					echo '<tr><td>' . esc_html( (string) ( $index + 1 ) ) . '</td><td>' . esc_html( Schedule::format_local( (string) $slot['due_at'] ) ) . '</td><td>' . esc_html( substr( (string) $slot['due_at'], 0, 16 ) ) . '</td><td>' . esc_html( Authors::user_label( (int) $slot['author_user_id'] ) ) . '</td><td>' . esc_html( Categories::name( (int) $slot['category_id'] ) ?: 'Any of theirs' ) . '</td><td>' . esc_html( $status ) . '</td></tr>';
+				}
+				echo '</tbody></table></div>';
+			}
+			echo '</section>';
+		} else {
+			if ( $fits < $target ) {
+				echo '<p class="zzzc-alert">' . esc_html( sprintf( 'Only %1$d of %2$d daily slots fit before midnight with this start time and interval. Reduce the interval or use an earlier start time.', $fits, $target ) ) . '</p>';
+			}
+			echo '<div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Slot</th><th>Local time</th><th>UTC</th></tr></thead><tbody>';
+			foreach ( Schedule::slot_times( Schedule::today() ) as $index => $time ) {
+				echo '<tr><td>' . esc_html( (string) ( $index + 1 ) ) . '</td><td>' . esc_html( $time->format( 'H:i' ) . ' ' . Schedule::zone_label( $time ) ) . '</td><td>' . esc_html( gmdate( 'Y-m-d H:i', $time->getTimestamp() ) ) . '</td></tr>';
+			}
+			echo '</tbody></table></div></section>';
 		}
-		echo '<div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Slot</th><th>Local time</th><th>UTC</th></tr></thead><tbody>';
-		foreach ( Schedule::slot_times( Schedule::today() ) as $index => $time ) {
-			echo '<tr><td>' . esc_html( (string) ( $index + 1 ) ) . '</td><td>' . esc_html( $time->format( 'H:i' ) . ' ' . Schedule::zone_label( $time ) ) . '</td><td>' . esc_html( gmdate( 'Y-m-d H:i', $time->getTimestamp() ) ) . '</td></tr>';
-		}
-		echo '</tbody></table></div></section>';
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-form" data-track-changes="1">';
 		Actions::url_field( 'save_schedule' );
@@ -898,7 +917,7 @@ final class Pages {
 			$state = Authors::status( $user_id );
 			echo '<option value="' . esc_attr( (string) $user_id ) . '"' . selected( $current, $user_id, false ) . '>' . esc_html( Authors::user_label( $user_id ) . ( Authors::ACTIVE === $state ? '' : ' (' . Authors::status_label( $state ) . ')' ) ) . '</option>';
 		}
-		echo '</select><p class="zzzc-help">Only active authors can be chosen. Grant access on the <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-authors' ) ) . '">Authors page</a>. The author is checked again right before each post.</p>';
+		echo '</select><p class="zzzc-help">Only active authors can be chosen. Grant access on the <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-authors' ) ) . '">Authors page</a>. The author is checked again right before each post.' . ( AuthorSchedules::multiple() ? ' <strong>Multiple users mode is on, so this setting is not used: each post is credited to the author whose time it is.</strong>' : ' Used in Single user mode. In Multiple users mode each post is credited to the author whose time it is.' ) . '</p>';
 		self::field_error( 'post_author' );
 		echo '</div>';
 
@@ -982,6 +1001,12 @@ final class Pages {
 		}
 		echo '<p class="zzzc-help">Nobody is authorised automatically, whatever their WordPress role, and this page never changes WordPress roles. The author is checked right before each post, so a change here applies at once. A held article can be retried on the Articles page.</p></section>';
 
+		self::author_mode_card();
+		$schedule_id = absint( self::request_string( 'schedule' ) );
+		if ( $schedule_id ) {
+			self::author_schedule_form( $schedule_id );
+		}
+
 		echo '<section class="zzzc-card"><form method="get" action="' . esc_url( admin_url( 'admin.php' ) ) . '" class="zzzc-form"><input type="hidden" name="page" value="zzzc-authors"><div class="zzzc-grid">';
 		echo '<div class="zzzc-field"><label for="a-s">Search</label><input id="a-s" type="search" name="s" value="' . esc_attr( $search ) . '"><p class="zzzc-help">Username, name or email.</p></div>';
 		echo '<div class="zzzc-field"><label for="a-role">WordPress role</label><select id="a-role" name="role"><option value="">Any role</option>';
@@ -1045,7 +1070,7 @@ final class Pages {
 			echo '<p class="zzzc-empty">No users match.</p></form></section>';
 		} else {
 			echo '<div class="zzzc-buttons"><label class="screen-reader-text" for="a-bulk">Bulk action</label><select id="a-bulk" name="bulk_action"><option value="">Bulk action</option><option value="grant">Grant access</option><option value="pause">Pause</option><option value="revoke">Revoke access</option></select> <button type="submit" class="zzzc-btn">Apply to selected</button></div>';
-			echo '<div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th><input type="checkbox" data-check-all="1" aria-label="Select all users on this page"></th><th>Username</th><th>Name</th><th>Email</th><th>WordPress role</th><th>Access</th><th>Granted</th><th>Posts credited</th><th>Note</th><th>Change</th></tr></thead><tbody>';
+			echo '<div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th><input type="checkbox" data-check-all="1" aria-label="Select all users on this page"></th><th>Username</th><th>Name</th><th>Email</th><th>WordPress role</th><th>Access</th><th>Granted</th><th>Posts credited</th><th>Note</th><th>Schedule</th><th>Change</th></tr></thead><tbody>';
 			foreach ( $users as $user ) {
 				$id     = (int) $user->ID;
 				$row    = $rows[ $id ] ?? null;
@@ -1070,7 +1095,12 @@ final class Pages {
 				echo '<td>' . esc_html( $user->user_login ) . '</td><td>' . esc_html( $user->display_name ) . '</td><td>' . esc_html( $user->user_email ) . '</td>';
 				echo '<td>' . esc_html( $names ? implode( ', ', $names ) : 'None' ) . '</td>';
 				echo '<td><span class="zzzc-tag">' . esc_html( Authors::status_label( $status ) ) . '</span></td>';
-				echo '<td>' . esc_html( $granted ) . '</td><td>' . esc_html( (string) ( $posts[ $id ] ?? 0 ) ) . '</td><td>' . esc_html( implode( ' ', $notes ) ) . '</td><td class="zzzc-nowrap">';
+				echo '<td>' . esc_html( $granted ) . '</td><td>' . esc_html( (string) ( $posts[ $id ] ?? 0 ) ) . '</td><td>' . esc_html( implode( ' ', $notes ) ) . '</td><td>';
+				if ( Authors::ACTIVE === $status || Authors::PAUSED === $status ) {
+					$plan = AuthorSchedules::from_row( $row );
+					echo esc_html( AuthorSchedules::usable( $plan ) ? sprintf( 'On: %1$s (%2$s)', implode( ', ', $plan['times'] ), AuthorSchedules::zone_name( $plan ) ) : 'Off' ) . ' <a class="zzzc-btn" href="' . esc_url( admin_url( 'admin.php?page=zzzc-authors&schedule=' . $id ) ) . '#zzzc-author-schedule" aria-label="' . esc_attr( 'Schedule of ' . $user->user_login ) . '">Schedule</a>';
+				}
+				echo '</td><td class="zzzc-nowrap">';
 				$buttons = array(
 					Authors::NONE    => array( 'grant' => 'Grant access' ),
 					Authors::REVOKED => array( 'grant' => 'Grant access' ),
@@ -1106,6 +1136,148 @@ final class Pages {
 		}
 
 		self::close();
+	}
+
+	/**
+	 * Authors page: choose Single user or Multiple users mode.
+	 */
+	private static function author_mode_card(): void {
+		$mode  = AuthorSchedules::multiple() ? AuthorSchedules::MULTIPLE : AuthorSchedules::SINGLE;
+		$ready = AuthorSchedules::ready_ids();
+		echo '<section class="zzzc-card"><h3>Posting mode</h3><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-form" data-track-changes>';
+		Actions::url_field( 'save_author_mode' );
+		$choices = array(
+			AuthorSchedules::SINGLE   => array( 'Single user mode', 'Every post is credited to the Post author on the Publishing page, at the times on the Schedule page. This is how the plugin has always worked.' ),
+			AuthorSchedules::MULTIPLE => array( 'Multiple users mode', 'Each active author with a schedule posts at their own times, in their own timezone, and is credited with those posts. The Post author, Daily target, Interval, First publishing time, Categories in rotation and slot categories are not used. Maximum posts per day and Maximum article generations per day still apply to the whole site.' ),
+		);
+		echo '<fieldset class="zzzc-field"><legend>Who posts, and when</legend>';
+		foreach ( $choices as $value => $text ) {
+			echo '<div class="zzzc-check"><label><input type="radio" name="author_mode" value="' . esc_attr( $value ) . '"' . checked( $mode, $value, false ) . '> ' . esc_html( $text[0] ) . '</label><p class="zzzc-help">' . esc_html( $text[1] ) . '</p></div>';
+		}
+		self::field_error( 'author_mode' );
+		echo '</fieldset>';
+		echo '<p>' . esc_html( $ready ? 'Authors with a schedule ready: ' . implode( ', ', array_map( array( Authors::class, 'user_label' ), $ready ) ) . '.' : 'No active author has a schedule yet. Open Schedule next to an active author below, switch it on and add a post time.' ) . '</p>';
+		if ( AuthorSchedules::MULTIPLE === $mode ) {
+			foreach ( AuthorSchedules::capacity_warnings() as $warning ) {
+				echo '<p class="zzzc-alert">' . esc_html( $warning ) . '</p>';
+			}
+		}
+		echo '<p class="zzzc-help">Switching closes the times already planned for the other mode that were not used yet, and plans the coming times again. Articles already written stay ready. Every switch is written to the Logs with who made it.</p>';
+		self::save_bar( 'Save posting mode' );
+		echo '</form></section>';
+	}
+
+	/**
+	 * Authors page: the schedule form for one authorised author.
+	 */
+	private static function author_schedule_form( int $user_id ): void {
+		$row  = Authors::row( $user_id );
+		$user = get_userdata( $user_id );
+		echo '<section class="zzzc-card" id="zzzc-author-schedule">';
+		if ( ! $row || ! $user || ! in_array( (string) $row['status'], array( Authors::ACTIVE, Authors::PAUSED ), true ) ) {
+			echo '<h3>Schedule</h3><p class="zzzc-empty">Only an active or paused author can have a schedule. Grant access first.</p></section>';
+			return;
+		}
+		$saved = AuthorSchedules::from_row( $row );
+		$old   = ! empty( self::$flash['fields'] ) && is_array( self::$flash['old'] ?? null ) ? self::$flash['old'] : null;
+		$val   = static function ( string $key ) use ( $old, $saved ) {
+			if ( null !== $old && array_key_exists( $key, $old ) ) {
+				return $old[ $key ];
+			}
+			if ( 'times' === $key || 'skip_dates' === $key ) {
+				return implode( ', ', $saved[ $key ] );
+			}
+			if ( 'timezone' === $key ) {
+				return AuthorSchedules::zone_name( $saved );
+			}
+			return $saved[ $key ];
+		};
+
+		echo '<h3>' . esc_html( 'Schedule of ' . Authors::user_label( $user_id ) ) . '</h3>';
+		if ( Authors::PAUSED === (string) $row['status'] ) {
+			echo '<p class="zzzc-alert">This author is paused. Their times are not used until they are resumed.</p>';
+		}
+		if ( ! AuthorSchedules::multiple() ) {
+			echo '<p class="zzzc-help">Single user mode is on, so this schedule is saved but not used yet. Switch to Multiple users mode above to use it.</p>';
+		}
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-form" data-track-changes>';
+		Actions::url_field( 'save_author_schedule' );
+		echo '<input type="hidden" name="user_id" value="' . esc_attr( (string) $user_id ) . '">';
+
+		echo '<div class="zzzc-field zzzc-check"><label><input type="checkbox" name="enabled" value="1"' . checked( ! empty( $val( 'enabled' ) ), true, false ) . '> Post on this schedule</label><p class="zzzc-help">Switched off, the author keeps their access but no times are planned for them.</p></div>';
+
+		$text_field = static function ( string $key, string $label, string $help, string $type = 'text', string $extra = '' ) use ( $val ) {
+			printf(
+				'<div class="zzzc-field"><label for="as-%1$s">%2$s</label><input type="%5$s" id="as-%1$s" name="%1$s" value="%3$s"%6$s>%4$s',
+				esc_attr( $key ),
+				esc_html( $label ),
+				esc_attr( (string) $val( $key ) ),
+				$help ? '<p class="zzzc-help">' . esc_html( $help ) . '</p>' : '',
+				esc_attr( $type ),
+				$extra // Fixed attribute text, never user input.
+			);
+			self::field_error( $key );
+			echo '</div>';
+		};
+		echo '<div class="zzzc-grid">';
+		$text_field( 'timezone', 'Timezone', 'The author\'s own timezone, such as Europe/London, or a fixed offset such as +06:00. Their times, dates and limits all follow it. The site timezone is filled in until you change it.' );
+		$text_field( 'times', 'Post times', sprintf( '24-hour times separated by commas, such as 09:00, 13:30, 18:00. Up to %1$d times, at least %2$d minutes apart, and at least %2$d minutes from any other author\'s time.', AuthorSchedules::MAX_TIMES, AuthorSchedules::MIN_GAP_MINUTES ) );
+		$text_field( 'per_time', 'Posts at each time', sprintf( 'From 1 to %d. Several posts at one time go out one after another.', AuthorSchedules::MAX_PER_TIME ), 'number', ' min="1" max="' . (int) AuthorSchedules::MAX_PER_TIME . '" step="1"' );
+		$text_field( 'from', 'From', 'Optional. The first date, in the author\'s calendar, on which they post.', 'date' );
+		$text_field( 'until', 'Until', 'Optional. The last date on which they post.', 'date' );
+		echo '</div>';
+
+		$days = array_map( 'strval', (array) $val( 'days' ) );
+		echo '<fieldset class="zzzc-field"><legend>Days of the week</legend><div class="zzzc-days">';
+		foreach ( array( 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun' ) as $number => $label ) {
+			echo '<label><input type="checkbox" name="days[]" value="' . esc_attr( (string) $number ) . '"' . checked( in_array( (string) $number, $days, true ), true, false ) . '> ' . esc_html( $label ) . '</label>';
+		}
+		echo '</div>';
+		self::field_error( 'days' );
+		echo '</fieldset>';
+
+		echo '<div class="zzzc-field"><label for="as-skip_dates">Dates to skip</label><textarea id="as-skip_dates" name="skip_dates" rows="2">' . esc_textarea( (string) $val( 'skip_dates' ) ) . '</textarea><p class="zzzc-help">Optional. Dates such as 2026-12-25, separated by commas. The author does not post on them.</p>';
+		self::field_error( 'skip_dates' );
+		echo '</div>';
+
+		$chosen = array_map( 'intval', (array) $val( 'categories' ) );
+		echo '<fieldset class="zzzc-field"><legend>Categories</legend><p class="zzzc-help">Leave all unticked to use every enabled category. Only articles from the ticked categories are posted for this author.</p><div class="zzzc-days">';
+		foreach ( Categories::all() as $category ) {
+			echo '<label><input type="checkbox" name="categories[]" value="' . esc_attr( (string) $category['id'] ) . '"' . checked( in_array( (int) $category['id'], $chosen, true ), true, false ) . '> ' . esc_html( $category['name'] . ( (int) $category['enabled'] ? '' : ' (disabled)' ) ) . '</label>';
+		}
+		echo '</div>';
+		self::field_error( 'categories' );
+		echo '</fieldset>';
+
+		$usage   = AuthorSchedules::usage( $user_id );
+		$periods = array(
+			'day'   => array( 'limit_day', 'Most posts a day', 'today' ),
+			'week'  => array( 'limit_week', 'Most posts a week', 'this week, Monday to Sunday' ),
+			'month' => array( 'limit_month', 'Most posts a month', 'this month' ),
+		);
+		echo '<div class="zzzc-grid">';
+		foreach ( $periods as $period => $meta ) {
+			$used = $usage[ $period ];
+			$text_field( $meta[0], $meta[1], sprintf( '0 means no limit. Used %1$s: %2$d%3$s.', $meta[2], $used['used'], $used['limit'] ? ' of ' . $used['limit'] : '' ), 'number', ' min="0" max="' . (int) AuthorSchedules::MAX_LIMIT . '" step="1"' );
+		}
+		echo '</div>';
+
+		$rule = (string) $val( 'missed_rule' );
+		echo '<div class="zzzc-field"><label for="as-missed_rule">When a time is missed</label><select id="as-missed_rule" name="missed_rule">';
+		foreach ( array( 'next' => 'Publish at the author\'s next time today', 'skip' => 'Skip it' ) as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '"' . selected( $rule, $value, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select><p class="zzzc-help">A time is missed when no article was ready in time. Limits count posts the same way as What counts toward the maximum on the Schedule page.</p>';
+		self::field_error( 'missed_rule' );
+		echo '</div>';
+
+		if ( ! empty( $row['sched_changed_at'] ) ) {
+			echo '<p class="zzzc-help">' . esc_html( 'Last saved ' . Schedule::format_local( (string) $row['sched_changed_at'] ) . ( (int) $row['sched_changed_by'] ? ' by ' . Authors::user_label( (int) $row['sched_changed_by'] ) : '' ) . ': ' . AuthorSchedules::summary( $saved ) ) . '</p>';
+		}
+
+		self::save_bar( 'Save schedule' );
+		echo ' <a class="zzzc-btn" href="' . esc_url( admin_url( 'admin.php?page=zzzc-authors' ) ) . '">Close</a></form></section>';
 	}
 
 	public static function images(): void {

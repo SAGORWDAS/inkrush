@@ -72,6 +72,18 @@ Use this on a staging copy of your site if you have one. Automatic Publish is on
 - [ ] Publishing a plugin draft by hand is recorded in Logs with your name
 - [ ] An editor cannot open the Authors page
 
+## Multiple users mode
+
+- [ ] On a fresh install and after the upgrade, Posting mode shows Single user mode, and posting is as before
+- [ ] Multiple users mode cannot be chosen until an active author has a schedule that is on, with a post time
+- [ ] Open Schedule next to an active author, set a timezone, days, two times and a weekly limit of 2, and save. The row shows the times, and Logs (stage `access`) shows who saved it
+- [ ] A second author with a time 10 minutes from the first author's time is refused, and the message names the first author. 15 minutes apart saves
+- [ ] After switching to Multiple users mode, Schedule > Today's slots lists each author's times with their names, and Dashboard > Next publish slot says who it is by
+- [ ] A post made at an author's time is credited to that author on the Posts screen and in Logs
+- [ ] Pause an author: their next time is closed with the reason in Logs, and the article is posted at another author's time
+- [ ] An author with categories ticked gets only articles from those categories
+- [ ] After an author reaches their limit, their further times that day or week are closed with the reason
+- [ ] Switch back to Single user mode: posts go to the Post author at the Schedule page's times again
 ## Past-Hour Posting
 
 - [ ] The Schedule page shows it ticked, with a maximum story age of 120 minutes and preparation 120 minutes before, and the Dashboard shows On

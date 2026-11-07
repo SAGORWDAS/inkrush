@@ -156,9 +156,27 @@ final class Authors {
 		}
 	}
 
-	/** Why the next post cannot be published, as far as its author goes. Empty when it can. */
+	/**
+	 * Why the next post cannot be published, as far as its author goes. Empty when it can.
+	 * In Multiple users mode each time has its own author, checked for that time, so this only
+	 * asks whether anyone can post at all.
+	 */
 	public static function publishing_problem(): string {
+		if ( AuthorSchedules::multiple() ) {
+			return AuthorSchedules::ready_ids() ? '' : 'Multiple users mode is on, but no active author has a schedule. On the Authors page, open Schedule next to an author, switch it on and add a post time, or switch back to Single user mode.';
+		}
 		return self::problem( self::credited_user() );
+	}
+
+	/** What happens to this user's posts when their access stops, for the log. */
+	private static function stop_note( int $user_id, bool $deleted ): string {
+		if ( AuthorSchedules::multiple() ) {
+			return AuthorSchedules::usable( AuthorSchedules::get( $user_id ) ) ? ' Their post times are not used until they are active again. Articles already written stay ready for other authors.' : '';
+		}
+		if ( self::credited_user() !== $user_id ) {
+			return '';
+		}
+		return $deleted ? ' They were the Post author, so posts are held until another author is chosen on the Publishing page.' : ' They are the Post author, so posts are held until they are active again or another author is chosen.';
 	}
 
 	/**
@@ -224,7 +242,7 @@ final class Authors {
 				self::PAUSED  => 'paused access for',
 				self::REVOKED => 'revoked access for',
 			);
-			$credited = self::credited_user() === $user_id && self::ACTIVE !== $status ? ' They are the Post author, so posts are held until they are active again or another author is chosen.' : '';
+			$credited = self::ACTIVE !== $status ? self::stop_note( $user_id, false ) : '';
 			Events::log(
 				'access',
 				self::ACTIVE === $status ? 'info' : 'warning',
@@ -270,7 +288,7 @@ final class Authors {
 		if ( ! self::row( $user_id ) ) {
 			return;
 		}
-		$held = self::credited_user() === $user_id ? ' They were the Post author, so posts are held until another author is chosen on the Publishing page.' : '';
+		$held = self::stop_note( $user_id, true );
 		Events::log( 'access', 'warning', sprintf( 'WordPress user %d was deleted, so they can no longer be credited with posts.%s', $user_id, $held ), array( 'author_user_id' => $user_id, 'status' => self::MISSING ) );
 	}
 

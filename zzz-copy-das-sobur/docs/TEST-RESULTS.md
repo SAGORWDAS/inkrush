@@ -1,5 +1,31 @@
 # Test results
 
+## Version 1.9.0: Multiple users mode (Phase 2)
+
+### What changed
+
+| Change | Where |
+|---|---|
+| New setting `author_mode`: Single user mode (the default, unchanged) or Multiple users mode, in a Posting mode card on the Authors page. Multiple needs an active author with a usable schedule. A switch closes the other mode's unused times, plans the coming ones again and is logged | `AuthorSchedules::switch_mode`, `Admin\Actions::do_save_author_mode`, Authors page |
+| A schedule per author: timezone, weekdays, From and Until, dates to skip, up to 24 times at least 15 minutes apart, 1 to 5 posts at each time, categories, day, week and month limits, and a missed rule. Validated with a message per field | `AuthorSchedules::validate`, `save`, `Admin\Actions::do_save_author_schedule`, Authors page |
+| A save is refused when a time comes within 15 minutes of another active author's time over the next 14 days, compared in UTC. A warning when the times together exceed Maximum posts per day | `AuthorSchedules::conflicts`, `capacity_warnings` |
+| Slots carry `author_user_id`. In Multiple users mode each ready author's times on the site day are planned, with their own categories. In Single user mode every slot query keeps to `author_user_id = 0` | `Schedule`, `Planner`, `PastHour`, `Publisher` |
+| A due time whose author is not active or is at a limit is closed with the reason, and the article stays queued. The check is repeated right before the post. The post is credited to the slot's author. A missed time follows the author's rule | `Publisher::process`, `run_publish`, `release_for_author` |
+| No research for an author who cannot post. Start Automation asks for a scheduled author in Multiple users mode | `Planner::planned_category_ids`, `Authors::publishing_problem` |
+| Past-Hour Posting prepares author times, searches the author's categories and keeps the story age as set | `PastHour` |
+| Schedule > Today's slots lists author times, the Dashboard's next slot names the author, and the Publishing page says when the Post author is not used | `Admin\Pages` |
+| Database version 11: schedule columns on `authors`, `author_user_id` and a key on `slots`, `slot_key` widened to 64 characters. Existing rows are kept, with author 0 | `Schema` |
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Automated suite | 247 tests: the 231 from 1.8.0 and 16 for Multiple users mode (MA-1 to MA-16) | **247 passed, 0 failed** on WordPress 7.1.4, PHP 8.1.34 and MariaDB 10.11.19, in a local test setup with the mock server. The WordPress debug log stayed empty |
+| Do the tests catch mistakes? | 23 deliberate mistakes put into a scratch copy, one at a time: the conflict gap off by one minute, an author's own times 15 minutes apart refused, the author's timezone ignored, the week starting on Sunday, limits ignored, the final check before the post removed, the slot's author ignored when crediting, an inactive author's time still used, the author's categories ignored when choosing and when planning, Single user mode altered, research for an author who cannot post, the missed rule ignored, catch-up at any later time, passed times planned mid-day, only one post at each time, switching with no scheduled author, switching while keeping the other mode's times, no warning above Maximum posts per day, Past-Hour searching every category, the site maximum ignored for authors, schedule saves not logged, and the form forgetting what was typed | **All 23 caught.** Two were missed at first (categories when planning, and Past-Hour categories), so MA-6 and MA-14 were made stricter and then caught them |
+| User guide | The new F8 section, the notes in F7, F9 and F11, the quick reference and the new Start message, viewed page by page | 25 pages. The colour scan found 0 colours that are not grey |
+
+**Not tested in 1.9.0:** it has not run on the test website. The Authors, Schedule, Publishing and Dashboard screens were checked through their HTML in the tests, not in a browser, so the schedule form has not been filled in by hand.
+
 ## Version 1.8.0: automatic stop and the InkRush name
 
 ### What changed

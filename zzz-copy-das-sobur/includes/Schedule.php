@@ -87,7 +87,64 @@ final class Schedule {
 		$today    = self::now_local();
 		$tomorrow = $today->modify( '+1 day' );
 		foreach ( array( $today, $tomorrow ) as $date ) {
-			self::ensure_day( $date->format( 'Y-m-d' ) );
+			if ( AuthorSchedules::multiple() ) {
+				self::ensure_author_day( $date->format( 'Y-m-d' ), false );
+			} else {
+				self::ensure_day( $date->format( 'Y-m-d' ) );
+			}
+		}
+	}
+
+	/**
+	 * Multiple users mode: each ready author's post times that fall on this day of the site calendar.
+	 * An author with no times planned for the day yet gets them all, so one added mid-day gets the rest.
+	 *
+	 * @param bool $future_only After a change: add only future times that are missing, keeping the rest.
+	 */
+	private static function ensure_author_day( string $local_date, bool $future_only ): void {
+		global $wpdb;
+		$table = Db::table( 'slots' );
+		$used  = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT category_id FROM {$table} WHERE local_date = %s AND category_id > 0", $local_date ) ) ); // phpcs:ignore WordPress.DB
+
+		foreach ( AuthorSchedules::ready_ids() as $user_id ) {
+			if ( ! $future_only ) {
+				$existing = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE local_date = %s AND author_user_id = %d", $local_date, $user_id ) ); // phpcs:ignore WordPress.DB
+				if ( $existing > 0 ) {
+					continue;
+				}
+			}
+			$schedule = AuthorSchedules::get( $user_id );
+			$index    = 0;
+			foreach ( AuthorSchedules::occurrences_on_site_day( $schedule, $local_date ) as $occurrence ) {
+				$passed = $occurrence['ts'] <= Clock::now();
+				for ( $n = 1; $n <= $schedule['per_time']; $n++, $index++ ) {
+					if ( $future_only && $passed ) {
+						continue;
+					}
+					$key = sprintf( '%1$sT%2$su%3$d#%4$d', $local_date, gmdate( 'H:i', $occurrence['ts'] ), $user_id, $n );
+					if ( $future_only && $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE slot_key = %s", $key ) ) ) { // phpcs:ignore WordPress.DB
+						continue;
+					}
+					$category_id = self::pick_category( $local_date, $index, $used, $user_id );
+					if ( $category_id ) {
+						$used[] = $category_id;
+					}
+					$wpdb->query(
+						$wpdb->prepare(
+							"INSERT IGNORE INTO {$table} (slot_key, local_date, slot_index, due_at, category_id, author_user_id, status, status_reason, updated_at) VALUES (%s, %s, %d, %s, %d, %d, %s, %s, %s)", // phpcs:ignore WordPress.DB
+							$key,
+							$local_date,
+							$index,
+							gmdate( 'Y-m-d H:i:s', $occurrence['ts'] ),
+							$category_id,
+							$user_id,
+							$passed ? self::MISSED : self::PENDING,
+							$passed ? 'This time had already passed when the day was planned.' : '',
+							Clock::mysql()
+						)
+					);
+				}
+			}
 		}
 	}
 
@@ -95,7 +152,8 @@ final class Schedule {
 		global $wpdb;
 		$table = Db::table( 'slots' );
 
-		$existing = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE local_date = %s", $local_date ) ); // phpcs:ignore WordPress.DB
+		// Only the site's own slots count. Times of authors from Multiple users mode are not these.
+		$existing = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE local_date = %s AND author_user_id = 0", $local_date ) ); // phpcs:ignore WordPress.DB
 		if ( $existing > 0 ) {
 			return;
 		}
@@ -141,6 +199,12 @@ final class Schedule {
 		global $wpdb;
 		$table = Db::table( 'slots' );
 		$now   = self::now_local();
+		if ( AuthorSchedules::multiple() ) {
+			foreach ( array( $now, $now->modify( '+1 day' ) ) as $date ) {
+				self::ensure_author_day( $date->format( 'Y-m-d' ), true );
+			}
+			return;
+		}
 		foreach ( array( $now, $now->modify( '+1 day' ) ) as $date ) {
 			$local_date = $date->format( 'Y-m-d' );
 			$used       = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT category_id FROM {$table} WHERE local_date = %s AND category_id > 0", $local_date ) ) ); // phpcs:ignore WordPress.DB
@@ -174,15 +238,17 @@ final class Schedule {
 	 * @param string $local_date Local date of the slot.
 	 * @param int    $index      Slot number on that day.
 	 * @param int[]  $used       Categories already chosen that day.
+	 * @param int    $author     Multiple users mode: the author, whose own categories are the pool.
 	 */
-	public static function pick_category( string $local_date, int $index, array $used ): int {
-		$mode  = (string) Settings::get( 'rotation_mode' );
-		$pool  = self::pool_for_date( $local_date );
+	public static function pick_category( string $local_date, int $index, array $used, int $author = 0 ): int {
+		$mode = (string) Settings::get( 'rotation_mode' );
+		$pool = self::pool_for_date( $local_date, $author );
 		if ( ! $pool ) {
 			return 0;
 		}
 
-		$slot_map = (array) Settings::get( 'slot_categories' );
+		// "Choose per slot" maps the site's slot numbers, which authors' schedules do not have.
+		$slot_map = $author ? array() : (array) Settings::get( 'slot_categories' );
 		$explicit = (int) ( $slot_map[ $index ] ?? 0 );
 		if ( $explicit ) {
 			foreach ( $pool as $row ) {
@@ -255,10 +321,11 @@ final class Schedule {
 
 	/**
 	 * Enabled categories allowed on a date, limited to the rotation pool when one is set.
+	 * With an author, limited to that author's categories instead, when they chose any.
 	 */
-	public static function pool_for_date( string $local_date ): array {
+	public static function pool_for_date( string $local_date, int $author = 0 ): array {
 		$weekday = ( new \DateTimeImmutable( $local_date, self::timezone() ) )->format( 'N' );
-		$pool    = array_map( 'intval', (array) Settings::get( 'rotation_pool' ) );
+		$pool    = $author ? AuthorSchedules::get( $author )['categories'] : array_map( 'intval', (array) Settings::get( 'rotation_pool' ) );
 		$out     = array();
 		foreach ( Categories::enabled() as $row ) {
 			if ( ! in_array( $weekday, explode( ',', (string) $row['active_days'] ), true ) ) {
@@ -282,8 +349,17 @@ final class Schedule {
 	public static function next_open_slot(): ?array {
 		global $wpdb;
 		$table = Db::table( 'slots' );
-		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE status = %s AND due_at >= %s ORDER BY due_at ASC LIMIT 1", self::PENDING, Clock::mysql() ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE status = %s AND due_at >= %s AND author_user_id " . ( AuthorSchedules::multiple() ? '> 0' : '= 0' ) . ' ORDER BY due_at ASC LIMIT 1', self::PENDING, Clock::mysql() ), ARRAY_A ); // phpcs:ignore WordPress.DB
 		return $row ?: null;
+	}
+
+	/**
+	 * Multiple users mode: the times planned for a day of the site calendar, with their authors.
+	 */
+	public static function author_slots( string $local_date ): array {
+		global $wpdb;
+		$table = Db::table( 'slots' );
+		return (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE local_date = %s AND author_user_id > 0 ORDER BY due_at ASC, id ASC", $local_date ), ARRAY_A ); // phpcs:ignore WordPress.DB
 	}
 
 	public static function format_local( ?string $mysql_utc, bool $with_zone = true ): string {

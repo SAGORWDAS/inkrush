@@ -32,7 +32,18 @@ final class Planner {
 		global $wpdb;
 		$table = Db::table( 'slots' );
 		$until = Clock::now() + (int) Settings::get( 'research_lead_hours' ) * HOUR_IN_SECONDS;
-		$ids   = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT category_id FROM {$table} WHERE status IN ('PENDING','DEFERRED') AND category_id > 0 AND local_date >= %s AND due_at <= %s", Schedule::today(), Clock::mysql( $until ) ) ); // phpcs:ignore WordPress.DB
+		if ( AuthorSchedules::multiple() ) {
+			// Only times whose author can post then, so no AI is spent for a paused author or one at a limit.
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT category_id, author_user_id, due_at FROM {$table} WHERE status IN ('PENDING','DEFERRED') AND category_id > 0 AND author_user_id > 0 AND local_date >= %s AND due_at <= %s", Schedule::today(), Clock::mysql( $until ) ), ARRAY_A ); // phpcs:ignore WordPress.DB
+			$ids  = array();
+			foreach ( (array) $rows as $row ) {
+				if ( '' === AuthorSchedules::slot_problem( $row, max( Clock::now(), Clock::to_timestamp( $row['due_at'] ) ) ) ) {
+					$ids[] = (int) $row['category_id'];
+				}
+			}
+			return array_values( array_unique( $ids ) );
+		}
+		$ids   = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT category_id FROM {$table} WHERE status IN ('PENDING','DEFERRED') AND category_id > 0 AND author_user_id = 0 AND local_date >= %s AND due_at <= %s", Schedule::today(), Clock::mysql( $until ) ) ); // phpcs:ignore WordPress.DB
 		return array_map( 'intval', $ids );
 	}
 
