@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.9.0
+Stable tag: 1.9.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,9 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.9.1 =
+For testing. Image searches no longer use the news outlet as the subject: the publisher, and an outlet the article quotes such as "Nippon News Network", are left out unless the title or headline names them. Words that only begin a sentence, such as "Is" or "Man", a sentence word at the end of a name, and plain numbers such as "000" are no longer searched. At least one search no longer uses the two main names, for example a place in the article, so a wrong subject cannot use up every search. When no image passes, the log gives the minimum score and the best score reached.
 
 = 1.9.0 =
 For testing. New Multiple users mode, chosen in the new Posting mode card on the Authors page. Each active author can have their own schedule: a timezone, days of the week, From and Until dates, dates to skip, up to 24 post times at least 15 minutes apart, 1 to 5 posts at each time, their own categories, limits per day, week (Monday to Sunday) and month, and whether a missed time is published at their next time or skipped. Each post is credited to the author whose time it is. A time within 15 minutes of another author's time is refused when saving, checked over the next 14 days in every timezone, and a warning is shown when the times together go above Maximum posts per day. Right before each post, the author must be active and under their limits; otherwise that time is closed and logged, and the article waits for another author. No research is started for an author who cannot post. Maximum posts per day, Maximum article generations per day and Automatic stop still apply to the whole site, and Past-Hour Posting works in both modes. The Schedule page lists each author's times for today, and the Dashboard shows who the next post is by. Single user mode, with one Post author, stays the default and works exactly as before.

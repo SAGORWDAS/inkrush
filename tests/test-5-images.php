@@ -1994,3 +1994,110 @@ t(
 		t_eq( 972, (int) $assigned[0]['commons_page_id'] );
 	}
 );
+
+t(
+	'IMG-60',
+	'The news outlet that published or is quoted is not the subject of the image searches',
+	static function () {
+		$title = 'Man arrested for attempted murder after zip-tying, stabbing roommate in Toshima apartment';
+		$body  = '<p>According to Nippon News Network, Taro Exampleson, 34, tied up his roommate and stabbed him in their apartment in Toshima Ward. Nippon News Network reported that Exampleson admitted the allegations.</p>'
+			. '<p>The Tokyo Reporter said Tokyo Metropolitan Police arrested Taro Exampleson on Thursday. Nippon News Network said the roommate survived. The Tokyo Reporter added that police are investigating.</p>';
+		$tags  = array( 'The Tokyo Reporter', 'Nippon News Network', 'Taro Exampleson', 'Toshima', 'stabbing', 'roommate' );
+		$found = ZZZCopy\Images\ArticleAnalyzer::analyze( $title, $body, $tags, $title, 'Crime', 'The Tokyo Reporter' );
+		$all   = wp_json_encode( array( $found['main'], $found['entities'], $found['queries'] ) );
+		t_not_contains( 'Nippon News Network', $all, 'a quoted outlet is not searched' );
+		t_not_contains( 'Tokyo Reporter', $all, 'the publisher is not searched' );
+		t_true( in_array( $found['main'], array( 'Taro Exampleson', 'Toshima Ward' ), true ), 'the subject is the person or the place: ' . $all );
+		t_eq( $found['main'], $found['queries'][0] );
+		t_false( in_array( 'Man', $found['entities'], true ), 'the word that starts the headline is not a name: ' . $all );
+
+		// Without the publisher's name, an outlet's own name that ends like one is still left out.
+		$unnamed = ZZZCopy\Images\ArticleAnalyzer::analyze( $title, $body, array(), $title, 'Crime' );
+		t_not_contains( 'Nippon News Network', wp_json_encode( $unnamed['queries'] ) );
+
+		// A story about an outlet still searches for it, because the headline names it.
+		$about = ZZZCopy\Images\ArticleAnalyzer::analyze( 'Fox News host leaves the network', '<p>Fox News said the host will leave. Fox News did not say why.</p>', array( 'Fox News' ), 'Fox News host leaves the network', 'Entertainment', 'Fox News' );
+		t_eq( 'Fox News', $about['main'], wp_json_encode( $about['entities'] ) );
+	}
+);
+
+t(
+	'IMG-61',
+	'Words that begin a sentence and plain numbers are not searched as names',
+	static function () {
+		$analyze = static function ( string $title, string $body ) {
+			return ZZZCopy\Images\ArticleAnalyzer::analyze( $title, $body, array(), $title, 'Business' );
+		};
+
+		$shop = $analyze( 'Is Poundland closing its stores? 10,000 jobs at risk', '<p>Is Poundland closing? Poundland said 10,000 jobs are safe, and 10,000 more may follow. Gordon Brothers bought Poundland stores in 2025.</p>' );
+		t_eq( 'Poundland', $shop['main'], wp_json_encode( $shop['entities'] ) );
+		foreach ( $shop['queries'] as $query ) {
+			t_false( 0 === strpos( $query, 'Is ' ), 'no search starts with "Is": ' . $query );
+			t_false( (bool) preg_match( '/(^|\s)\d+(\s|$)/', $query ), 'no plain number is searched: ' . $query );
+		}
+
+		$apps = $analyze( 'The Duo apps are coming', '<p>The apps are coming, says Apple. What the apps will do is not known. Apple said more is coming. Apple did not give a date.</p>' );
+		$all  = wp_json_encode( array( $apps['entities'], $apps['queries'] ) );
+		t_not_contains( 'What', $all, 'a sentence after a name is not part of it' );
+		t_true( in_array( 'Apple', $apps['entities'], true ), $all );
+
+		$next = $analyze( 'The Duo apps are coming', '<p>The apps are coming, says Apple. Customers will have to wait. Apple said more is coming. Apple did not give a date.</p>' );
+		t_not_contains( 'Customers', wp_json_encode( array( $next['entities'], $next['queries'] ) ), 'the next sentence is not joined to the name' );
+
+		$asked = $analyze( 'The Duo apps are coming', '<p>Reporters asked Apple What comes next. Apple said more is coming. Apple did not give a date.</p>' );
+		t_not_contains( 'What', wp_json_encode( array( $asked['entities'], $asked['queries'] ) ), 'a sentence word at the end of a name is dropped' );
+
+		t_eq( 'Will Smith', $analyze( 'Will Smith returns to the stage', '<p>Will Smith returned to the stage on Monday.</p>' )['main'], 'a name that begins like a sentence word is kept' );
+	}
+);
+
+t(
+	'IMG-62',
+	'At least one search is not about the main name, so a wrong subject cannot use up every search',
+	static function () {
+		$title = 'Taro Exampleson arrested over apartment stabbing';
+		$body  = '<p>Taro Exampleson was arrested by Tokyo Metropolitan Police in Toshima Ward. Tokyo Metropolitan Police said Taro Exampleson stabbed a roommate in Toshima Ward.</p>';
+		$found = ZZZCopy\Images\ArticleAnalyzer::analyze( $title, $body, array( 'Taro Exampleson', 'Tokyo Metropolitan Police' ), $title, 'Crime' );
+		$all   = wp_json_encode( array( $found['entities'], $found['queries'] ) );
+		t_eq( 'Taro Exampleson', $found['queries'][0], $all );
+		t_eq( (int) Settings::get( 'image_query_count' ), count( $found['queries'] ) );
+		t_true( in_array( 'Toshima Ward', $found['queries'], true ), 'the place is searched too: ' . $all );
+
+		// With no other name, plain words from the headline are searched instead.
+		$alone = ZZZCopy\Images\ArticleAnalyzer::analyze( $title, '<p>Taro Exampleson was arrested by Tokyo Metropolitan Police. Tokyo Metropolitan Police said Taro Exampleson stabbed a roommate.</p>', array( 'Taro Exampleson', 'Tokyo Metropolitan Police' ), $title, 'Crime' );
+		$other = array_filter(
+			$alone['queries'],
+			static function ( $query ) {
+				return false === stripos( $query, 'Taro Exampleson' ) && false === stripos( $query, 'Tokyo Metropolitan Police' );
+			}
+		);
+		t_true( count( $other ) >= 1, 'a search without either name: ' . wp_json_encode( $alone['queries'] ) );
+	}
+);
+
+t(
+	'IMG-63',
+	'The publisher\'s name is not searched in the real image step, and a no-image log gives the best score reached',
+	static function () {
+		global $wpdb;
+		$title = 'Sydney Harbour Bridge reopens after repairs';
+		$body  = '<p>Harbour Insider reported that the Sydney Harbour Bridge reopens to traffic after repairs. Harbour Insider said repairs took a year.</p>';
+
+		$category = images_ready( array( cpage( 981, 'Field of flowers', array( 'description' => 'Flowers in a field.' ) ) ), 'publish', array( 'image_min_score' => 99 ) );
+		$job      = queued_article( $category, 'outlet-and-score' );
+		set_article_text( $job, $title, $body, array( 'Harbour Insider', 'Sydney Harbour Bridge' ) );
+		$wpdb->update( Db::table( 'source_items' ), array( 'publisher' => 'Harbour Insider' ), array( 'id' => (int) Lifecycle::job( $job )['source_item_id'] ) );
+		publish_at_slot();
+
+		$sent = implode( ' | ', array_map( static function ( $row ) {
+			return urldecode( (string) $row['search'] );
+		}, mock_requests( 'commons/api' ) ) );
+		t_contains( 'Sydney Harbour Bridge', $sent );
+		t_not_contains( 'Harbour Insider', $sent, 'the publisher is not searched' );
+
+		$log = implode( ' | ', array_column( Events::query( array( 'stage' => 'image' ), 30 ), 'message' ) );
+		t_contains( 'below the minimum of 99', $log, $log );
+		t_contains( 'The best score was', $log );
+		t_not_contains( 'score N', $log, 'the numbers are shown' );
+	}
+);

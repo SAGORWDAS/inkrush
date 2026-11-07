@@ -138,7 +138,7 @@ final class ImagePipeline {
 		$tags     = json_decode( (string) $content['tags_json'], true ) ?: array();
 		$category = Categories::get( (int) $job['category_id'] );
 		$name     = $category ? (string) $category['name'] : '';
-		$analysis = ArticleAnalyzer::analyze( (string) $content['title'], (string) $content['body'], $tags, (string) $item['headline'], $name );
+		$analysis = ArticleAnalyzer::analyze( (string) $content['title'], (string) $content['body'], $tags, (string) $item['headline'], $name, (string) ( $item['publisher'] ?? '' ) );
 		$queries  = array_values( $analysis['queries'] );
 
 		$strong = max( self::STRONG_MATCH, (int) Settings::get( 'image_min_score' ) );
@@ -456,7 +456,18 @@ final class ImagePipeline {
 			$counts[ $key ] = ( $counts[ $key ] ?? 0 ) + 1;
 		}
 		arsort( $counts );
-		return sprintf( '%1$d files checked, none passed. Most common reason: %2$s', count( $all ), (string) array_key_first( $counts ) );
+		$reason = (string) array_key_first( $counts );
+		// Grouped with the numbers left out, so say the real ones: the minimum and how close a file came.
+		if ( 0 === strpos( $reason, 'Relevance score' ) ) {
+			$best = 0;
+			foreach ( $all as $candidate ) {
+				if ( 0 === strpos( (string) $candidate['rejected'], 'Relevance score' ) ) {
+					$best = max( $best, (int) $candidate['score'] );
+				}
+			}
+			$reason = sprintf( 'The relevance score is below the minimum of %1$d. The best score was %2$d.', (int) Settings::get( 'image_min_score' ), $best );
+		}
+		return sprintf( '%1$d files checked, none passed. Most common reason: %2$s', count( $all ), $reason );
 	}
 
 	/**

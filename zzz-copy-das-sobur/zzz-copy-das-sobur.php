@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       InkRush
  * Description:       Discover. Create. Publish. AI-powered WordPress news automation: finds stories, reads accessible publisher text, writes articles through OpenRouter and creates WordPress posts on a schedule, with Wikimedia Commons featured images. Developed by Sagor Das (das.sagorwork@gmail.com).
- * Version:           1.9.0
+ * Version:           1.9.1
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            Sagor Das
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ZZZC_VERSION', '1.9.0' );
+define( 'ZZZC_VERSION', '1.9.1' );
 define( 'ZZZC_FILE', __FILE__ );
 define( 'ZZZC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ZZZC_URL', plugin_dir_url( __FILE__ ) );

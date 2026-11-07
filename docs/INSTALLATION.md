@@ -17,7 +17,7 @@ Try it on a staging or test site first. In its default mode, the plugin publishe
 ## 1. Install the plugin
 
 1. In WordPress, go to **Plugins > Add New > Upload Plugin**.
-2. Choose `inkrush-1.9.0.zip`, then install and activate it.
+2. Choose `inkrush-1.9.1.zip`, then install and activate it.
 3. A new menu item, **InkRush**, appears.
 
 Activation creates the plugin's database tables and its 21 starting categories. Nothing runs until you press **Start Automation**.

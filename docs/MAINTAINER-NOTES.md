@@ -7,13 +7,14 @@ Paths below are relative to the repository root.
 
 A WordPress plugin for one website. It finds news, reads accessible publisher text, writes articles through OpenRouter, and creates posts on a schedule, in the background, with featured images from Wikimedia Commons.
 
-**Current version: 1.9.0 (test release: Multiple users mode)**
+**Current version: 1.9.1 (test release: image search subjects fixed)**
 
 ## What is here
 
 | Path | What it is |
 |---|---|
-| `dist/inkrush-1.9.0.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
+| `dist/inkrush-1.9.1.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
+| `dist/inkrush-1.9.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.7.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.6.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.5.0.zip` | An earlier version |
@@ -113,7 +114,7 @@ Read these first:
 
 ### Current status
 
-- **Automated tests:** see the 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **Automated tests:** see the 1.9.1, 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
 - **Versions 1.3.1 to 1.3.4, 1.4.1, 1.4.2, 1.5.0, 1.6.0 and 1.7.0** have only run in a local test setup. **1.4.0** ran on the owner's test website on 2026-11-06, for one post. See the 1.4.1 section of `TEST-RESULTS.md`.
 - **Images (1.3.0):** real Commons searches, downloads and credit lines were tested on a local site, not yet on the owner's test website or with Elementor. Some chosen images will not suit their story.
 - **Live test on the owner's separate test website, version 1.2.0:** a real story was found and read, then written with the real model, published at its slot, and the limit of 1 post held.

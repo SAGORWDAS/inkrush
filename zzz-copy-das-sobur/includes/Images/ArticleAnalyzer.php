@@ -14,14 +14,44 @@ final class ArticleAnalyzer {
 	private const STOP = array( 'the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'has', 'have', 'had', 'its', 'his', 'her', 'their', 'after', 'before', 'over', 'into', 'about', 'new', 'not', 'but', 'you', 'your', 'our', 'will', 'can', 'may', 'more', 'than', 'what', 'why', 'how', 'who', 'when', 'where', 'says', 'said', 'now', 'out', 'off', 'amid', 'against', 'report', 'reports', 'latest', 'today', 'news', 'update', 'here', 'know', 'need', 'could', 'would', 'should', 'being', 'been', 'they', 'them', 'also', 'plans', 'plan', 'first', 'next', 'year', 'years', 'week', 'month', 'day' );
 
 	/** Capitalized words that begin a sentence or heading and do not name anything. */
-	private const NOT_NAMES = array( 'The', 'A', 'An', 'And', 'But', 'For', 'With', 'After', 'Before', 'How', 'Why', 'What', 'When', 'Where', 'Who', 'This', 'That', 'These', 'Those', 'It', 'In', 'On', 'At', 'As', 'By', 'To', 'Of', 'If', 'New', 'Trending', 'FAQ', 'Here', 'They', 'We', 'You', 'Our', 'Their', 'His', 'Her', 'Its', 'Some', 'Many', 'Most', 'More', 'Key', 'Top', 'Stage', 'Date' );
+	private const NOT_NAMES = array( 'The', 'A', 'An', 'And', 'But', 'For', 'With', 'After', 'Before', 'How', 'Why', 'What', 'When', 'Where', 'Who', 'This', 'That', 'These', 'Those', 'It', 'In', 'On', 'At', 'As', 'By', 'To', 'Of', 'If', 'New', 'Trending', 'FAQ', 'Here', 'They', 'We', 'You', 'Our', 'Their', 'His', 'Her', 'Its', 'Some', 'Many', 'Most', 'More', 'Key', 'Top', 'Stage', 'Date', 'Is', 'Are', 'Was', 'Were', 'Can', 'Could', 'Would', 'Should', 'Does', 'Do', 'Did', 'Has', 'Have', 'Had', 'However', 'Meanwhile', 'While', 'Despite', 'Although', 'According', 'There', 'Then', 'So', 'Yet', 'Also', 'Still' );
+
+	/**
+	 * Last words of a news outlet's name. An outlet the article quotes or was published by is not what it is about.
+	 */
+	private const OUTLET_WORDS = array( 'News', 'Network', 'Reporter', 'Times', 'Post', 'Herald', 'Tribune', 'Journal', 'Gazette', 'Telegraph', 'Chronicle', 'Press', 'Broadcasting', 'Daily', 'Wire' );
 
 	private const NEW_PLACES = array( 'York', 'Jersey', 'Zealand', 'Delhi', 'Orleans', 'Mexico', 'Hampshire', 'England', 'South', 'Brunswick', 'Guinea', 'Caledonia', 'Haven' );
 
 	public static function tokens( string $text ): array {
 		$text = mb_strtolower( html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
 		preg_match_all( '/[\p{L}\p{N}]{3,}/u', $text, $match );
-		return array_values( array_diff( $match[0], self::STOP ) );
+		// A number alone, such as "000" from "10,000" or a year, finds unrelated files.
+		$words = array_filter(
+			$match[0],
+			static function ( $word ) {
+				return ! preg_match( '/^\p{N}+$/u', $word );
+			}
+		);
+		return array_values( array_diff( $words, self::STOP ) );
+	}
+
+	/**
+	 * A name without a leading "The", for comparing outlet names.
+	 */
+	private static function bare( string $name ): string {
+		return mb_strtolower( trim( (string) preg_replace( '/^the\s+/iu', '', trim( $name ) ) ) );
+	}
+
+	/**
+	 * Whether a name is the publisher's, or looks like a news outlet's, such as "Nippon News Network".
+	 */
+	private static function is_outlet( string $name, string $publisher ): bool {
+		if ( '' !== trim( $publisher ) && self::bare( $name ) === self::bare( $publisher ) ) {
+			return true;
+		}
+		$words = preg_split( '/\s+/u', trim( $name ) ) ?: array();
+		return count( $words ) >= 2 && in_array( end( $words ), self::OUTLET_WORDS, true );
 	}
 
 	/**
@@ -31,18 +61,32 @@ final class ArticleAnalyzer {
 		$found = array();
 		preg_match_all( '/\p{Lu}[\p{L}\p{N}\'’&.\-]*(?:\s+(?:(?:of|de|la|the|and|van|von)\s+)?\p{Lu}[\p{L}\p{N}\'’&.\-]*)*/u', $text, $match );
 		foreach ( $match[0] as $phrase ) {
-			$words = preg_split( '/\s+/u', trim( $phrase, " .'’-" ) ) ?: array();
-			while ( $words && in_array( $words[0], self::NOT_NAMES, true ) ) {
-				// "New" is part of a place name in "New York", but only a describing word in "New iPhone".
-				if ( 'New' === $words[0] && isset( $words[1] ) && in_array( $words[1], self::NEW_PLACES, true ) ) {
-					break;
+			// "Apple. What" is the end of one sentence and the start of the next. A longer word with
+			// a full stop ends the name, while "U.S." and "St." do not.
+			$groups = array( array() );
+			foreach ( preg_split( '/\s+/u', trim( $phrase ) ) ?: array() as $word ) {
+				$groups[ count( $groups ) - 1 ][] = $word;
+				if ( preg_match( '/^[\p{L}\p{N}\'’&\-]{4,}\.$/u', $word ) ) {
+					$groups[] = array();
 				}
-				array_shift( $words );
 			}
-			// "Russell Brand's" names Russell Brand.
-			$clean = (string) preg_replace( '/[\'’]s$/u', '', implode( ' ', $words ) );
-			if ( mb_strlen( $clean ) >= 3 ) {
-				$found[] = $clean;
+			foreach ( $groups as $group ) {
+				$words = preg_split( '/\s+/u', trim( implode( ' ', $group ), " .'’-" ) ) ?: array();
+				while ( $words && in_array( $words[0], self::NOT_NAMES, true ) ) {
+					// "New" is part of a place name in "New York", but only a describing word in "New iPhone".
+					if ( 'New' === $words[0] && isset( $words[1] ) && in_array( $words[1], self::NEW_PLACES, true ) ) {
+						break;
+					}
+					array_shift( $words );
+				}
+				while ( $words && in_array( end( $words ), self::NOT_NAMES, true ) ) {
+					array_pop( $words );
+				}
+				// "Russell Brand's" names Russell Brand.
+				$clean = (string) preg_replace( '/[\'’]s$/u', '', implode( ' ', $words ) );
+				if ( mb_strlen( $clean ) >= 3 ) {
+					$found[] = $clean;
+				}
 			}
 		}
 		return $found;
@@ -81,6 +125,11 @@ final class ArticleAnalyzer {
 	private static function line_names( string $text, array $known ): array {
 		$runs = self::names( $text );
 		if ( ! self::is_title_case( $text ) ) {
+			// In an ordinary sentence the first word has a capital anyway. On its own it counts as a name only
+			// when the running text also has it, as in "Apple sells…" but not "Man arrested…".
+			if ( $runs && $known && false === strpos( $runs[0], ' ' ) && 0 === mb_strpos( ltrim( $text ), $runs[0] ) && ! in_array( $runs[0], $known, true ) ) {
+				array_shift( $runs );
+			}
 			return $runs;
 		}
 		usort(
@@ -164,10 +213,11 @@ final class ArticleAnalyzer {
 	 * @param string   $body     Generated body HTML.
 	 * @param string[] $tags     Generated tags.
 	 * @param string   $headline Source headline.
-	 * @param string   $category News category name.
+	 * @param string   $category  News category name.
+	 * @param string   $publisher The outlet that published the story, when known.
 	 * @return array{main:string, entities:string[], keywords:string[], concepts:string[], queries:string[]}
 	 */
-	public static function analyze( string $title, string $body, array $tags, string $headline, string $category ): array {
+	public static function analyze( string $title, string $body, array $tags, string $headline, string $category, string $publisher = '' ): array {
 		$plain_body = html_entity_decode( wp_strip_all_tags( str_replace( '<', ' <', $body ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		$title_text = html_entity_decode( wp_strip_all_tags( $title ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		$head_text  = html_entity_decode( wp_strip_all_tags( $headline ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
@@ -199,6 +249,16 @@ final class ArticleAnalyzer {
 		foreach ( $headings as $heading ) {
 			foreach ( self::line_names( $heading, $known ) as $name ) {
 				$scores[ $name ] = ( $scores[ $name ] ?? 0 ) + 1;
+			}
+		}
+		// The publisher, or an outlet the article quotes, is not what it is about. It stays when the title or
+		// headline names it, as in a story about that outlet. This runs first, so "Tokyo" is not counted toward
+		// "Tokyo Reporter" and lost with it.
+		$lines_lc = mb_strtolower( $title_text . ' . ' . $head_text );
+		foreach ( array_keys( $scores ) as $name ) {
+			$name = (string) $name;
+			if ( self::is_outlet( $name, $publisher ) && false === mb_strpos( $lines_lc, self::bare( $name ) ) ) {
+				unset( $scores[ $name ] );
 			}
 		}
 		// A short form on its own, such as "Brand" for "Russell Brand", counts toward the full name.
@@ -248,7 +308,7 @@ final class ArticleAnalyzer {
 		$article_text = $title_text . ' . ' . $head_text . ' . ' . $plain_body;
 		foreach ( $tags as $tag ) {
 			$tag = trim( (string) $tag );
-			if ( '' === $main || false === strpos( $tag, ' ' ) || 0 === strcasecmp( $tag, $main ) ) {
+			if ( '' === $main || false === strpos( $tag, ' ' ) || 0 === strcasecmp( $tag, $main ) || self::is_outlet( $tag, $publisher ) ) {
 				continue;
 			}
 			$inside = preg_match( self::word_pattern( $tag, 'iu' ), $main ) || preg_match( self::word_pattern( $main, 'iu' ), $tag );
@@ -319,9 +379,30 @@ final class ArticleAnalyzer {
 				$queries[] = $second;
 			}
 		}
+		$names    = array_values( array_filter( array( $main, $second ), 'strlen' ) );
+		$is_about = static function ( string $query ) use ( $names ): bool {
+			foreach ( $names as $name ) {
+				if ( false !== mb_stripos( $query, $name ) || false !== mb_stripos( $name, $query ) ) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		// Searches that do not rely on the two names. Other names first, such as a place, then a tag
+		// from the title, then plain words. One of them always runs, so a wrong subject cannot use every search.
+		$others = array();
+		foreach ( array_slice( $entities, 1 ) as $entity ) {
+			// As for the second name, a single word must be one of the tags.
+			if ( false !== strpos( $entity, ' ' ) || in_array( mb_strtolower( $entity ), $tags_lc, true ) ) {
+				$others[] = $entity;
+			}
+		}
 		foreach ( $tags as $tag ) {
-			if ( false !== mb_stripos( $title_text, (string) $tag ) && mb_strlen( (string) $tag ) >= 4 ) {
-				$queries[] = (string) $tag;
+			$tag = (string) $tag;
+			if ( false !== mb_stripos( $title_text, $tag ) && mb_strlen( $tag ) >= 4 && ! self::is_outlet( $tag, $publisher ) && ! $is_about( $tag ) ) {
+				$queries[] = $tag;
+				$others[]  = $tag;
 				break;
 			}
 		}
@@ -329,15 +410,36 @@ final class ArticleAnalyzer {
 			$queries[] = implode( ' ', array_slice( $keywords, 0, 4 ) );
 			$queries[] = implode( ' ', array_slice( $keywords, 0, 2 ) ) . ' ' . $category;
 		}
+		$name_words = self::tokens( implode( ' ', $names ) );
+		$plain      = array_values( array_diff( $keywords, $name_words ) );
+		if ( $plain ) {
+			$others[] = implode( ' ', array_slice( $plain, 0, 2 ) ) . ' ' . $category;
+		}
 
+		$clean  = static function ( string $query ): string {
+			return trim( (string) preg_replace( '/[^\p{L}\p{N}\s\'’&.\-]+/u', ' ', $query ) );
+		};
 		$seen   = array();
 		$unique = array();
 		foreach ( $queries as $query ) {
-			$query = trim( (string) preg_replace( '/[^\p{L}\p{N}\s\'’&.\-]+/u', ' ', $query ) );
+			$query = $clean( (string) $query );
 			$key   = mb_strtolower( $query );
 			if ( '' !== $query && ! isset( $seen[ $key ] ) ) {
 				$seen[ $key ] = true;
 				$unique[]     = $query;
+			}
+		}
+
+		$limit  = (int) Settings::get( 'image_query_count' );
+		$picked = array_slice( $unique, 0, $limit );
+		if ( $names && count( $picked ) >= 2 && count( $picked ) === count( array_filter( $picked, $is_about ) ) ) {
+			$picked_lc = array_map( 'mb_strtolower', $picked );
+			foreach ( $others as $other ) {
+				$other = $clean( (string) $other );
+				if ( '' !== $other && ! $is_about( $other ) && ! in_array( mb_strtolower( $other ), $picked_lc, true ) ) {
+					$picked[ count( $picked ) - 1 ] = $other;
+					break;
+				}
 			}
 		}
 
@@ -346,7 +448,7 @@ final class ArticleAnalyzer {
 			'entities' => $entities,
 			'keywords' => $keywords,
 			'concepts' => $concepts,
-			'queries'  => array_slice( $unique, 0, (int) Settings::get( 'image_query_count' ) ),
+			'queries'  => $picked,
 		);
 	}
 }

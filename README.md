@@ -4,7 +4,7 @@
 
 InkRush is an AI-powered WordPress news automation plugin. It finds news stories from Google News RSS and publisher feeds, reads the publisher's text when the page allows it, rewrites the story into an article through your own [OpenRouter](https://openrouter.ai/) account, adds a featured image from Wikimedia Commons, and publishes WordPress posts on a schedule you set. It runs in the background after you press Start.
 
-- **Version:** 1.9.0 (a test release)
+- **Version:** 1.9.1 (a test release)
 - **Requires:** WordPress 6.5 or newer, PHP 8.1 or newer
 - **License:** GPL-2.0-or-later (see [LICENSE](LICENSE))
 - **Developed by:** Sagor Das
@@ -118,7 +118,7 @@ These are the declared minimums. Which versions were actually tested is recorded
 
 ## Installation
 
-1. Get the plugin ZIP, `inkrush-1.9.0.zip`.
+1. Get the plugin ZIP, `inkrush-1.9.1.zip`.
 2. In WordPress, go to **Plugins > Add New > Upload Plugin**, choose the ZIP, install it and activate it.
 3. A new menu item, **InkRush**, appears.
 4. Work through the setup in [docs/INSTALLATION.md](docs/INSTALLATION.md): AI Settings, News Sources, Schedule, Authors, Publishing, then **Start Automation** on the Dashboard.

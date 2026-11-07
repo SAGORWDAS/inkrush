@@ -67,7 +67,8 @@ function t( string $id, string $name, callable $fn ): void {
 
 	set_error_handler(
 		static function ( $severity, $text, $file, $line ) use ( &$php_issues ) {
-			if ( false !== strpos( str_replace( '\\', '/', $file ), 'zzz-copy-das-sobur' ) && ( $severity & ( E_WARNING | E_NOTICE | E_DEPRECATED | E_USER_WARNING | E_USER_NOTICE ) ) ) {
+			// The plugin's own folder only. A checkout whose folder name merely starts the same would count these test files too.
+			if ( false !== strpos( str_replace( '\\', '/', $file ), '/zzz-copy-das-sobur/' ) &&( $severity & ( E_WARNING | E_NOTICE | E_DEPRECATED | E_USER_WARNING | E_USER_NOTICE ) ) ) {
 				$php_issues[] = basename( $file ) . ":$line $text";
 			}
 			return false;

@@ -8,7 +8,17 @@ Versions from 1.3.0 onward are test releases.
 
 ## [Unreleased]
 
-Nothing yet.
+Planned as 1.9.1, a test release. It passed 251 automated tests in a local setup, and has not yet run on a live website.
+
+### Fixed
+
+- Image searches no longer use the news outlet as the subject. On 2026-11-07 the 16:00 post was skipped after two articles searched Wikimedia Commons for "The Tokyo Reporter" and "Nippon News Network" instead of their stories, and found nothing that passed. The publisher, and an outlet the article quotes, are now left out unless the title or headline names them.
+- Words that only begin a sentence, such as "Is" in "Is Poundland" or "Man" in "Man arrested…", a sentence word at the end of a name, such as "Apple What", and plain numbers, such as "000" from "10,000", are no longer searched.
+- At least one of the searches no longer uses the two main names, for example a place named in the article, so a wrong subject cannot use up every search.
+
+### Changed
+
+- When no image passes, the log now gives the minimum score and the best score reached, instead of "Relevance score N is below the minimum of N".
 
 ## [1.9.0] - 2026-11-07
 

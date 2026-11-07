@@ -1,5 +1,32 @@
 # Test results
 
+## Version 1.9.1: image search subjects
+
+### Why
+
+On the owner's site on 2026-11-07, the 16:00 Crime post was skipped. Both articles written for it found no usable image, because the searches were built around news outlets: "The Tokyo Reporter", the publisher, and "Nippon News Network", which the article quoted. The log also showed searches such as "Is Poundland", "Poundland 000" and "Apple What" for other articles.
+
+### What changed
+
+| Change | Where |
+|---|---|
+| The publisher's name, and a name ending like an outlet's (News, Network, Reporter, Times, Post and similar), are removed from the subjects unless the title or headline names them. An outlet tag cannot become the subject | `ArticleAnalyzer::analyze`, `is_outlet`; the publisher is passed from `ImagePipeline` |
+| More sentence words are ignored at the start of a name (Is, Are, Was, According and similar), and also at its end. A longer word with a full stop ends a name, so "Apple. What" is two sentences. In an ordinary headline, a single first word counts only if the running text has it too | `ArticleAnalyzer::names`, `line_names` |
+| Plain numbers are not search words | `ArticleAnalyzer::tokens` |
+| When every search would use the main or second name, the last one is replaced by another name from the article, a tag from the title, or plain words from the headline | `ArticleAnalyzer::analyze` |
+| The no-image log says "The relevance score is below the minimum of 65. The best score was 52." instead of using N | `ImagePipeline::no_match_reason` |
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Automated suite | 251 tests: the 247 from 1.9.0 and 4 new (IMG-60 to IMG-63) | **251 passed, 0 failed** on WordPress 7.1.4, PHP 8.1.34 and MariaDB 10.11.19, in a local test setup with the mock server |
+| Do the tests catch mistakes? | 10 deliberate mistakes put back one at a time: the outlet check off, the publisher not passed, "Is" not ignored, numbers kept, no sentence split, the trailing word kept, the first headline word kept, no search kept free of the main names, the best score not logged, and an outlet named in the headline dropped | **All 10 caught.** Three were missed at first (numbers, sentence split, trailing word), so IMG-61 was made stricter and then caught them |
+| Test harness | The check for PHP warnings matched any path containing `zzz-copy-das-sobur`, so in a checkout folder whose name starts that way it also flagged warnings from `tests/lib.php`, and M12 failed on unchanged 1.9.0 code. It now matches only the plugin folder itself | `tests/lib.php`. M12 passes |
+| Release ZIP | `inkrush-1.9.1.zip`, built with `tests/build-zip.php` | 69 files, the same as 1.9.0. The fix and version 1.9.1 are inside |
+
+**Not tested in 1.9.1:** it has not run on the test website. The fix was checked with articles written for the tests, not with the real 16:00 articles, whose text is not in the logs. A Crime story whose suspect is not named may still find no Commons photo that passes; the fix makes that less likely, not impossible.
+
 ## Version 1.9.0: Multiple users mode (Phase 2)
 
 ### What changed
