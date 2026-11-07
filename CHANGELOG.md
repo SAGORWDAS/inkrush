@@ -8,7 +8,11 @@ Versions from 1.3.0 onward are test releases.
 
 ## [Unreleased]
 
-Planned as 1.9.1, a test release. It passed 251 automated tests in a local setup, and has not yet run on a live website.
+Nothing yet.
+
+## [1.9.1] - 2026-11-07
+
+A test release: [InkRush 1.9.1 on GitHub](https://github.com/SAGORWDAS/inkrush/releases/tag/v1.9.1). It passed 251 automated tests in a local setup. The owner installed it on their website on 2026-11-07; how it does there is not yet checked.
 
 ### Fixed
 
