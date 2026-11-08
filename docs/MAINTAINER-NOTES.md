@@ -7,13 +7,13 @@ Paths below are relative to the repository root.
 
 A WordPress plugin for one website. It finds news, reads accessible publisher text, writes articles through OpenRouter, and creates posts on a schedule, in the background, with featured images from Wikimedia Commons.
 
-**Current version: 1.10.1 (wrong-image and skipped-post fixes; not yet run on a real site)**
+**Current version: 1.10.2 (skipped-post audit; not yet run on a real site)**
 
 ## What is here
 
 | Path | What it is |
 |---|---|
-| `dist/inkrush-1.10.1.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
+| `dist/inkrush-1.10.2.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
 | `dist/inkrush-1.10.0.zip` | The previous version |
 | `dist/inkrush-1.9.1.zip` | An earlier version |
 | `dist/inkrush-1.9.0.zip` | An earlier version |
@@ -125,7 +125,8 @@ Read these first:
 
 ### Current status
 
-- **Automated tests:** see the 1.10.1, 1.10.0, 1.9.1, 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **Automated tests:** see the 1.10.2, 1.10.1, 1.10.0, 1.9.1, 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **The two 1.10.2 changes have not been seen running.** Both are in code the unit suites cannot reach, `Health::status()` and `Admin\Pages`, because both need WordPress. The Dashboard worker line and the Schedule page's generation-limit warning are syntax-clean and were read, but neither has been rendered.
 - **The 1.10.1 image fixes have not run on the owner site.** 37 image tests built from the real logs pass, and they use the real article text and file titles, but the searches have not been run against the real Wikimedia Commons, so whether they now find a usable photograph for those particular stories is not yet known. Watch the next few posts.
 - **Social media distribution (1.10.0) has not been run against a real platform.** 128 unit tests pass, and `tests/test-11-social.php` covers the rest against a local stand-in, but no adapter has yet published to a real account. Nothing in this release should be described as working on a platform until it has. See the 1.10.0 section of `TEST-RESULTS.md` for exactly what was and was not tested, and test Bluesky first: it is the only one of the six that needs no developer approval and no payment.
 - **Versions 1.3.1 to 1.3.4, 1.4.1, 1.4.2, 1.5.0, 1.6.0 and 1.7.0** have only run in a local test setup. **1.4.0** ran on the owner's test website on 2026-11-06, for one post. See the 1.4.1 section of `TEST-RESULTS.md`.

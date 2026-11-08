@@ -96,6 +96,36 @@ final class Pages {
 		echo '</div>';
 	}
 
+	/**
+	 * Warns when the daily generation limit is lower than the posts of a day could need.
+	 *
+	 * In Past-Hour Posting every post may have several articles written for it, because a story
+	 * that turns out to be unusable gives way to another while there is still time. When the limit
+	 * is below that total, an ordinary day of retries exhausts it and the last posts of the day are
+	 * skipped for want of generations rather than for want of news.
+	 */
+	public static function ai_limit_note(): void {
+		if ( ! PastHour::enabled() ) {
+			return;
+		}
+		$slots = AuthorSchedules::multiple() ? count( Schedule::author_slots( Schedule::today() ) ) : Schedule::slots_that_fit();
+		$each  = PastHour::max_articles();
+		$need  = $slots * $each;
+		$limit = (int) Settings::get( 'daily_ai_limit' );
+		if ( $slots < 1 || $limit >= $need ) {
+			return;
+		}
+		echo '<div class="zzzc-field"><p class="zzzc-help"><strong>Not enough for a full day.</strong> ' . esc_html(
+			sprintf(
+				'Today has %1$d post times, and each may have up to %2$d articles written for it, which is %3$d generations. At %4$d, the limit can run out before the last post times and they would be skipped. Raise it to %3$d, or lower the articles per post.',
+				$slots,
+				$each,
+				$need,
+				$limit
+			)
+		) . '</p></div>';
+	}
+
 	public static function select_row( string $key, string $label, array $options, string $help = '' ): void {
 		printf( '<div class="zzzc-field"><label for="%1$s">%2$s</label><select id="%1$s" name="%1$s">', esc_attr( $key ), esc_html( $label ) );
 		foreach ( $options as $value => $text ) {
@@ -291,8 +321,10 @@ final class Pages {
 		$beat = $health['last_beat'] ? gmdate( 'Y-m-d H:i:s', $health['last_beat'] ) : '';
 		echo '<dt>Last heartbeat</dt><dd>' . esc_html( $beat ? Schedule::format_local( $beat ) . ' (' . $health['source'] . ')' : 'None yet' ) . '</dd>';
 		echo '<dt>Worker health</dt><dd>';
-		if ( ! $active ) {
-			echo 'Not running, because automation is stopped.';
+		if ( ! $health['wanted'] ) {
+			echo 'Not running, because automation is stopped and social distribution is off.';
+		} elseif ( ! $active ) {
+			echo 'Running for social distribution only, because automation is stopped.';
 		} elseif ( $health['stale'] ) {
 			echo '<strong>Stalled.</strong> No heartbeat in the last 5 minutes. Check your server cron job (see the Schedule page).';
 		} else {
@@ -842,6 +874,7 @@ final class Pages {
 		self::number_row( 'research_lead_hours', 'Start research before a slot (hours)', 'A category is researched only when its next slot is this close, so its news is still fresh when it publishes.' );
 		self::number_row( 'category_buffer', 'Articles to keep ready per category' );
 		self::number_row( 'daily_ai_limit', 'Maximum article generations per day', 'A spending guard. Counts every generation attempt.' );
+		self::ai_limit_note();
 		self::number_row( 'max_article_age_hours', 'Skip queued articles older than (hours)', 'Old news is not published.' );
 		self::number_row( 'run_budget_seconds', 'Worker run length (seconds)', 'A worker run stops starting new jobs after this time.' );
 		echo '</div>';

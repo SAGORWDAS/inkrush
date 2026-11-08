@@ -1,5 +1,38 @@
 # Test results
 
+## Version 1.10.2: an audit of the skipped-post paths
+
+Not a response to a failure on the site. The whole path from `Schedule::ensure_slots()` through
+`PastHour::tick()` to `Publisher::process_past_hour()` and `PastHour::queue_row_for_due_slot()` was
+read against the question "can a post time be missed without anyone being told". Eleven paths end in
+a skipped post time. Nine are deliberate: the worker not running during the preparation window,
+research paused, publishing paused, the daily cap reached, AI blocked, the daily generation limit,
+eight stories tried, three articles written, and no story published inside the freshness window.
+Two were defects and are fixed here.
+
+### What was found
+
+| Where | The defect |
+|---|---|
+| `Health::status()` | Staleness was gated on `Automation::is_active()`. Since 1.10.0 the worker also runs for social distribution alone, so a worker that died in that state reported no fault, and the Dashboard said it was not running while it was |
+| `daily_ai_limit` against `past_hour_max_articles` | No stated relationship between the two. Every generation attempt counts, failures included, so three post times at three articles each need nine generations before any failure, against a default limit of twelve. A few OpenRouter failures exhausted it and the last post time was skipped for want of generations |
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Image tests, `tests/unit/run-images.php` | The 37 from 1.10.1, re-run | **37 passed, 0 failed** on PHP 8.3.36 |
+| Social unit tests, `tests/unit/run-unit.php` | The 128 from 1.10.0, re-run | **128 passed, 0 failed** |
+| PHP syntax | `php -l` across every plugin and test file | **No errors** |
+
+### What was not tested
+
+Both changes are in code the unit suites do not reach: `Health::status()` and `Admin\Pages`
+both need WordPress. They were read and are syntax-clean, but neither has been executed. The
+Dashboard worker line and the Schedule page warning have not been seen rendered.
+
+The 1.10.1 image fixes still have not run against the real Wikimedia Commons, and the WordPress
+integration suite still needs a site to run on.
 ## Version 1.10.1: wrong image, and a skipped post
 
 ### What went wrong on the site

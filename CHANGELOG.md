@@ -10,6 +10,17 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.10.2] - 2026-11-08
+
+Findings from an audit of every path that ends in a skipped post time. The 128 social unit tests and the 37 image tests still pass.
+
+### Fixed
+
+- **A stalled worker was not reported while only social distribution was running.** `Health::status()` judged staleness by `Automation::is_active()`, but since 1.10.0 the worker also runs for social distribution alone, so a dead worker in that state reported nothing and the Dashboard claimed it was not running. Staleness now follows `Plugin::worker_wanted()`, and the Dashboard distinguishes stopped, social-only, stalled and healthy.
+
+### Added
+
+- **A warning when the daily generation limit cannot cover the day.** Every generation attempt counts against `daily_ai_limit`, failures included, and `past_hour_max_articles` allows up to three articles per post time. The Schedule page now warns when the limit is below post times × articles per post, and names the figure to raise it to. Without it, a day with a few OpenRouter failures exhausted the limit and the last post times were skipped for want of generations.
 ## [1.10.1] - 2026-11-08
 
 Fixes three faults found on the owner's site. Image tests built from the real logs: 37 passed. The 128 social unit tests still pass.

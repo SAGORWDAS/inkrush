@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.10.1
+Stable tag: 1.10.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -113,6 +113,14 @@ No. It has no tracking or telemetry.
 
 == Changelog ==
 
+= 1.10.2 =
+Two findings from an audit of everything that can cause a post time to be skipped.
+
+**A stalled worker went unreported when only social distribution was running.** Worker health was judged by whether news automation was running. Since 1.10.0 the worker also runs on its own for social distribution, so with automation stopped and social distribution on, a worker that had died reported no fault at all and the Dashboard said it was not running when it was. Worker health now follows whichever of the two is wanted, and the Dashboard says which of them the worker is running for.
+
+**The daily generation limit could quietly empty the last post of the day.** Every generation attempt counts against **Maximum article generations per day**, including the failed ones, and each post time may have up to three articles written for it. Three post times can therefore need nine generations before a single failure, against a limit of twelve. A day with a few failures at OpenRouter reached the limit, and the last post time was then skipped for want of generations rather than for want of news. The Schedule page now says so whenever the limit is lower than the day's post times could need, and names the number to raise it to.
+
+Nothing about how articles, images or social posts are chosen has changed in this version.
 = 1.10.1 =
 Fixes three faults found on the owner's site on 2026-11-07 and 2026-11-08.
 
