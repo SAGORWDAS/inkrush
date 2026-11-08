@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.9.1
+Stable tag: 1.10.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,7 +27,9 @@ After setup, press Start Automation. The plugin keeps working in the background 
 8. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
 9. Optionally stops by itself after a number of days or published posts, whichever comes first.
 
-The only outside services are your news sources, OpenRouter and Wikimedia Commons. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
+10. Optionally distributes each published article to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, through those platforms' own official APIs. This is switched off until you connect an account and turn a platform on.
+
+The outside services are your news sources, OpenRouter, Wikimedia Commons, and any social media platform you choose to connect. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
 
 Developed by: Sagor Das
 Developer Contact: das.sagorwork@gmail.com
@@ -47,6 +49,23 @@ This plugin connects to these outside services. It sends nothing to the develope
 
 Requests to Google News, publishers and Wikimedia Commons carry a user agent that names the plugin and your site address.
 
+= Social media platforms =
+
+These are contacted only for a platform you have connected and switched on. With Social media distribution off, which is how it installs, none of them is contacted at all.
+
+Each one receives, for each article it publishes: the post text InkRush generated from your published article, your article's web address, the featured image (either its address, so the platform can fetch it, or its bytes, uploaded directly), the image's alt text, and the hashtags. It also receives the access credential you authorised. None of them receives your OpenRouter key, your prompts, the original publisher's text, your WordPress login, your visitors' data or anything about any other article.
+
+* **Facebook Pages**, through the Meta Graph API (https://graph.facebook.com/). The featured image is fetched by Meta from your site's public address. Terms: https://www.facebook.com/terms.php. Privacy: https://www.facebook.com/privacy/policy. Platform terms: https://developers.facebook.com/terms/.
+* **Instagram**, through the Instagram Content Publishing API (https://graph.facebook.com/). The featured image is fetched by Instagram from your site's public address. Your article's web address is not placed in the caption, because Instagram does not make one clickable. Privacy: https://privacycenter.instagram.com/policy.
+* **X**, through the X API v2 (https://api.x.com/). The featured image is uploaded directly as bytes. Terms: https://x.com/en/tos. Privacy: https://x.com/en/privacy. Developer terms: https://developer.x.com/en/developer-terms.
+* **LinkedIn**, through the LinkedIn Posts API (https://api.linkedin.com/). The featured image is uploaded directly as bytes. Terms: https://www.linkedin.com/legal/user-agreement. Privacy: https://www.linkedin.com/legal/privacy-policy. API terms: https://www.linkedin.com/legal/l/api-terms-of-use.
+* **Threads**, through the Threads API (https://graph.threads.net/). The featured image is fetched by Threads from your site's public address. Terms: https://help.instagram.com/769983657850450.
+* **Bluesky**, through the AT Protocol (https://bsky.social/). The featured image is uploaded directly as bytes. Terms: https://bsky.social/about/support/tos. Privacy: https://bsky.social/about/support/privacy-policy.
+
+Access credentials for these platforms are stored encrypted in your own database and are never sent to the developer, to OpenRouter, or to any platform other than the one they belong to. They are removed from everything the plugin writes to its log.
+
+Three of these platforms need the developer application to be approved before it can publish to an account other than your own test account, and one of them charges for the access level needed to publish at a useful rate. Each platform's card on the Social Media page states its own requirements, approvals, costs and limits before you try to connect it.
+
 == Installation ==
 
 1. Upload the plugin ZIP in Plugins > Add New > Upload Plugin, and activate it.
@@ -54,6 +73,8 @@ Requests to Google News, publishers and Wikimedia Commons carry a user agent tha
 3. Review the categories on News Sources, and the schedule and timezone on Schedule.
 4. On Authors, grant access to the user to be credited with posts, then choose them as Post author on Publishing.
 5. Press Start Automation on the Dashboard.
+
+To publish to social media as well, which is optional and off until you set it up, see docs/SOCIAL.md. In short: on the Social Media page copy the callback address shown there into each platform's developer settings, save that platform's application identifier and secret, press Connect account, then switch the platform on. Bluesky needs no developer application: it takes a handle and an app password.
 
 See docs/INSTALL.md for details. A server cron job is strongly recommended: see docs/SERVER-CRON.md.
 
@@ -91,6 +112,17 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.10.0 =
+New Social Media Distribution. Once WordPress confirms an article is publicly published, InkRush can post it to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, each through that platform's own official API. It is switched off on upgrade and publishes nothing until you connect an account and turn a platform on.
+
+Two new screens. Social Media holds six connection cards, each with its status, its accounts, a connection test, and that platform's own requirements, approvals, costs and limits written out in full. Social Publishing holds the figures, the approval queue and the full publishing history, with filters by platform, result and date, and buttons to retry, edit, cancel or read the error.
+
+Each platform is published independently: one article becomes one job per platform, so a Facebook post stays published when Instagram fails, and a social media failure never changes the article, which is already on the website. Post text is written for each platform in its own tone and length through your existing OpenRouter key and model, from your published article only, using a new Social post prompt you can edit and whose versions are kept like the others. Captions can be edited by hand or rewritten one platform at a time, and Manual approval mode holds every post for you to read first.
+
+Social publishing is deliberately independent of news automation. Posts already queued keep going out after Stop or Pause, because the article they belong to is already published. A post is never duplicated: every record carries an idempotency key that is unique in the database, and an attempt whose outcome could not be read is checked against the platform before anything else is sent, rather than being retried or called a failure.
+
+Drafts are never distributed. A draft published by hand is distributed only if you switch that on. A scheduled post is distributed when it actually goes public. Deleting an article removes nothing from any platform. Credentials are stored encrypted, are never sent to the browser, and are stripped from the log. Database version 12 adds two tables and changes none of the existing ones.
 
 = 1.9.1 =
 For testing. Image searches no longer use the news outlet as the subject: the publisher, and an outlet the article quotes such as "Nippon News Network", are left out unless the title or headline names them. Words that only begin a sentence, such as "Is" or "Man", a sentence word at the end of a name, and plain numbers such as "000" are no longer searched. At least one search no longer uses the two main names, for example a place in the article, so a wrong subject cannot use up every search. When no image passes, the log gives the minimum score and the best score reached.

@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '11';
+	public const DB_VERSION = '12';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -50,6 +50,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '11', '<' ) ) {
 			self::upgrade_to_11();
+		}
+		if ( '' !== $previous && version_compare( $previous, '12', '<' ) ) {
+			self::upgrade_to_12();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -178,6 +181,16 @@ final class Schema {
 	 */
 	private static function upgrade_to_11(): void {
 		Events::log( 'config', 'info', 'Upgraded plugin data. Authors can now have their own schedules in Multiple users mode, on the Authors page. Posting stays in Single user mode, exactly as before, until you switch.' );
+	}
+
+	/**
+	 * Version 12: social media distribution. Two new tables come from create_tables, and the new
+	 * settings default to off, so an upgrade changes nothing about how the site already works and
+	 * never posts anywhere until the owner connects an account and switches a platform on.
+	 * No existing table, option, article or post is touched.
+	 */
+	private static function upgrade_to_12(): void {
+		Events::log( 'config', 'info', 'Upgraded plugin data. Social media distribution is available on the new Social Media page. It is switched off, and nothing is published to social media until you connect an account and turn a platform on.' );
 	}
 
 	private static function create_tables(): void {
@@ -532,6 +545,80 @@ final class Schema {
   updated_at datetime NOT NULL,
   PRIMARY KEY  (article_job_id),
   KEY status_updated (status,updated_at)
+) $charset;";
+
+		// One row per connected social media account. Tokens are encrypted by Secrets before they
+		// reach this table, so the database alone never holds a usable credential.
+		$tables[] = "CREATE TABLE {$p}social_accounts (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  platform varchar(20) NOT NULL,
+  external_id varchar(128) NOT NULL,
+  account_name varchar(191) NOT NULL DEFAULT '',
+  account_handle varchar(191) NOT NULL DEFAULT '',
+  account_type varchar(40) NOT NULL DEFAULT '',
+  access_token text NULL,
+  refresh_token text NULL,
+  token_expires_at datetime NULL,
+  refresh_expires_at datetime NULL,
+  scopes text NULL,
+  extra text NULL,
+  status varchar(20) NOT NULL DEFAULT 'connected',
+  status_reason varchar(255) NOT NULL DEFAULT '',
+  last_check_at datetime NULL,
+  last_check_ok tinyint(1) NOT NULL DEFAULT 0,
+  last_check_message varchar(255) NOT NULL DEFAULT '',
+  last_published_at datetime NULL,
+  connected_by bigint(20) unsigned NOT NULL DEFAULT 0,
+  created_at datetime NOT NULL,
+  updated_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY platform_external (platform,external_id),
+  KEY platform_status (platform,status),
+  KEY token_expires_at (token_expires_at)
+) $charset;";
+
+		// One row per article per platform per account: the caption, the media, the result, and the
+		// history of the attempt. The idempotency key is what stops a retry posting twice.
+		$tables[] = "CREATE TABLE {$p}social_posts (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  idempotency_key char(40) NOT NULL,
+  article_job_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  wp_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  platform varchar(20) NOT NULL,
+  account_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  account_label varchar(191) NOT NULL DEFAULT '',
+  origin varchar(20) NOT NULL DEFAULT 'auto',
+  status varchar(20) NOT NULL DEFAULT 'pending',
+  approved tinyint(1) NOT NULL DEFAULT 0,
+  caption longtext NULL,
+  caption_source varchar(10) NOT NULL DEFAULT '',
+  caption_generated_at datetime NULL,
+  hashtags varchar(255) NOT NULL DEFAULT '',
+  link_url text NULL,
+  media_json text NULL,
+  media_remote_id varchar(191) NOT NULL DEFAULT '',
+  attempts int(11) NOT NULL DEFAULT 0,
+  max_attempts int(11) NOT NULL DEFAULT 4,
+  retry_at datetime NULL,
+  scheduled_for datetime NULL,
+  claimed_by varchar(64) NOT NULL DEFAULT '',
+  claim_expires datetime NULL,
+  error_code varchar(60) NOT NULL DEFAULT '',
+  error_message text NULL,
+  external_post_id varchar(191) NOT NULL DEFAULT '',
+  external_post_url text NULL,
+  published_at datetime NULL,
+  created_at datetime NOT NULL,
+  updated_at datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY idempotency_key (idempotency_key),
+  KEY status_retry (status,retry_at),
+  KEY status_scheduled (status,scheduled_for),
+  KEY wp_post_id (wp_post_id),
+  KEY article_job_id (article_job_id),
+  KEY platform_status (platform,status),
+  KEY account_id (account_id),
+  KEY created_at (created_at)
 ) $charset;";
 
 		$tables[] = "CREATE TABLE {$p}locks (

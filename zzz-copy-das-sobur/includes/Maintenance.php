@@ -42,6 +42,10 @@ final class Maintenance {
 		$slot_cutoff = gmdate( 'Y-m-d', $now - 180 * DAY_IN_SECONDS );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$slots} WHERE local_date < %s", $slot_cutoff ) ); // phpcs:ignore WordPress.DB
 
+		// Old social post records that were failed, cancelled or skipped. Published ones are kept,
+		// because they are the record of what went out.
+		Social\SocialManager::daily_maintenance();
+
 		Events::log( 'maintenance', 'info', sprintf( 'Daily maintenance finished. Stored source text cleared from %d records.', (int) $cleared ) );
 	}
 }

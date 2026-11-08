@@ -177,8 +177,13 @@ final class Automation {
 	 */
 	public static function stop(): void {
 		self::patch( array( 'run_state' => self::STOPPED ) );
-		wp_clear_scheduled_hook( Plugin::TICK_HOOK );
-		Events::log( 'control', 'info', 'Automation stopped.', array( 'status' => self::STOPPED ) );
+		// Keeps the worker scheduled when social distribution is on, so social posts already
+		// queued for articles that are published still go out. Clears it otherwise, as before.
+		Plugin::sync_schedule();
+		$social = Social\SocialSettings::enabled()
+			? ' Social media distribution is unaffected and queued social posts will still be published.'
+			: '';
+		Events::log( 'control', 'info', 'Automation stopped.' . $social, array( 'status' => self::STOPPED ) );
 	}
 
 	/**
@@ -192,8 +197,11 @@ final class Automation {
 				'auto_stopped_at'  => Clock::now(),
 			)
 		);
-		wp_clear_scheduled_hook( Plugin::TICK_HOOK );
-		Events::log( 'control', 'info', 'Automation stopped automatically: ' . $reason . ' Queued articles and history were kept.', array( 'status' => self::STOPPED ) );
+		Plugin::sync_schedule();
+		$social = Social\SocialSettings::enabled()
+			? ' Social media distribution is unaffected and queued social posts will still be published.'
+			: '';
+		Events::log( 'control', 'info', 'Automation stopped automatically: ' . $reason . ' Queued articles and history were kept.' . $social, array( 'status' => self::STOPPED ) );
 	}
 
 	/**

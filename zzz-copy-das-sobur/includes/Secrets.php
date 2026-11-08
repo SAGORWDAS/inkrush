@@ -70,6 +70,28 @@ final class Secrets {
 		return '••••••••' . $stored['last4'];
 	}
 
+	/**
+	 * Encrypts one value for storage in a plugin table column, using the same scheme as the
+	 * API key above. Used for social media access and refresh tokens, which are per-row and
+	 * so cannot live in the single option this class otherwise manages.
+	 *
+	 * @param string $plain Value to protect. An empty string is stored as an empty string.
+	 */
+	public static function encrypt_value( string $plain ): string {
+		return '' === $plain ? '' : self::encrypt( $plain );
+	}
+
+	/**
+	 * Reverses encrypt_value. Returns an empty string when the value is missing or unreadable,
+	 * which happens when the WordPress salts or ZZZCOPY_SECRET_KEY changed after it was stored.
+	 */
+	public static function decrypt_value( string $stored ): string {
+		if ( '' === $stored ) {
+			return '';
+		}
+		return (string) self::decrypt( $stored );
+	}
+
 	private static function encrypt( string $plain ): string {
 		$key = self::encryption_key();
 		if ( function_exists( 'sodium_crypto_secretbox' ) ) {
@@ -102,6 +124,27 @@ final class Secrets {
 	}
 
 	/**
+	 * Exact secret values held in memory during this request, so they are removed from any text
+	 * logged afterwards. Social media tokens live in table rows rather than in one option, and
+	 * reading every one of them on every log call would be wasteful, so an adapter registers
+	 * the token it is about to use and it is redacted from then on.
+	 *
+	 * @var string[]
+	 */
+	private static array $guarded = array();
+
+	/**
+	 * Registers one secret value for redaction for the rest of this request.
+	 * Short values are ignored, because redacting them would mangle ordinary text.
+	 */
+	public static function guard( string $value ): void {
+		$value = trim( $value );
+		if ( strlen( $value ) >= 12 && ! in_array( $value, self::$guarded, true ) ) {
+			self::$guarded[] = $value;
+		}
+	}
+
+	/**
 	 * Removes API keys and authorization values from text before it is logged or stored.
 	 */
 	public static function redact( string $text ): string {
@@ -109,9 +152,23 @@ final class Secrets {
 		if ( '' !== $key ) {
 			$text = str_replace( $key, '[REDACTED]', $text );
 		}
+		foreach ( self::$guarded as $secret ) {
+			$text = str_replace( $secret, '[REDACTED]', $text );
+		}
 		$text = (string) preg_replace( '/sk-or-[A-Za-z0-9_\-]{6,}/', '[REDACTED]', $text );
 		$text = (string) preg_replace( '/Bearer\s+[A-Za-z0-9._\-]{6,}/i', 'Bearer [REDACTED]', $text );
 		$text = (string) preg_replace( '/("?authorization"?\s*[:=]\s*)"?[^",\s}]+"?/i', '$1"[REDACTED]"', $text );
+
+		// Social media credentials. Meta user and page tokens, JSON web tokens from the AT Protocol,
+		// and any field named like a token, secret, password or authorization code.
+		$text = (string) preg_replace( '/\bEAA[A-Za-z0-9]{20,}/', '[REDACTED]', $text );
+		$text = (string) preg_replace( '/\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}/', '[REDACTED]', $text );
+		$text = (string) preg_replace(
+			'/("?(?:access_token|refresh_token|accessJwt|refreshJwt|id_token|client_secret|app_secret|app_password|password|code_verifier|oauth_token_secret)"?\s*[:=]\s*)"?[^",\s}&]+"?/i',
+			'$1"[REDACTED]"',
+			$text
+		);
+		$text = (string) preg_replace( '/([?&](?:access_token|refresh_token|client_secret|code|code_verifier)=)[^&\s"]+/i', '$1[REDACTED]', $text );
 		return $text;
 	}
 }

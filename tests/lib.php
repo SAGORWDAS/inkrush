@@ -108,12 +108,12 @@ function zzzt_reset(): void {
 	remove_all_actions( 'zzzc_after_post_created' );
 	remove_all_filters( 'wp_insert_post_empty_content' );
 
-	foreach ( array( 'categories', 'source_items', 'article_jobs', 'article_content', 'publishing_queue', 'slots', 'generation_usage', 'events', 'post_links', 'prompt_versions', 'jobs', 'locks', 'image_history', 'image_runs', 'authors' ) as $table ) {
+	foreach ( array( 'categories', 'source_items', 'article_jobs', 'article_content', 'publishing_queue', 'slots', 'generation_usage', 'events', 'post_links', 'prompt_versions', 'jobs', 'locks', 'image_history', 'image_runs', 'authors', 'social_accounts', 'social_posts' ) as $table ) {
 		// TRUNCATE can time out on a database lock, so DELETE is used. The plugin never runs TRUNCATE.
 		$wpdb->query( 'DELETE FROM ' . Db::table( $table ) );
 		$wpdb->query( 'ALTER TABLE ' . Db::table( $table ) . ' AUTO_INCREMENT = 1' );
 	}
-	foreach ( array( 'zzzc_settings', 'zzzc_state', 'zzzc_secret', 'zzzc_active_prompts', 'zzzc_heartbeat', 'zzzc_model_check', 'zzzc_cron_token' ) as $option ) {
+	foreach ( array( 'zzzc_settings', 'zzzc_state', 'zzzc_secret', 'zzzc_active_prompts', 'zzzc_heartbeat', 'zzzc_model_check', 'zzzc_cron_token', 'zzzc_social_apps', 'zzzc_social_platforms' ) as $option ) {
 		delete_option( $option );
 	}
 	$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_zzzc\\_%' OR option_name LIKE '\\_transient\\_timeout\\_zzzc\\_%'" );

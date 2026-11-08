@@ -18,6 +18,26 @@ final class Jobs {
 	public const VALIDATE    = 'validate';
 	public const USAGE_FETCH = 'usage_fetch';
 
+	/* Social media distribution. One job per platform, independent of the news automation state. */
+	public const SOCIAL_GENERATE  = 'social_generate';
+	public const SOCIAL_PUBLISH   = 'social_publish';
+	public const SOCIAL_TOKEN     = 'social_refresh_token';
+	public const SOCIAL_RECONCILE = 'social_reconcile';
+
+	/**
+	 * The social job types.
+	 *
+	 * These are kept apart from the news automation types on purpose. The worker allows them
+	 * even when discovery is paused or stopped, because a social post that has already been
+	 * queued belongs to an article that is already published on the website, and whether more
+	 * news is being discovered has nothing to do with whether it should go out.
+	 *
+	 * @return string[]
+	 */
+	public static function social_types(): array {
+		return array( self::SOCIAL_GENERATE, self::SOCIAL_PUBLISH, self::SOCIAL_TOKEN, self::SOCIAL_RECONCILE );
+	}
+
 	/**
 	 * Adds a job. With a unique key, a job already waiting or running is left alone,
 	 * and a finished one is reset so it can run again.

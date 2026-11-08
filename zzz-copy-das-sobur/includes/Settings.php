@@ -13,6 +13,15 @@ final class Settings {
 	private static ?array $cache = null;
 
 	public static function defaults(): array {
+		// The social distribution switches are defined with that feature and merged in here, so
+		// they are validated, saved and read exactly like every other setting.
+		return array_merge(
+			self::own_defaults(),
+			Social\SocialSettings::global_defaults()
+		);
+	}
+
+	private static function own_defaults(): array {
 		return array(
 			// Schedule.
 			'timezone'                   => '+10:30',
@@ -213,6 +222,7 @@ final class Settings {
 			'retention_failed_days'      => array( 1, 3650 ),
 			'run_budget_seconds'         => array( 10, 280 ),
 		);
+		$ranges = array_merge( $ranges, Social\SocialSettings::global_ranges() );
 
 		if ( isset( $ranges[ $key ] ) ) {
 			if ( ! is_numeric( $value ) || (int) $value != $value ) { // phpcs:ignore Universal.Operators.StrictComparisons
@@ -240,6 +250,7 @@ final class Settings {
 			'image_attribution' => array( 'all', 'required' ),
 			'author_mode'   => array( 'single', 'multiple' ),
 		);
+		$choices = array_merge( $choices, Social\SocialSettings::global_choices() );
 
 		if ( isset( $choices[ $key ] ) ) {
 			if ( ! in_array( $value, $choices[ $key ], true ) ) {
@@ -248,7 +259,19 @@ final class Settings {
 			return $value;
 		}
 
+		// The social distribution switches that are simply on or off.
+		if ( in_array( $key, Social\SocialSettings::global_flags(), true ) ) {
+			return empty( $value ) ? 0 : 1;
+		}
+
 		switch ( $key ) {
+			case 'social_cta':
+				$cta = sanitize_text_field( trim( (string) $value ) );
+				if ( mb_strlen( $cta ) > 120 ) {
+					return new \WP_Error( 'invalid', 'Keep the call to action to 120 characters or fewer.' );
+				}
+				return $cta;
+
 			case 'image_preferred_ratio':
 				if ( ! is_numeric( $value ) || (float) $value < 1 || (float) $value > 3 ) {
 					return new \WP_Error( 'invalid', 'Enter a ratio from 1.00 to 3.00. For example, 16:9 is 1.78.' );

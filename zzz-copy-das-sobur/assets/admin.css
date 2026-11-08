@@ -502,3 +502,140 @@
 	max-width: 640px;
 	width: 100%;
 }
+
+/* ---- Social media screens ---- */
+
+.zzzc-section-title {
+	font-size: 15px;
+	font-weight: 700;
+	margin: 24px 0 4px;
+}
+
+/* A platform's mark, taking the colour of the text beside it so the screens stay monochrome. */
+.zzzc-social-name {
+	align-items: center;
+	display: inline-flex;
+	gap: 7px;
+	line-height: 1;
+}
+
+.zzzc-social-mark {
+	flex: 0 0 auto;
+}
+
+.zzzc-state.is-paused {
+	background: var(--z-soft);
+	border-color: var(--z-line);
+	color: var(--z-muted);
+}
+
+.zzzc-social-card .zzzc-table {
+	margin-bottom: 14px;
+}
+
+/* The three foldaway sections in each platform card. */
+.zzzc-social-connect,
+.zzzc-social-options,
+.zzzc-social-requires,
+.zzzc-social-caption {
+	border-top: 1px solid var(--z-line);
+	margin-top: 12px;
+	padding-top: 10px;
+}
+
+.zzzc-social-connect > summary,
+.zzzc-social-options > summary,
+.zzzc-social-requires > summary,
+.zzzc-social-caption > summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 2px 0;
+}
+
+.zzzc-social-connect > summary:hover,
+.zzzc-social-options > summary:hover,
+.zzzc-social-requires > summary:hover,
+.zzzc-social-caption > summary:hover {
+	color: var(--z-muted);
+}
+
+.zzzc-social-connect[open] > summary,
+.zzzc-social-options[open] > summary,
+.zzzc-social-requires[open] > summary,
+.zzzc-social-caption[open] > summary {
+	margin-bottom: 10px;
+}
+
+.zzzc-social-caption > summary {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+}
+
+.zzzc-social-detail > td {
+	background: var(--z-soft);
+}
+
+.zzzc-wide {
+	max-width: 560px;
+	width: 100%;
+}
+
+textarea.zzzc-wide {
+	font-family: inherit;
+	font-size: 13px;
+}
+
+/* The platform tick boxes on an article. */
+.zzzc-check-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 20px;
+	margin: 8px 0 14px;
+}
+
+.zzzc-check-grid label {
+	align-items: center;
+	display: inline-flex;
+	gap: 6px;
+}
+
+.zzzc-filters {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px 16px;
+	margin-bottom: 16px;
+}
+
+.zzzc-filters .zzzc-field {
+	margin: 0;
+}
+
+.zzzc-result.is-ok {
+	color: var(--z-ink);
+}
+
+.zzzc-result.is-bad {
+	color: var(--z-ink);
+	font-weight: 600;
+}
+
+@media (max-width: 782px) {
+	.zzzc-filters {
+		display: block;
+	}
+
+	.zzzc-filters .zzzc-field {
+		margin-bottom: 10px;
+	}
+
+	.zzzc-check-grid {
+		display: block;
+	}
+
+	.zzzc-check-grid label {
+		display: flex;
+		margin-bottom: 8px;
+	}
+}

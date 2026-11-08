@@ -102,11 +102,70 @@ Use this on a staging copy of your site if you have one. Automatic Publish is on
 - [ ] The count resets at local midnight, not UTC midnight
 - [ ] Usage shows tokens and reported cost that agree with your OpenRouter account
 
+## Social media distribution
+
+Skip this whole section if you are not using it. Checks marked **live** need a real connected
+account and will publish a real post, so do them on a test Page or account first.
+
+### Before connecting
+
+- [ ] Social Media page opens with distribution off and no account connected
+- [ ] The callback address is shown and can be selected in one click
+- [ ] A warning appears if the site is not served over https
+- [ ] Each platform's card states its approval requirement, its cost and its limits
+- [ ] Switching a platform on without an account is refused with a clear message
+
+### Connecting
+
+- [ ] Saving an application identifier and secret succeeds, and the secret is then shown only as its last four characters
+- [ ] **live** Connect account opens the platform, and returning connects the account
+- [ ] Returning to the callback with a changed or missing state value is refused and nothing is saved
+- [ ] Bluesky refuses a value that is not shaped like an app password, without sending it anywhere
+- [ ] Bluesky connects with a real handle and app password
+- [ ] Test connection reports the account and does not print a credential
+- [ ] Reconnect replaces the credentials of an account already connected rather than adding a second row
+- [ ] Disconnect deletes the credentials, cancels what is pending, and keeps the published history
+
+### Publishing
+
+- [ ] A draft article queues nothing
+- [ ] **live** A published article queues one record per platform that is on, and publishes it
+- [ ] The post on the platform carries the right text, the article link and the featured image
+- [ ] Instagram's caption has no web address and ends with the call to action
+- [ ] X's post is within 280 characters including the link
+- [ ] Bluesky's link and hashtags are clickable, not plain text
+- [ ] LinkedIn's post is not cut short where a bracket or a dash appears, and its hashtags are links
+- [ ] Threads carries one hashtag only
+- [ ] The history row shows the platform, the account, the result, the date and a working link to the post
+
+### The rules that matter most
+
+- [ ] Publishing a draft by hand distributes nothing while that setting is off, and does while it is on
+- [ ] A scheduled post is distributed when it goes public, not when it was scheduled
+- [ ] Editing a distributed article does not post it again
+- [ ] Deleting the article leaves the published social post in place on the platform
+- [ ] Pressing Stop on the Dashboard, then waiting, still publishes a queued social post
+- [ ] With one platform's credentials deliberately broken, the others still publish
+- [ ] Retry on a post that was published is refused, with the reason
+- [ ] Manual approval holds every post with its text ready, and sends nothing until approved
+- [ ] Editing one platform's text leaves the others unchanged
+- [ ] Writing one platform's text again leaves the others unchanged
+- [ ] A scheduled social post can be cancelled before it goes out
+- [ ] An article with no usable picture skips Instagram with the reason, and still posts elsewhere
+
+### Security
+
+- [ ] View the page source of the Social Media page: no access token, refresh token or application secret appears
+- [ ] Logs under the `social` stage name the platform and the article, and contain no credential
+- [ ] Every social form is refused when its nonce is missing or stale
+- [ ] A non-administrator cannot reach either social page or any social action
+
 ## Operations
 
 - [ ] Server cron is running: the Dashboard shows Active
 - [ ] Logs filter correctly and export to CSV
 - [ ] Deactivating stops work and keeps posts and history
+- [ ] Deactivating stops social publishing too, and reactivating resumes what was queued
 
 ## Before pressing Start
 

@@ -56,6 +56,26 @@ add_filter( 'zzzc_openrouter_base_url', static fn() => ZZZT_MOCK . '/openrouter/
 add_filter( 'zzzc_commons_api_url', static fn() => ZZZT_MOCK . '/commons/api.php' );
 add_filter( 'zzzc_commons_media_hosts', static fn() => array( '127.0.0.1:8091' ) );
 
+// Point the six social adapters at the local stand-in, keeping each platform's own paths, so the
+// real request shapes are exercised rather than mocked away. Only the host changes.
+add_filter(
+	'zzzc_social_api_url',
+	static function ( $url, $platform ) {
+		$parts = wp_parse_url( (string) $url );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return $url;
+		}
+		// A LinkedIn upload address is handed back by the mock already pointing at itself.
+		if ( false !== strpos( (string) $url, '/social/' ) ) {
+			return $url;
+		}
+		return ZZZT_MOCK . '/social/' . $platform . ( $parts['path'] ?? '/' ) . ( isset( $parts['query'] ) ? '?' . $parts['query'] : '' );
+	},
+	10,
+	2
+);
+add_filter( 'zzzc_social_allowed_hosts', static fn() => array( '127.0.0.1' ), 10, 2 );
+
 require __DIR__ . '/lib.php';
 
 // Administrator for screens, and the post author.

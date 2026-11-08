@@ -1,5 +1,66 @@
 # Test results
 
+## Version 1.10.0: social media distribution
+
+### What was tested, and how
+
+| Layer | What it was | Result |
+|---|---|---|
+| Unit tests, `tests/unit/run-unit.php` | 128 checks on the logic that needs no database and no HTTP: the platform registry's completeness, character budgets including X's fixed 23-character link weight, text shortening, the model's reply being parsed, hashtag cleaning, LinkedIn's fifteen reserved characters, Bluesky's link and hashtag byte offsets, the idempotency key, whether a failed request can be safely retried, credential redaction, and the token cipher | **128 passed, 0 failed** on PHP 8.3.36 |
+| PHP syntax | `php -l` on all 74 plugin classes and every test file | **No errors** |
+| Static reference check | Every `ZZZCopy` class named in a static call resolves to a file, and every static call names a method declared on that class or an ancestor | **0 unresolved**, across 74 classes |
+| Integration tests, `tests/test-11-social.php` | 44 tests against a real WordPress site and a local stand-in for all six platforms, covering the new tables, the upgrade being additive, credential encryption, when distribution happens and when it must not, independence from automation, publishing on each of the six, duplicate prevention, reconciliation, retries and rate limits, token renewal, pictures, approval, scheduling, caption editing, several accounts, and authorisation state safety | **Written, not yet run.** See below |
+
+### What was not tested
+
+**No adapter has published to a real platform.** Everything above was checked against a local
+stand-in that answers with the shapes the platforms' documentation describes. That verifies the
+plugin's own behaviour, including how it handles each failure, but it does not verify that any of
+the six platforms accepts what is sent. Do not describe any platform as working until it has.
+
+**The integration tests have not been executed.** They were written against the existing harness
+but the machine they were written on has no WordPress install, so the 44 tests in
+`test-11-social.php` are unrun. The 1.9.1 suite of 251 tests is also unrun on this release, so it
+is not yet known whether this release leaves the existing behaviour untouched in practice, only
+that nothing in the existing code was altered beyond the integration points listed in
+`ARCHITECTURE.md`.
+
+Run both before trusting this release:
+
+```bash
+php -S 127.0.0.1:8091 tests/mock-server.php          # in one terminal
+ZZZC_TEST=1 ZZZC_WP=/path/to/wordpress php tests/run.php
+php tests/unit/run-unit.php
+```
+
+The unit tests need the `mbstring`, `openssl` and `sodium` extensions. On a PHP build without them
+loaded by default:
+
+```bash
+php -d extension=mbstring -d extension=openssl -d extension=sodium tests/unit/run-unit.php
+```
+
+**API versions and endpoints were checked against the platforms' current documentation on
+2026-11-08, not against the platforms themselves.** The Meta Graph API version was corrected from
+v23.0 to v26.0 during this work, and LinkedIn's version is a `YYYYMM` value that moves every
+month, so both of those, and Instagram's and Threads', can be changed from their card on the
+Social Media page without waiting for a plugin update. Threads' documented limits of 250 posts per
+24 hours, 500 characters, and 8 MB JPEG or PNG were confirmed. Bluesky's 300-grapheme post limit
+and its roughly 976.56 KB blob limit were not confirmed against its documentation in this pass.
+
+**Not tested at all:** the OAuth authorisation flow end to end with any real platform, since that
+needs a developer application and a browser; App Review behaviour; what a real platform does with
+an unusual image; behaviour at a real rate limit; whether reconciliation correctly recognises the
+plugin's own post on a busy account; and anything on the owner's live site.
+
+### Known limits found while building it
+
+- An unconfirmed LinkedIn post cannot be checked automatically, because the Posts API cannot be searched by content. It waits for a person, and the dashboard offers Retry and Cancel.
+- A PNG featured image cannot be published to Instagram, which accepts JPEG only. The image is never converted, because of the rule against editing a share-alike image.
+- Facebook, Instagram and Threads fetch the picture from the site's public address, so they cannot publish from a site that is not reachable from the internet. This is detected and reported rather than left to fail at the platform.
+- Reconciliation recognises the plugin's own post by comparing text with the account's recent posts. An account posting heavily from elsewhere at the same moment could in principle confuse it.
+- One image per post. No carousels and no video.
+
 ## Version 1.9.1: image search subjects
 
 ### Why

@@ -10,6 +10,35 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.10.0] - 2026-11-08
+
+Social media distribution. Not yet run against any real platform: see the 1.10.0 section of `zzz-copy-das-sobur/docs/TEST-RESULTS.md` for exactly what was and was not tested.
+
+### Added
+
+- **Social media distribution** to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, each through that platform's own official API. Off on upgrade; publishes nothing until an account is connected and a platform switched on.
+- **InkRush → Social Media**: six connection cards, each with its status, its accounts, a connection test, its own settings, and that platform's requirements, approvals, costs and limits written out in full. Plus the callback address every platform needs, and the global distribution settings.
+- **InkRush → Social Publishing**: the figures, the approval queue with editable post text, and the full publishing history with filters by platform, result and date, and buttons to view, retry, edit, cancel and read the error.
+- **Social controls on the Articles page**: which platforms to publish a published article to, whether to read the text first, and the state of each platform for that article.
+- **Per-platform post text** written through the existing OpenRouter key and model from the published article only, in each platform's own tone and length. A new `social` prompt type, seeded from `defaults/social-prompt.txt`, with version history like the others. Captions can be edited by hand or rewritten one platform at a time.
+- Four job types on the existing queue: `social_generate`, `social_publish`, `social_refresh_token` and `social_reconcile`. One publishing job per platform, each independent.
+- Database version 12: two new tables, `social_accounts` and `social_posts`. No existing table, option, article or post is changed.
+- `docs/SOCIAL.md`, covering each platform's setup, requirements, limits and what is sent where.
+- 128 unit tests in `tests/unit/`, runnable without a WordPress install, and 44 integration tests in `tests/test-11-social.php` against a local stand-in for all six platforms.
+
+### Changed
+
+- The background worker now runs when **either** news automation or social distribution has work. Previously `Runner::tick()` returned before acquiring its lock whenever automation was inactive, so no job of any type could run. News job types are still allowed only while automation is active and not paused; the social types are allowed regardless, so a social post already queued still goes out after Stop or Pause.
+- `Automation::stop()` and the automatic stop no longer clear the worker's schedule outright. They match it to whether the worker is wanted, so stopping news automation does not strand queued social posts. With distribution off as well, the schedule is cleared exactly as before.
+- Log redaction now also covers Meta access tokens, JSON web tokens, app passwords, authorisation codes and any field named like a token or secret, and an adapter registers each credential it uses so it is stripped even if a platform echoes it back.
+- The shared admin layout helpers in `Admin\Pages` became public so the new screens could use them rather than duplicating the layout. No existing screen changed.
+
+### Security
+
+- Platform credentials and developer application secrets are encrypted with the plugin's existing scheme before they are stored. The ordinary read path strips the credential columns entirely, so a token cannot reach a page, a script or an AJAX response through an oversight. An application secret is shown only as its last four characters.
+- Every social form checks the administrator's capability and its nonce. The authorisation callback cannot carry a nonce, because a platform does not have one, so it checks the capability and a one-time state value: random, held for ten minutes, tied to the platform and the administrator who started it, used once, and with the platform read from what the site recorded rather than from the query.
+- Requests to the platforms are pinned to each platform's own hosts, are checked against private network addresses with the same test the rest of the plugin uses, and do not follow redirects, because they carry a credential.
+
 ## [1.9.1] - 2026-11-07
 
 A test release: [InkRush 1.9.1 on GitHub](https://github.com/SAGORWDAS/inkrush/releases/tag/v1.9.1). It passed 251 automated tests in a local setup. The owner installed it on their website on 2026-11-07; how it does there is not yet checked.

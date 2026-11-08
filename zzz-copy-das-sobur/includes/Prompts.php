@@ -15,6 +15,7 @@ final class Prompts {
 	public const ARTICLE = 'article';
 	public const TAG     = 'tag';
 	public const SYSTEM  = 'system';
+	public const SOCIAL  = 'social';
 
 	private const OPTION = 'zzzc_active_prompts';
 
@@ -22,6 +23,7 @@ final class Prompts {
 		self::ARTICLE => 'article-prompt.txt',
 		self::TAG     => 'tag-prompt.txt',
 		self::SYSTEM  => 'system-instruction.txt',
+		self::SOCIAL  => 'social-prompt.txt',
 	);
 
 	public static function default_text( string $type ): string {

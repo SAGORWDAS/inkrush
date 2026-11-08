@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Events {
 
-	public const STAGES = array( 'discovery', 'filtering', 'dedupe', 'retrieval', 'ai', 'validation', 'queue', 'image', 'publishing', 'past_hour', 'access', 'scheduler', 'control', 'config', 'maintenance' );
+	public const STAGES = array( 'discovery', 'filtering', 'dedupe', 'retrieval', 'ai', 'validation', 'queue', 'image', 'publishing', 'past_hour', 'access', 'scheduler', 'control', 'config', 'maintenance', 'social' );
 
 	/**
 	 * @param string $stage    One of self::STAGES.

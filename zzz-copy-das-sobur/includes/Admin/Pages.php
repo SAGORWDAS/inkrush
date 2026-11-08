@@ -36,7 +36,7 @@ final class Pages {
 
 	/* ---- Shared layout ---- */
 
-	private static function open( string $title, string $current ): void {
+	public static function open( string $title, string $current ): void {
 		if ( ! current_user_can( Plugin::CAP ) ) {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'zzz-copy-das-sobur' ), 403 );
 		}
@@ -64,17 +64,17 @@ final class Pages {
 		}
 	}
 
-	private static function close(): void {
+	public static function close(): void {
 		echo '<p class="zzzc-footer">InkRush. Developed by: Sagor Das. Contact: <a href="mailto:das.sagorwork@gmail.com">das.sagorwork@gmail.com</a></p></div>';
 	}
 
-	private static function field_error( string $key ): void {
+	public static function field_error( string $key ): void {
 		if ( ! empty( self::$flash['fields'][ $key ] ) ) {
 			echo '<p class="zzzc-field-error">' . esc_html( self::$flash['fields'][ $key ] ) . '</p>';
 		}
 	}
 
-	private static function action_button( string $action, string $label, array $hidden = array(), string $class = '', string $confirm = '' ): void {
+	public static function action_button( string $action, string $label, array $hidden = array(), string $class = '', string $confirm = '' ): void {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-inline"' . ( $confirm ? ' data-confirm="' . esc_attr( $confirm ) . '"' : '' ) . '>';
 		Actions::url_field( $action );
 		foreach ( $hidden as $name => $value ) {
@@ -83,7 +83,7 @@ final class Pages {
 		echo '<button type="submit" class="zzzc-btn ' . esc_attr( $class ) . '">' . esc_html( $label ) . '</button></form>';
 	}
 
-	private static function number_row( string $key, string $label, string $help = '', string $step = '1' ): void {
+	public static function number_row( string $key, string $label, string $help = '', string $step = '1' ): void {
 		printf(
 			'<div class="zzzc-field"><label for="%1$s">%2$s</label><input type="number" step="%5$s" id="%1$s" name="%1$s" value="%3$s">%4$s',
 			esc_attr( $key ),
@@ -96,7 +96,7 @@ final class Pages {
 		echo '</div>';
 	}
 
-	private static function select_row( string $key, string $label, array $options, string $help = '' ): void {
+	public static function select_row( string $key, string $label, array $options, string $help = '' ): void {
 		printf( '<div class="zzzc-field"><label for="%1$s">%2$s</label><select id="%1$s" name="%1$s">', esc_attr( $key ), esc_html( $label ) );
 		foreach ( $options as $value => $text ) {
 			printf( '<option value="%1$s"%3$s>%2$s</option>', esc_attr( (string) $value ), esc_html( $text ), selected( (string) Settings::get( $key ), (string) $value, false ) );
@@ -109,7 +109,7 @@ final class Pages {
 		echo '</div>';
 	}
 
-	private static function check_row( string $key, string $label, string $help = '' ): void {
+	public static function check_row( string $key, string $label, string $help = '' ): void {
 		printf(
 			'<div class="zzzc-field zzzc-check"><label><input type="checkbox" name="%1$s" value="1"%3$s> %2$s</label>%4$s</div>',
 			esc_attr( $key ),
@@ -119,7 +119,7 @@ final class Pages {
 		);
 	}
 
-	private static function pagination( string $page, int $total, int $per_page, int $current, array $args = array() ): void {
+	public static function pagination( string $page, int $total, int $per_page, int $current, array $args = array() ): void {
 		$pages = (int) ceil( $total / max( 1, $per_page ) );
 		if ( $pages <= 1 ) {
 			return;
@@ -134,7 +134,7 @@ final class Pages {
 		echo '</nav>';
 	}
 
-	private static function request_string( string $key, string $fallback = '' ): string {
+	public static function request_string( string $key, string $fallback = '' ): string {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only filters on a capability-checked page.
 		return isset( $_GET[ $key ] ) ? sanitize_text_field( wp_unslash( $_GET[ $key ] ) ) : $fallback;
 	}
@@ -520,7 +520,7 @@ final class Pages {
 		self::close();
 	}
 
-	private static function save_bar( string $label = 'Save changes' ): void {
+	public static function save_bar( string $label = 'Save changes' ): void {
 		echo '<div class="zzzc-save"><button type="submit" class="zzzc-btn is-primary">' . esc_html( $label ) . '</button><span class="zzzc-unsaved" hidden>Unsaved changes</span></div>';
 	}
 
@@ -1628,6 +1628,10 @@ final class Pages {
 			echo '<section class="zzzc-card"><h3>Request record</h3><pre class="zzzc-pre">' . esc_html( (string) wp_json_encode( json_decode( (string) $job['request_audit'], true ), JSON_PRETTY_PRINT ) ) . '</pre></section>';
 		}
 
+		// The social posts for this article, and the buttons to distribute it. Added after
+		// everything that was already here, so the existing article view is unchanged.
+		SocialPages::article_card( $id, $link );
+
 		echo '<section class="zzzc-card"><h3>History</h3>';
 		self::events_table( Events::query( array( 'job' => $id ), 50 ), true );
 		echo '</section>';
@@ -1781,5 +1785,22 @@ final class Pages {
 		echo '<p class="zzzc-help">Times are in ' . esc_html( Schedule::zone_label() ) . '. Hover over a time to see UTC.</p></section>';
 
 		self::close();
+	}
+
+	/* ---- Social media ---- */
+
+	/**
+	 * InkRush, Social Media: the six connection cards and the distribution settings.
+	 * The screen itself is in SocialPages, so this file keeps to the original screens.
+	 */
+	public static function social(): void {
+		SocialPages::accounts();
+	}
+
+	/**
+	 * InkRush, Social Publishing: the figures, the approval queue and the publishing history.
+	 */
+	public static function social_posts(): void {
+		SocialPages::publishing();
 	}
 }

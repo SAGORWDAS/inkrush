@@ -22,10 +22,18 @@ final class Runner {
 			'ran'    => false,
 			'source' => $source,
 			'jobs'   => 0,
+			'social' => 0,
 			'reason' => '',
 		);
 
-		if ( ! Automation::is_active() ) {
+		$automation = Automation::is_active();
+		$social     = Social\SocialSettings::enabled();
+
+		// Social distribution runs on its own. An article that is already published on the website
+		// has nothing left to do with news discovery, so its social posts must still go out when
+		// automation is paused, stopped or has stopped itself. The worker therefore keeps running
+		// while either side has work, and each side decides for itself what it may do.
+		if ( ! $automation && ! $social ) {
 			$summary['reason'] = 'stopped';
 			return $summary;
 		}
@@ -45,33 +53,47 @@ final class Runner {
 		try {
 			Health::beat( $source );
 
-			if ( AutoStop::check() ) {
-				$summary['reason'] = 'auto_stopped';
-				return $summary;
-			}
-
-			if ( Automation::STARTING === Automation::get( 'run_state' ) ) {
-				Automation::patch( array( 'run_state' => Automation::RUNNING ) );
-				Events::log( 'control', 'info', 'Background worker confirmed. Automation is running.', array( 'status' => Automation::RUNNING ) );
-			}
-
-			Schedule::ensure_slots();
 			Jobs::recover_stale();
-			Publisher::recover_interrupted();
 
-			$state = Automation::state();
-			if ( ! $state['paused_research'] ) {
-				Planner::tick();
+			if ( $automation && AutoStop::check() ) {
+				// Automation has stopped itself. Social distribution carries on below, because
+				// its queued posts belong to articles that are already on the website.
+				$automation        = false;
+				$summary['reason'] = 'auto_stopped';
 			}
 
-			Publisher::tick();
+			if ( $automation ) {
+				if ( Automation::STARTING === Automation::get( 'run_state' ) ) {
+					Automation::patch( array( 'run_state' => Automation::RUNNING ) );
+					Events::log( 'control', 'info', 'Background worker confirmed. Automation is running.', array( 'status' => Automation::RUNNING ) );
+				}
+
+				Schedule::ensure_slots();
+				Publisher::recover_interrupted();
+
+				$state = Automation::state();
+				if ( ! $state['paused_research'] ) {
+					Planner::tick();
+				}
+
+				Publisher::tick();
+			}
+
+			if ( $social ) {
+				// Turns anything due into jobs, and recovers social posts a stopped worker left
+				// mid-flight. Never throws into the automation path above.
+				$summary['social'] = Social\SocialManager::tick();
+			}
 
 			while ( microtime( true ) - $started < $budget ) {
-				// Safe checkpoint: a Stop or Pause takes effect before the next job starts.
-				if ( ! Automation::is_active() || AutoStop::check() ) {
+				// Safe checkpoint, read fresh each time round: a Stop or Pause takes effect
+				// before the next job starts, and takes effect only on the automation jobs.
+				// An empty list means neither side has anything it is allowed to run.
+				$types = self::allowed_types();
+				if ( ! $types ) {
 					break;
 				}
-				$job = Jobs::claim( self::allowed_types(), $owner, $ttl );
+				$job = Jobs::claim( $types, $owner, $ttl );
 				if ( ! $job ) {
 					break;
 				}
@@ -100,20 +122,40 @@ final class Runner {
 	}
 
 	/**
-	 * Job types allowed by the current pause settings.
+	 * Job types allowed right now.
+	 *
+	 * The news automation types are allowed only while automation is active and not paused, which
+	 * is exactly as before. The social types are decided separately and are not affected by the
+	 * automation state at all, so a social post already queued still goes out after a Stop.
+	 * Caption generation is the one exception: it is the only social job that spends money at
+	 * OpenRouter, so it respects an AI block such as an invalid key or exhausted credits.
 	 */
 	public static function allowed_types(): array {
 		$state = Automation::state();
-		$types = array( Jobs::USAGE_FETCH );
-		if ( ! $state['paused_research'] ) {
-			$types[] = Jobs::DISCOVER;
-			$types[] = Jobs::RETRIEVE;
+		$types = array();
+
+		if ( Automation::is_active() ) {
+			$types[] = Jobs::USAGE_FETCH;
+			if ( ! $state['paused_research'] ) {
+				$types[] = Jobs::DISCOVER;
+				$types[] = Jobs::RETRIEVE;
+			}
+			if ( '' === $state['ai_block_code'] ) {
+				$types[] = Jobs::GENERATE;
+				$types[] = Jobs::TAGS;
+			}
+			$types[] = Jobs::VALIDATE;
 		}
-		if ( '' === $state['ai_block_code'] ) {
-			$types[] = Jobs::GENERATE;
-			$types[] = Jobs::TAGS;
+
+		if ( Social\SocialSettings::enabled() ) {
+			foreach ( Jobs::social_types() as $type ) {
+				if ( Jobs::SOCIAL_GENERATE === $type && '' !== (string) $state['ai_block_code'] ) {
+					continue;
+				}
+				$types[] = $type;
+			}
 		}
-		$types[] = Jobs::VALIDATE;
+
 		return $types;
 	}
 
@@ -142,6 +184,18 @@ final class Runner {
 					break;
 				case Jobs::USAGE_FETCH:
 					$result = Usage::handle_fetch( $job );
+					break;
+				case Jobs::SOCIAL_GENERATE:
+					$result = Social\SocialManager::handle_generate( $job );
+					break;
+				case Jobs::SOCIAL_PUBLISH:
+					$result = Social\SocialManager::handle_publish( $job );
+					break;
+				case Jobs::SOCIAL_TOKEN:
+					$result = Social\SocialManager::handle_refresh_token( $job );
+					break;
+				case Jobs::SOCIAL_RECONCILE:
+					$result = Social\SocialManager::handle_reconcile( $job );
 					break;
 				default:
 					$result = JobResult::fail( 'unknown_job', 'Unknown job type: ' . $job['job_type'] );
@@ -191,6 +245,14 @@ final class Runner {
 	 * Marks the article record when its job has failed for good.
 	 */
 	public static function on_job_exhausted( string $type, array $payload, string $code, string $message ): void {
+		// A social job that has run out of attempts is recorded against its own social post, and
+		// must never change the state of the article. The article is already published on the
+		// website, and a platform being unavailable says nothing about the article itself.
+		if ( in_array( $type, Jobs::social_types(), true ) ) {
+			Social\SocialManager::on_job_exhausted( $type, $payload, $code, $message );
+			return;
+		}
+
 		$article_job_id = (int) ( $payload['article_job_id'] ?? 0 );
 		$fields         = array(
 			'error_code'    => $code,
@@ -236,12 +298,16 @@ final class Runner {
 
 	private static function stage_for( string $type ): string {
 		$map = array(
-			Jobs::DISCOVER    => 'discovery',
-			Jobs::RETRIEVE    => 'retrieval',
-			Jobs::GENERATE    => 'ai',
-			Jobs::TAGS        => 'ai',
-			Jobs::VALIDATE    => 'validation',
-			Jobs::USAGE_FETCH => 'ai',
+			Jobs::DISCOVER        => 'discovery',
+			Jobs::RETRIEVE        => 'retrieval',
+			Jobs::GENERATE        => 'ai',
+			Jobs::TAGS            => 'ai',
+			Jobs::VALIDATE        => 'validation',
+			Jobs::USAGE_FETCH     => 'ai',
+			Jobs::SOCIAL_GENERATE => Social\SocialLogger::STAGE,
+			Jobs::SOCIAL_PUBLISH  => Social\SocialLogger::STAGE,
+			Jobs::SOCIAL_TOKEN    => Social\SocialLogger::STAGE,
+			Jobs::SOCIAL_RECONCILE => Social\SocialLogger::STAGE,
 		);
 		return $map[ $type ] ?? 'scheduler';
 	}

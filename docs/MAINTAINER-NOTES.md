@@ -7,14 +7,15 @@ Paths below are relative to the repository root.
 
 A WordPress plugin for one website. It finds news, reads accessible publisher text, writes articles through OpenRouter, and creates posts on a schedule, in the background, with featured images from Wikimedia Commons.
 
-**Current version: 1.9.1 (test release: image search subjects fixed)**
+**Current version: 1.10.0 (social media distribution; not yet run on a real site)**
 
 ## What is here
 
 | Path | What it is |
 |---|---|
-| `dist/inkrush-1.9.1.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
-| `dist/inkrush-1.9.0.zip` | The previous version |
+| `dist/inkrush-1.10.0.zip` | The plugin, ready to install in WordPress. The folder inside is `zzz-copy-das-sobur` |
+| `dist/inkrush-1.9.1.zip` | The previous version |
+| `dist/inkrush-1.9.0.zip` | An earlier version |
 | `dist/zzz-copy-das-sobur-1.7.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.6.0.zip` | The previous version |
 | `dist/zzz-copy-das-sobur-1.5.0.zip` | An earlier version |
@@ -89,11 +90,11 @@ Read these first:
 
 ### Rules the owner set
 
-- **No outside integrations** beyond news sources, OpenRouter and Wikimedia Commons. No third-party plugins, libraries, CDNs, web fonts or telemetry. The job queue is built in.
+- **No outside integrations** beyond news sources, OpenRouter, Wikimedia Commons and the six social media platforms. No third-party plugins, libraries, CDNs, web fonts or telemetry. The job queue is built in. *(Widened on 2026-11-08: this rule said news sources, OpenRouter and Wikimedia Commons only. The owner asked for social media distribution, which adds Facebook, Instagram, X, LinkedIn, Threads and Bluesky, each through its own official API. Nothing else was added: no library, no SDK, no CDN and no telemetry, and the six are contacted only for a platform the owner has connected and switched on.)*
 - **The owner's prompts are stored exactly as written** in `zzz-copy-das-sobur/defaults/`. Do not correct or rewrite them, even where they contain typos. Any added instruction goes in the separate system message.
 - **AI is only for rewriting and tags.** Images are chosen by rules, with no AI. See `zzz-copy-das-sobur/docs/IMAGES.md`.
 - **Do not push to GitHub** unless the owner asks for that push.
-- **The admin screens stay monochrome**, minimal and fast.
+- **The admin screens stay monochrome**, minimal and fast. The social platform marks follow this: each is a single-colour vector drawn inline in the page, taking the colour of the text beside it, so the six brand palettes are not brought onto the page and nothing is loaded from a platform. They identify the platform and nothing more.
 - **Never invent facts.** A story without enough accessible source text is held, and no article is written.
 - **Do not bypass** paywalls, logins or publisher robots rules. The plugin identifies itself honestly.
 - **Failed content is held, never published,** even in Automatic Publish.
@@ -111,10 +112,20 @@ Read these first:
 - On 2026-11-06 the owner chose "Author profiles": the plugin keeps writing posts automatically and credits each to a user the owner authorised, rather than users triggering posts themselves. Plugin administrators stay as everyone with `manage_options`, and nobody is authorised by role. Phase 1 (1.7.0) is built. For Phase 2 the owner accepted these defaults: a timezone per author, the site-wide daily maximum and AI limit as ceilings above every author's limits, and clashing schedules refused with a 15-minute minimum gap.
 - The starting list is the owner's 21 categories, and more can be added in the admin screens.
 - The target is 3 posts a day at 10:00, 16:00 and 22:00.
+- On 2026-11-08 the owner asked for **Social Media Distribution** (1.10.0): every published article posted to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky through those platforms' own official APIs. Decisions taken while building it, each of which can be reversed:
+  - It installs and upgrades **switched off**, and publishes nothing until an account is connected and a platform switched on. An upgrade must never start posting to social media on its own.
+  - **Drafts are never distributed.** An InkRush draft published by hand is distributed only when "Distribute articles published by hand" is switched on, which is off by default. A scheduled post is distributed when WordPress actually makes it public.
+  - **An image is never edited.** This follows the existing share-alike rule. Where the full-size featured image does not meet a platform's limits, the largest size WordPress already generated at import is used instead, and when none fits, no image is sent. Instagram, which requires one, is skipped for that article. A PNG featured image therefore cannot go to Instagram at all, because Instagram accepts JPEG only.
+  - **An attempt whose outcome could not be read is never retried.** It is reconciled against the platform first. A duplicate post was judged worse than a post that waits for a person. LinkedIn cannot be asked, so such a post waits.
+  - **Social publishing does not depend on news automation.** `Runner::tick()` previously returned before its lock when automation was inactive, so nothing ran at all. It now runs when either side has work, and the worker's cron stays scheduled while distribution is on.
+  - Captions use a **fourth prompt type**, `social`, seeded from `defaults/social-prompt.txt`, versioned like the others. The owner's article, tag and system prompts are untouched.
+  - **X costs money.** Posting is not usable on its Free tier. This is stated on the platform's card rather than left to be discovered.
+  - Facebook, Instagram and Threads need **App Review and Business Verification**; LinkedIn needs approval for the Community Management API to post as an organisation. Until then each can publish only to the developer's own accounts. Bluesky needs nothing.
 
 ### Current status
 
-- **Automated tests:** see the 1.9.1, 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **Automated tests:** see the 1.10.0, 1.9.1, 1.9.0, 1.8.0, 1.7.0, 1.6.0, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.4, 1.3.3, 1.3.2 and 1.3.1 sections of `zzz-copy-das-sobur/docs/TEST-RESULTS.md`. Version 1.3.0 passed its 133 tests on WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5.
+- **Social media distribution (1.10.0) has not been run against a real platform.** 128 unit tests pass, and `tests/test-11-social.php` covers the rest against a local stand-in, but no adapter has yet published to a real account. Nothing in this release should be described as working on a platform until it has. See the 1.10.0 section of `TEST-RESULTS.md` for exactly what was and was not tested, and test Bluesky first: it is the only one of the six that needs no developer approval and no payment.
 - **Versions 1.3.1 to 1.3.4, 1.4.1, 1.4.2, 1.5.0, 1.6.0 and 1.7.0** have only run in a local test setup. **1.4.0** ran on the owner's test website on 2026-11-06, for one post. See the 1.4.1 section of `TEST-RESULTS.md`.
 - **Images (1.3.0):** real Commons searches, downloads and credit lines were tested on a local site, not yet on the owner's test website or with Elementor. Some chosen images will not suit their story.
 - **Live test on the owner's separate test website, version 1.2.0:** a real story was found and read, then written with the real model, published at its slot, and the limit of 1 post held.

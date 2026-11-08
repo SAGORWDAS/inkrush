@@ -790,6 +790,12 @@ final class Publisher {
 
 		if ( 'publish' === $post_status ) {
 			AutoStop::check();
+
+			// WordPress has confirmed the article is publicly published, which is the only point
+			// at which social distribution may begin. A draft never reaches here. Anything that
+			// goes wrong on a social platform from here on is recorded against that platform's
+			// own job and cannot affect this post, which is already live.
+			Social\SocialManager::on_article_published( $job, $post_id );
 		}
 	}
 

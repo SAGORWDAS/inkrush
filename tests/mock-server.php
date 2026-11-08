@@ -244,6 +244,10 @@ if ( 0 === strpos( $uri, '/openrouter/api/v1/' ) ) {
 	zzzc_json( 404, array( 'error' => array( 'code' => 404, 'message' => 'Unknown path' ) ) );
 }
 
+/* ---------- Social media platforms ---------- */
+
+require __DIR__ . '/mock-social.php';
+
 /* ---------- Publisher ---------- */
 
 header( 'X-Mock: publisher' );

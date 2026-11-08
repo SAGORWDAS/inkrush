@@ -319,4 +319,42 @@
 			event.preventDefault();
 		}
 	} );
+
+	/* Social Media page: test one connected account against its platform. */
+	document.querySelectorAll( '.zzzc-test-social' ).forEach( function ( button ) {
+		button.addEventListener( 'click', function () {
+			var id = button.getAttribute( 'data-account' );
+			var result = document.querySelector( '.zzzc-result[data-for="' + id + '"]' );
+			button.disabled = true;
+			setText( result, 'Testing the connection with the platform...' );
+			if ( result ) {
+				result.className = 'zzzc-result';
+			}
+			post( 'test_social', { account_id: id } ).then( function ( reply ) {
+				button.disabled = false;
+				setText( result, reply.data && reply.data.message ? reply.data.message : 'The test did not finish.' );
+				if ( result ) {
+					result.className = 'zzzc-result ' + ( reply.success ? 'is-ok' : 'is-bad' );
+				}
+			} ).catch( function () {
+				button.disabled = false;
+				setText( result, 'The test could not be run. Check that this site can reach the internet.' );
+				if ( result ) {
+					result.className = 'zzzc-result is-bad';
+				}
+			} );
+		} );
+	} );
+
+	/* Social Publishing page: show how much of a platform's limit the text has used. */
+	document.querySelectorAll( '.zzzc-social-caption textarea[maxlength]' ).forEach( function ( area ) {
+		var help = area.parentNode.querySelector( '.zzzc-help' );
+		if ( ! help ) {
+			return;
+		}
+		var original = help.textContent;
+		area.addEventListener( 'input', function () {
+			help.textContent = original.replace( /^\d+ of/, String( area.value.length ) + ' of' );
+		} );
+	} );
 }() );

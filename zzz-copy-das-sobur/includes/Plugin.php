@@ -24,10 +24,12 @@ final class Plugin {
 		add_action( 'deleted_user', array( Authors::class, 'on_deleted_user' ), 10, 1 );
 		add_action( 'set_user_role', array( Authors::class, 'on_role_change' ), 10, 3 );
 		Images\Attribution::register();
+		Social\SocialManager::register();
 
 		if ( is_admin() ) {
 			Admin\Menu::register();
 			Admin\Actions::register();
+			Admin\SocialActions::register();
 			Admin\Ajax::register();
 		}
 	}
@@ -72,14 +74,41 @@ final class Plugin {
 	}
 
 	/**
-	 * Restores the recurring schedule if another process removed it while automation should run.
+	 * Whether the background worker has any reason to run.
+	 *
+	 * News automation is one reason. Social distribution is a second, independent one: its posts
+	 * belong to articles already published on the website, so they must keep going out after a
+	 * Stop. Were this to look only at automation, stopping automation would silently strand every
+	 * social post that was already queued.
+	 */
+	public static function worker_wanted(): bool {
+		return Automation::is_active() || Social\SocialSettings::enabled();
+	}
+
+	/**
+	 * Matches the recurring worker schedule to whether the worker is wanted. Called whenever
+	 * either reason changes, so the schedule is never left running with nothing to do, nor
+	 * cleared while work is still queued.
+	 */
+	public static function sync_schedule(): void {
+		if ( self::worker_wanted() ) {
+			if ( ! wp_next_scheduled( self::TICK_HOOK ) ) {
+				wp_schedule_event( time() + 60, 'zzzc_minute', self::TICK_HOOK );
+			}
+			return;
+		}
+		wp_clear_scheduled_hook( self::TICK_HOOK );
+	}
+
+	/**
+	 * Restores the recurring schedule if another process removed it while the worker is wanted.
 	 */
 	public static function self_heal_schedule(): void {
 		// Admin and cron requests only, so visitor page views gain no database query from this plugin.
 		if ( ! is_admin() && ! wp_doing_cron() ) {
 			return;
 		}
-		if ( Automation::is_active() && ! wp_next_scheduled( self::TICK_HOOK ) ) {
+		if ( self::worker_wanted() && ! wp_next_scheduled( self::TICK_HOOK ) ) {
 			wp_schedule_event( time() + 60, 'zzzc_minute', self::TICK_HOOK );
 		}
 		if ( ! wp_next_scheduled( self::DAILY_HOOK ) ) {

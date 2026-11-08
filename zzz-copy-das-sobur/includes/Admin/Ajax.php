@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
 final class Ajax {
 
 	public static function register(): void {
-		foreach ( array( 'test_connection', 'test_search', 'test_generation', 'save_test_draft', 'live_status', 'test_commons', 'test_image_search' ) as $action ) {
+		foreach ( array( 'test_connection', 'test_search', 'test_generation', 'save_test_draft', 'live_status', 'test_commons', 'test_image_search', 'test_social' ) as $action ) {
 			add_action( 'wp_ajax_zzzc_' . $action, array( __CLASS__, $action ) );
 		}
 	}
@@ -81,6 +81,49 @@ final class Ajax {
 				'candidates' => ImagePipeline::summaries( $reviewed['all'] ),
 			)
 		);
+	}
+
+	/**
+	 * Tests one connected social media account against its platform.
+	 *
+	 * The result never contains a credential: the adapter's message describes what the platform
+	 * said, and everything written to the log passes through the plugin's redaction first.
+	 */
+	public static function test_social(): void {
+		self::guard();
+
+		$account_id = absint( $_POST['account_id'] ?? 0 ); // phpcs:ignore WordPress.Security.NonceVerification
+		$account    = $account_id ? \ZZZCopy\Social\SocialAccounts::get( $account_id ) : null;
+
+		if ( ! $account ) {
+			wp_send_json_error( array( 'message' => 'That account is no longer connected.' ) );
+		}
+
+		$platform = (string) $account['platform'];
+		$adapter  = \ZZZCopy\Social\SocialManager::adapter( $platform );
+		if ( ! $adapter ) {
+			wp_send_json_error( array( 'message' => 'That platform is not supported.' ) );
+		}
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 90 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+		}
+
+		$check = $adapter->test( $account );
+		$ok    = ! empty( $check['ok'] );
+
+		\ZZZCopy\Social\SocialAccounts::mark_checked( $account_id, $ok, (string) $check['message'] );
+		\ZZZCopy\Social\SocialLogger::log(
+			$ok ? 'info' : 'warning',
+			$platform,
+			sprintf( 'Connection test for %1$s: %2$s', \ZZZCopy\Social\SocialAccounts::label( $account ), (string) $check['message'] ),
+			array( 'account_id' => $account_id )
+		);
+
+		if ( $ok ) {
+			wp_send_json_success( array( 'message' => (string) $check['message'] ) );
+		}
+		wp_send_json_error( array( 'message' => (string) $check['message'] ) );
 	}
 
 	private static function guard(): void {

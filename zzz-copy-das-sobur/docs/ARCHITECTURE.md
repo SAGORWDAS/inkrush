@@ -24,8 +24,27 @@ zzz-copy-das-sobur/
     Authors                                         Which users may be credited with posts
     AuthorSchedules                                 Multiple users mode: each author's schedule, conflicts and limits
     Images/                                         Commons search, license rules, scoring, image history, import, credit line
+    Social/                                         Social media distribution: platforms, accounts, queue, captions, six adapters
     Events, Maintenance, RestTick                   Logs, retention, cron endpoint
     Admin/                                          Screens, form actions, AJAX
+```
+
+```
+    includes/Social/
+      Platforms                The six platforms: limits, permissions, approvals, costs. The only place these are written
+      SocialManager            The engine: when to distribute, the job handlers, the administrator's actions
+      SocialQueue              One record per article per platform per account, with the idempotency key
+      SocialAccounts           Connected accounts. Credential columns are stripped from every ordinary read
+      SocialSecrets            Application credentials, the one-time authorisation state, the callback address
+      SocialSettings           Global switches (in the usual settings option) and per-platform choices
+      SocialContentGenerator   Post text for each platform, through the existing OpenRouter client
+      SocialMedia              The existing featured image, prepared for one platform. Never edits an image
+      SocialHttp               Requests to the platforms: host pinned, no redirects followed, everything redacted
+      SocialResult             What an adapter did, including "unknown", which never retries
+      SocialLogger             Social entries in the existing events table, under the stage `social`
+      Adapters/Base            What every adapter shares: composing text, rate limits, classifying failures
+      Adapters/MetaBase        What Facebook, Instagram and Threads share: tokens, containers, Meta error codes
+      Adapters/Facebook, Instagram, X, LinkedIn, Threads, Bluesky
 ```
 
 There is no third-party code. The job queue is built on plugin tables and needs no other plugin.
@@ -153,8 +172,63 @@ All tables use the `{prefix}zzzc_` prefix and `utf8mb4`. Times are stored in UTC
 | `locks` | Named locks with expiry |
 | `image_history` | Permanent record of every image held or used, with its license and credit. Commons page id, file name and file address are each unique. See `docs/IMAGES.md` |
 | `image_runs` | One article's image progress: status, attempts, searches and the files checked with their results |
+| `social_accounts` | One connected social media account: platform, the account's own identifier, name, type, **encrypted** access and refresh credentials, expiry, scopes, status and reason, last check and last publication. `platform` with `external_id` is unique, which is what makes Reconnect replace an account in place rather than adding a second one |
+| `social_posts` | One article on one platform through one account: the post text and where it came from, the hashtags, the image used, status, attempts, retry and scheduled times, the worker's claim, the error, and the identifier and address of the published post. `idempotency_key` is unique, and that constraint is what prevents a duplicate post |
 
-Global settings, state and the encrypted key are in the options `zzzc_settings`, `zzzc_state` and `zzzc_secret`.
+Global settings, state and the encrypted key are in the options `zzzc_settings`, `zzzc_state` and `zzzc_secret`. The social distribution switches are in `zzzc_settings` with everything else; the per-platform choices are in `zzzc_social_platforms`, and the encrypted developer application credentials in `zzzc_social_apps`.
+
+## Social media distribution
+
+Added in 1.10.0, database version 12. Off until an account is connected and a platform switched
+on. Full detail, including each platform's requirements, is in `docs/SOCIAL.md`.
+
+It is a fourth engine, and the only one that does not depend on the other three:
+
+```
+Publishing                     Social distribution
+WordPress post is public  ->   one record per platform
+                               one caption request for all of them
+                               one job per platform, each independent
+```
+
+**Where it joins the existing code.** `Publisher::record_success()` calls it at the single point
+where WordPress has confirmed `publish`, after `post_links` is written. A post published outside
+the worker, by hand or by reaching a scheduled time, arrives through `transition_post_status`
+instead. Nothing else in the publishing path is changed, and a social failure can never alter an
+article record.
+
+**The queue.** `social_posts` holds state and history, exactly as `publishing_queue` does for
+articles, while the work runs as four job types on the existing `jobs` table: `social_generate`,
+`social_publish`, `social_refresh_token` and `social_reconcile`. There is no second queue, no
+second worker and no second scheduler.
+
+**Independence from automation.** `Runner::tick()` used to return before acquiring its lock when
+automation was not active, so no job of any type could run. It now runs whenever either news
+automation or social distribution has work, and `Runner::allowed_types()` decides each side's
+types separately: the news types only while automation is active and not paused, the social types
+regardless. `Plugin::sync_schedule()` keeps the minute cron alive while either side wants it, so
+`Automation::stop()` no longer strands queued social posts. Caption writing is the one social job
+that respects an AI block, because it is the only one that spends money at OpenRouter.
+
+**Why a timeout is not a retry.** `SocialResult` has an outcome `JobResult` does not: `UNKNOWN`,
+for an attempt that may or may not have reached the platform. It never retries. It moves the
+record to `reconciling` and queues a `social_reconcile` job, which asks the platform what exists
+before anything else is sent. `SocialHttp::definitely_not_sent()` draws the line: a refused
+connection or an unresolvable name certainly never arrived and is safe to retry, while a timeout
+may have been received and is not. Five platforms can be asked; LinkedIn cannot, so such a record
+waits for a person.
+
+**Duplicate prevention, in three layers.** The unique `idempotency_key`, so the database itself
+refuses a second record for the same article, platform and account. A conditional claim in
+`SocialQueue::begin_attempt()`, which only succeeds when no other worker holds the record and
+`external_post_id` is still empty. And a check that the record is not already published
+immediately before each attempt.
+
+**Pictures.** `SocialMedia` reuses the featured image the Commons pipeline chose and the same
+`ImagePipeline::image_problem()` check the publisher uses. It never resizes, crops or re-encodes,
+because of the owner's rule that a share-alike image must not be edited; instead it picks the
+largest size WordPress already generated that meets the platform's limits, and sends no image when
+none does.
 
 ## Article states
 
