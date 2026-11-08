@@ -288,6 +288,33 @@ final class CandidateScorer {
 	 *
 	 * @return array{total:int, parts:array}
 	 */
+	/**
+	 * How many of the article's subjects a file's own labels name.
+	 *
+	 * The score cannot tell a photograph of both people in a story from a photograph of one of
+	 * them: naming the main subject is worth the same either way. This counts them, so selection
+	 * can prefer the fuller picture between two that score alike. It reads labels, not the picture,
+	 * so it is a count of names present and nothing more.
+	 */
+	public static function subjects_matched( array $candidate, array $analysis ): int {
+		$text  = self::label_text( $candidate );
+		$found = array();
+		$names = array_merge( array( (string) ( $analysis['main'] ?? '' ) ), (array) ( $analysis['entities'] ?? array() ) );
+		foreach ( $names as $name ) {
+			$name = trim( (string) $name );
+			if ( '' === $name || ! self::has_phrase( $text, $name ) ) {
+				continue;
+			}
+			// A longer name that contains one already counted is the same subject, not another.
+			foreach ( $found as $counted ) {
+				if ( false !== mb_stripos( $counted, $name ) || false !== mb_stripos( $name, $counted ) ) {
+					continue 2;
+				}
+			}
+			$found[] = $name;
+		}
+		return count( $found );
+	}
 	public static function score( array $candidate, array $analysis ): array {
 		$text = self::label_text( $candidate );
 

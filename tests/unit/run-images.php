@@ -347,4 +347,72 @@ $swift_photo = candidate( 'File:Taylor Swift GMA (8114067517).jpg', 'Taylor Swif
 u_is( '', CandidateScorer::mandatory_failure( $swift_photo, $swift, 'Gaming' ), 'The Taylor Swift photograph is still accepted' );
 u_true( CandidateScorer::score( $swift_photo, $swift )['total'] >= 65, 'And still scores above the minimum' );
 
+/* =====================================================================
+   Headline-first searching
+   The owner's rule: search for the people and subjects the headline names,
+   starting with the two of them together.
+   https://rostrace.com/trump-says-he-offered-ufc-president-dana-white-the-white-house-press-secretary-job/
+   ===================================================================== */
+
+// The title as the site actually published it, which names the building as well as the man.
+$published = ArticleAnalyzer::analyze(
+	'Trump Says He Offered UFC President Dana White the White House Press Secretary Job',
+	$dana_body,
+	$dana_tags,
+	$dana_head,
+	'Politics',
+	'NBC News'
+);
+echo "Published title queries: " . implode( ' | ', $published['queries'] ) . "\n";
+
+u_is(
+	'Donald Trump Dana White',
+	$published['queries'][0] ?? '',
+	'The first search is the two people of the headline, together'
+);
+u_false(
+	false !== stripos( $published['queries'][0] ?? '', 'White House' ),
+	'And it never pairs a man with a building that repeats his name'
+);
+u_false(
+	false !== stripos( implode( ' | ', $published['queries'] ), 'President Donald Trump' ),
+	'The office is not searched for alongside the man'
+);
+
+// A story about a person and a club pairs them, because a picture of her at their game is
+// exactly the illustration the story wants. Her own name is still searched, so a pair that finds
+// nothing costs the article nothing: at least two searches always run.
+u_is(
+	'Taylor Swift Knicks',
+	$swift['queries'][0] ?? '',
+	'A person and the club in the same headline are searched together first'
+);
+u_true(
+	in_array( 'Taylor Swift', $swift['queries'], true ),
+	'And the person alone is still searched, so the pair can safely find nothing'
+);
+
+// Two bare words are searched one at a time, because Commons wants every word of a search.
+u_is( 'Ghana', $ghana['queries'][0] ?? '', 'Two one-word subjects are not demanded together' );
+
+// A lower-case tag is a subject, not somebody's name, so it is never half of a pair.
+u_is( 'Customer Service', $ey['queries'][0] ?? '', 'A concept is searched on its own terms' );
+
+/* ---- Choosing between two pictures that score alike ---- */
+
+$both = candidate(
+	'File:Donald Trump and Dana White at UFC 302.jpg',
+	'President Donald Trump with Dana White at a UFC event.',
+	'Donald Trump|Dana White|UFC'
+);
+$one  = candidate(
+	'File:Dana White 2019.jpg',
+	'Dana White speaking.',
+	'Dana White'
+);
+u_true(
+	CandidateScorer::subjects_matched( $both, $published ) > CandidateScorer::subjects_matched( $one, $published ),
+	'A picture of both people counts more of the article subjects than a picture of one'
+);
+u_is( '', CandidateScorer::mandatory_failure( $both, $published, 'Politics' ), 'And it passes the rules' );
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );

@@ -10,6 +10,21 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.10.4] - 2026-11-08
+
+Image searching now starts from the headline, following the owner's guidelines of 2026-11-08. The workflow is unchanged: rules only, no AI, Wikimedia Commons only.
+
+### Added
+
+- **`ArticleAnalyzer::headline_pair()`**, searched before every other query. When the title or headline names two separate subjects, the first search is the two of them together: `Donald Trump Dana White` for the press-secretary story. Tags supply full names where news writing uses surnames, and a pair needs both halves vouched for by the main subject or a tag, so a capitalised body phrase such as "Finds AI" cannot be paired. A lower-case tag is a subject, not a name, and is never half of a pair. Two names sharing a word are never paired, which keeps "Dana White" away from "White House". A pair needs at least one full name, so "Ghana" and "China" are still searched separately.
+- **`ArticleAnalyzer::strip_honorifics()`**, applied to every name used in a search. Commons matches all the words of a query, so "President Donald Trump" found fewer pictures of the man than "Donald Trump" does. The second-name queries no longer carry an office.
+- **`CandidateScorer::subjects_matched()`**, counting how many of the article's subjects a file's labels name, with longer forms of the same name counted once.
+- `tests/unit/run-images.php`: 9 further checks, including the published title of the article the owner linked. 46 pass, 0 fail.
+
+### Changed
+
+- `ImagePipeline::review()` orders files by score plus 4 points when the labels name more than one subject, so a photograph of both people in a headline beats a photograph of one of them. Ordering only: no threshold, and no reported score, is affected.
+
 ## [1.10.3] - 2026-11-08
 
 Turns the 1.10.2 warning into a guarantee. The daily generation allowance is now shared across the day's post times instead of being first come, first served.

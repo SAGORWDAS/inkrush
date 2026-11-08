@@ -29,6 +29,9 @@ final class ImagePipeline {
 	/** A file this good ends the searching early. Most stories about one person are settled by the first search. */
 	private const STRONG_MATCH = 75;
 
+	/** Points added, for ordering only, to a file whose labels name more than one of the article's subjects. */
+	private const FULLER_PICTURE = 4;
+
 	public static function get_run( int $article_job_id ): ?array {
 		global $wpdb;
 		$table = Db::table( 'image_runs' );
@@ -416,6 +419,7 @@ final class ImagePipeline {
 			$candidate['license_info'] = $license;
 			$candidate['score']        = $scored['total'];
 			$candidate['parts']        = $scored['parts'];
+			$candidate['subjects']     = CandidateScorer::subjects_matched( $candidate, $analysis );
 			$candidate['rejected']     = '';
 
 			if ( ! $license['ok'] ) {
@@ -440,8 +444,15 @@ final class ImagePipeline {
 			}
 		}
 
-		$by_score = static function ( $a, $b ) {
-			return $b['score'] <=> $a['score'];
+		// Between two pictures that score alike, the one naming more of the article's subjects is
+		// the better illustration: a photograph of both people in the headline beats a photograph of
+		// one of them. The bonus is small on purpose, so it decides near-ties and never overrides a
+		// picture that is plainly the better match. The score itself is reported unchanged.
+		$rank     = static function ( array $candidate ): int {
+			return (int) $candidate['score'] + ( (int) ( $candidate['subjects'] ?? 0 ) > 1 ? self::FULLER_PICTURE : 0 );
+		};
+		$by_score = static function ( $a, $b ) use ( $rank ) {
+			return $rank( $b ) <=> $rank( $a );
 		};
 		usort( $eligible, $by_score );
 		usort( $all, $by_score );

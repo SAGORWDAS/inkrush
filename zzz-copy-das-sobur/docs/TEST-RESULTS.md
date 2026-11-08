@@ -1,5 +1,48 @@
 # Test results
 
+## Version 1.10.4: the headline first
+
+The owner's guidelines of 2026-11-08, given with the article
+`trump-says-he-offered-ufc-president-dana-white-the-white-house-press-secretary-job`: prioritise the
+title and its main keywords, search for the people and subjects the headline names, prefer the most
+relevant picture, and change nothing else about the workflow.
+
+That article was published on 2026-11-07, before the 1.10.1 fixes, so its Barack Obama photograph was
+already addressed. What remained was that the two people of a headline were never searched for
+together, and that an office travelled with a name into the search.
+
+### Before and after, from the real article
+
+| | Searches |
+|---|---|
+| As published, 1.10.0 | `White House staff` — and nothing else, because one file scored 81 |
+| 1.10.1 | `Dana White` / `Dana White trump` / `Dana White President Donald Trump` / `UFC` |
+| 1.10.4 | `Donald Trump Dana White` / `Dana White` / `Dana White trump` / `UFC` |
+
+The third 1.10.1 search asked Commons for the office as well as the two men, which matches fewer
+files than the men alone. It is gone.
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Image tests, `tests/unit/run-images.php` | The 37 from 1.10.1 plus 9 for headline-first searching, built from the published title of the owner's own article | **46 passed, 0 failed** on PHP 8.3.36 |
+| Social unit tests, `tests/unit/run-unit.php` | The 128 from 1.10.0, re-run | **128 passed, 0 failed** |
+| PHP syntax | `php -l` across every plugin and test file | **No errors** |
+
+The three real cases from the logs were re-run and only the intended one moved: case 1 gained the
+pair, while "Ghana" and "Customer Service" are searched exactly as 1.10.1 left them. The Taylor
+Swift, Russell Brand, Poundland and Oak Street pictures that were chosen correctly are still
+accepted, and the Obama photograph is still refused.
+
+### What was not tested
+
+**No search has been run against the real Wikimedia Commons.** These tests prove which words are
+sent and how files are ordered, not what Commons returns for them. Whether `Donald Trump Dana White`
+finds a usable free photograph is not known from here, though the owner's own Commons search suggests
+it should. The 4-point ordering bonus has not been seen changing a real choice, because that needs
+two real files scoring within 4 points of each other.
+
 ## Version 1.10.3: the day's generation allowance
 
 The 1.10.2 audit left the generation limit as a warning on a settings page, which only helps the

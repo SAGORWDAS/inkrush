@@ -217,6 +217,144 @@ final class ArticleAnalyzer {
 	}
 
 	/**
+	 * Words that describe what somebody is, not who they are. Commons matches every word of a
+	 * search, so "President Donald Trump" asks for files labelled with the office as well as the
+	 * man, and finds fewer of him than "Donald Trump" does.
+	 */
+	private const HONORIFICS = array(
+		'president', 'vice', 'prime', 'minister', 'chancellor', 'senator', 'sen', 'representative',
+		'rep', 'congressman', 'congresswoman', 'governor', 'gov', 'mayor', 'secretary', 'ambassador',
+		'commissioner', 'chief', 'sheriff', 'detective', 'officer', 'captain', 'general', 'colonel',
+		'sergeant', 'judge', 'justice', 'professor', 'prof', 'doctor', 'dr', 'mr', 'mrs', 'ms',
+		'miss', 'sir', 'dame', 'lord', 'lady', 'king', 'queen', 'prince', 'princess', 'pope',
+		'cardinal', 'bishop', 'coach', 'manager', 'boss', 'founder', 'ceo', 'chairman', 'chairwoman',
+		'director', 'star', 'actor', 'actress', 'singer', 'rapper', 'comedian', 'author',
+		'journalist', 'presenter', 'host', 'billionaire', 'tycoon', 'mogul',
+	);
+
+	/**
+	 * A name with the describing words taken out, so it names only the person.
+	 * "President Donald Trump" becomes "Donald Trump". A name made only of such words is left alone.
+	 */
+	private static function strip_honorifics( string $name ): string {
+		$words = preg_split( '/\s+/u', trim( $name ) ) ?: array();
+		$kept  = array();
+		foreach ( $words as $word ) {
+			if ( ! in_array( mb_strtolower( rtrim( $word, '.' ) ), self::HONORIFICS, true ) ) {
+				$kept[] = $word;
+			}
+		}
+		return $kept ? implode( ' ', $kept ) : trim( $name );
+	}
+
+	/** Whether two names share any whole word, as "Dana White" and "White House" share "White". */
+	private static function shares_a_word( string $one, string $two ): bool {
+		foreach ( preg_split( '/\s+/u', $one ) ?: array() as $word ) {
+			if ( mb_strlen( $word ) >= 3 && preg_match( self::word_pattern( $word, 'iu' ), $two ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The two subjects the headline names, as one search.
+	 *
+	 * A story about two people is best illustrated by a picture of the two of them, and that is
+	 * what a reader expects, so this is searched before anything else. Three things keep it honest:
+	 *
+	 * - The tags are read before the subjects, because a tag gives a name in full where news writing
+	 *   does not: the headline says "Trump" where the tag says "Donald Trump". A tag counts when its
+	 *   last word, the surname, is in the title or headline.
+	 * - Describing words are dropped, because Commons matches every word of a search.
+	 * - Two names that share a word are never paired. "Dana White" and "White House" are not two
+	 *   subjects but one subject and a building that happens to repeat its word, and pairing them
+	 *   would ask Commons for a photograph that cannot exist.
+	 *
+	 * Only a name the article itself vouches for may go in: the main subject, or one of the
+	 * generated tags. A capitalised run from the body such as "Finds AI", which is a verb and an
+	 * abbreviation rather than anybody's name, is not paired with anything. A tag written in lower
+	 * case is a subject and not a name, so "customer service" is searched on its own terms and
+	 * never demanded alongside something else.
+	 *
+	 * @param string[] $entities  Subjects, best first.
+	 * @param string[] $tags      Generated tags.
+	 * @param string   $lines     Title and source headline.
+	 * @param string   $publisher The outlet that published the story.
+	 * @param string   $main      The main subject, which needs no tag to vouch for it.
+	 * @return string Empty unless the headline names two separate subjects, one of them a full name.
+	 */
+	private static function headline_pair( array $entities, array $tags, string $lines, string $publisher, string $main ): string {
+		$vouched = array();
+		$concept = array();
+		foreach ( $tags as $tag ) {
+			$tag = trim( (string) $tag );
+			if ( '' === $tag ) {
+				continue;
+			}
+			$vouched[ mb_strtolower( $tag ) ] = true;
+			if ( $tag === mb_strtolower( $tag ) ) {
+				$concept[ mb_strtolower( $tag ) ] = true;
+			}
+		}
+
+		$candidates = array();
+		foreach ( array_merge( $tags, $entities ) as $name ) {
+			$name  = self::strip_honorifics( trim( (string) $name ) );
+			$words = preg_split( '/\s+/u', $name ) ?: array();
+			$last  = (string) end( $words );
+			$key   = mb_strtolower( $name );
+			if ( mb_strlen( $name ) < 3 || isset( $candidates[ $key ] ) || self::is_outlet( $name, $publisher ) ) {
+				continue;
+			}
+			if ( isset( $concept[ $key ] ) || ( ! isset( $vouched[ $key ] ) && 0 !== strcasecmp( $name, $main ) ) ) {
+				continue;
+			}
+			// A name, not an ordinary word, and one the title or headline really refers to.
+			if ( ! preg_match( '/^\p{Lu}/u', $name ) || ! preg_match( self::word_pattern( $last, 'iu' ), $lines ) ) {
+				continue;
+			}
+			$at                  = mb_stripos( $lines, $last );
+			$candidates[ $key ] = array(
+				'name'  => $name,
+				'at'    => false === $at ? PHP_INT_MAX : $at,
+				'words' => count( $words ),
+			);
+		}
+
+		// Full names first, then whichever the headline names earliest. A story names its people
+		// before it names the things around them, so headline order is the article's own ranking.
+		$order = array_values( $candidates );
+		usort(
+			$order,
+			static function ( array $a, array $b ) {
+				$one = ( $b['words'] > 1 ? 1 : 0 ) <=> ( $a['words'] > 1 ? 1 : 0 );
+				return 0 !== $one ? $one : $a['at'] <=> $b['at'];
+			}
+		);
+
+		$pair = array();
+		foreach ( $order as $row ) {
+			foreach ( $pair as $taken ) {
+				if ( self::shares_a_word( $row['name'], $taken ) ) {
+					continue 2;
+				}
+			}
+			$pair[] = $row['name'];
+			if ( 2 === count( $pair ) ) {
+				break;
+			}
+		}
+
+		// One of the two has to be a full name of its own. Two bare words, such as "Ghana" and
+		// "China", are better searched one at a time than demanded together.
+		$full = false;
+		foreach ( $pair as $name ) {
+			$full = $full || false !== strpos( $name, ' ' );
+		}
+		return 2 === count( $pair ) && $full ? implode( ' ', $pair ) : '';
+	}
+	/**
 	 * @param string   $title    Generated title.
 	 * @param string   $body     Generated body HTML.
 	 * @param string[] $tags     Generated tags.
@@ -415,14 +553,21 @@ final class ArticleAnalyzer {
 			}
 		}
 
+		// The owner's rule: search for the people and subjects the headline is actually about,
+		// before anything drawn from the body. A picture of both of them is the most relevant one a
+		// story about the two of them can have.
+		$pair = self::headline_pair( $entities, $tags, $title_text . ' . ' . $head_text, $publisher, $main );
+		if ( '' !== $pair ) {
+			$queries[] = $pair;
+		}
 		if ( '' !== $main ) {
 			$queries[] = $main;
 			if ( '' !== $visual ) {
 				$queries[] = $main . ' ' . $visual;
 			}
 			if ( '' !== $second ) {
-				$queries[] = $main . ' ' . $second;
-				$queries[] = $second;
+				$queries[] = $main . ' ' . self::strip_honorifics( $second );
+				$queries[] = self::strip_honorifics( $second );
 			}
 		}
 		$names    = array_values( array_filter( array( $main, $second ), 'strlen' ) );

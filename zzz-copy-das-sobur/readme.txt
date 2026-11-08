@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.10.3
+Stable tag: 1.10.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,19 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.10.4 =
+Searches for images by the headline first, as the owner asked.
+
+**The people in the headline are now searched for together, before anything else.** A story headlined "Trump says he offered UFC president Dana White the White House press secretary job" is searched for as "Donald Trump Dana White". A story about two people is best illustrated by a picture of the two of them, and that is what a reader expects to see.
+
+A tag supplies a name in full where news writing does not, so a headline that says only "Trump" is searched as "Donald Trump". Describing words are left out, because Wikimedia Commons matches every word of a search: "President Donald Trump" asks for pictures labelled with the office as well as the man, and finds fewer of him than "Donald Trump" does.
+
+Three things keep the pairing honest. Only the main subject or a name among the tags may go into a pair, so a capitalised phrase from the body such as "Finds AI" is never paired with anything. A tag written in lower case is a subject and not somebody's name, so "customer service" is still searched on its own terms. And two names that share a word are never paired, because "Dana White" and "White House" are one subject and a building that repeats its word, not two subjects. Two bare one-word subjects, such as "Ghana" and "China", are searched one at a time, since asking for both at once would find nothing.
+
+**Between two pictures that score alike, the one that names more of the article's subjects is now chosen.** A photograph of both people in a headline is preferred to a photograph of one of them. It is worth a few points of ordering only, so it settles near-ties and never overrides a picture that is plainly the better match, and the score you see in the log and on the Images page is the real one.
+
+Nothing else about the workflow has changed. Images are still chosen by rules with no AI, still from Wikimedia Commons only, and every rule that refuses a picture still refuses it however well it scores.
 
 = 1.10.3 =
 Makes the daily generation allowance safe for the whole day, so no post time can be left with nothing by an earlier one.
