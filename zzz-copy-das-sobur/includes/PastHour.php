@@ -458,8 +458,19 @@ final class PastHour {
 		if ( '' !== (string) Automation::get( 'ai_block_code', '' ) ) {
 			return 'AI jobs are paused: ' . $block;
 		}
-		if ( Usage::ai_articles_today() >= (int) Settings::get( 'daily_ai_limit' ) ) {
+		$limit = (int) Settings::get( 'daily_ai_limit' );
+		$used  = Usage::ai_articles_today();
+		if ( $used >= $limit ) {
 			return 'The daily AI article limit has been reached.';
+		}
+		$held = self::later_posts( $slot );
+		if ( $limit - $used <= $held ) {
+			return sprintf(
+				'Of the day\'s %1$d article generations, %2$d are left and they are held for the %3$s still to come.',
+				$limit,
+				$limit - $used,
+				1 === $held ? 'post after this one' : $held . ' posts after this one'
+			);
 		}
 		if ( (int) $slot['stories_tried'] >= self::MAX_STORIES ) {
 			return sprintf( 'The %d stories tried for this post could not be used.', self::MAX_STORIES );
@@ -473,6 +484,27 @@ final class PastHour {
 		return '';
 	}
 
+	/**
+	 * Post times still to come today after this one, which each need a generation of their own.
+	 *
+	 * The daily generation limit counts every attempt, successful or not, so one post having a bad
+	 * run of unusable stories could spend the whole day's allowance and leave the later posts of the
+	 * day unable to write a single article. One generation is therefore held back for each post time
+	 * still to come. A post may use everything above that reservation and no more, so a post is
+	 * never left with nothing by an earlier one, and the limit itself is still absolute.
+	 */
+	private static function later_posts( array $slot ): int {
+		global $wpdb;
+		$table = Db::table( 'slots' );
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE local_date = %s AND status = %s AND due_at > %s AND author_user_id " . ( AuthorSchedules::multiple() ? '> 0' : '= 0' ), // phpcs:ignore WordPress.DB
+				(string) $slot['local_date'],
+				Schedule::PENDING,
+				(string) $slot['due_at']
+			)
+		);
+	}
 	/**
 	 * How many articles may be written for one post before it is given up on.
 	 */

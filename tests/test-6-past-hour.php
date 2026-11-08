@@ -1400,3 +1400,63 @@ t(
 		wp_set_current_user( 0 );
 	}
 );
+
+/* ---- The day's generation allowance ---- */
+
+/**
+ * Records generations already spent today, as failed article attempts do.
+ */
+function ph_spend_generations( int $count ): void {
+	global $wpdb;
+	for ( $i = 0; $i < $count; $i++ ) {
+		$wpdb->insert(
+			Db::table( 'generation_usage' ),
+			array(
+				'article_job_id' => 0,
+				'purpose'        => 'article',
+				'model'          => 'test/model',
+				'success'        => 0,
+				'http_status'    => 500,
+				'error_code'     => 'server_error',
+				'created_at'     => Clock::mysql(),
+			)
+		);
+	}
+}
+
+t(
+	'PH-38',
+	'One post cannot spend the day: a generation is held back for each post still to come',
+	static function () {
+		ph_ready( array( 'daily_target' => 3, 'interval_hours' => 6, 'first_time' => '10:00', 'daily_ai_limit' => 5 ) );
+		ph_feeds( array( 'feed' => array( ph_story( 'budget', '09:20:00' ) ) ) );
+		ph_run( '09:30:00', 2 );
+		t_eq( 3, count( Schedule::slot_times( PH_DAY ) ), 'three post times today, at 10:00, 16:00 and 22:00' );
+
+		// Two posts come after this one, so the 10:00 post may use 5 - 2 = 3 of the day's five.
+		ph_spend_generations( 3 );
+		ph_run( '09:35:00', 4 );
+		t_contains( 'are held for the 2 posts after this one', ph_slot( '10:00' )['status_reason'] );
+		t_eq( 0, (int) ph_slot( '10:00' )['article_job_id'], 'nothing was started for it' );
+		t_eq( Schedule::PENDING, ph_slot( '16:00' )['status'], 'and the later posts are untouched' );
+		t_eq( Schedule::PENDING, ph_slot( '22:00' )['status'] );
+	}
+);
+
+t(
+	'PH-39',
+	'Above the reservation the post writes as usual, and the limit itself is still absolute',
+	static function () {
+		ph_ready( array( 'daily_target' => 3, 'interval_hours' => 6, 'first_time' => '10:00', 'daily_ai_limit' => 5 ) );
+		ph_feeds( array( 'feed' => array( ph_story( 'within-budget', '09:20:00' ) ) ) );
+
+		ph_spend_generations( 2 );
+		ph_run( '09:35:00' );
+		t_true( (int) ph_slot( '10:00' )['article_job_id'] > 0, 'one generation above the reservation is enough' );
+
+		// The whole limit spent names the limit, not the reservation, even for the last post of the day.
+		ph_spend_generations( 5 );
+		ph_run( '21:35:00', 4 );
+		t_contains( 'The daily AI article limit has been reached', ph_slot( '22:00' )['status_reason'] );
+	}
+);

@@ -41,7 +41,7 @@ final class Settings {
 			'discovery_interval_minutes' => 60,
 			'category_buffer'            => 1,
 			'research_lead_hours'        => 4,
-			'daily_ai_limit'             => 12,
+			'daily_ai_limit'             => 18,
 			'max_article_age_hours'      => 48,
 			'past_hour_enabled'          => 1,
 			'past_hour_prep_minutes'     => 120,

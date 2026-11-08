@@ -10,6 +10,23 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.10.3] - 2026-11-08
+
+Turns the 1.10.2 warning into a guarantee. The daily generation allowance is now shared across the day's post times instead of being first come, first served.
+
+### Fixed
+
+- **One post time could spend the day's whole generation allowance.** `Usage::ai_articles_today()` counts every attempt, failures included, and `past_hour_max_articles` allows up to three articles per post time, so the first post of the day could exhaust `daily_ai_limit` on retries and leave the later ones unable to write anything. `PastHour::why_not_selecting()` now holds one generation back for each post time still to come that day, counted by the new `PastHour::later_posts()`. A post may use everything above that reservation and no more. The limit itself is unchanged and still absolute.
+- **The automation guide still described the old fixed limit of two articles per post**, which 1.10.1 replaced with the `past_hour_max_articles` setting.
+
+### Changed
+
+- `daily_ai_limit` now defaults to 18 rather than 12, which covers three post times at three articles each with room for failures. Sites that have saved their own value keep it.
+- The Schedule page's note now distinguishes a limit too low for one article per post time from one that allows an article each but no retries, and names the figure to raise it to.
+
+### Added
+
+- `tests/test-6-past-hour.php`: PH-38 and PH-39 cover the reservation, the untouched later post times, and that a fully spent limit still names the limit rather than the reservation. **Both are unrun** — they need a WordPress install.
 ## [1.10.2] - 2026-11-08
 
 Findings from an audit of every path that ends in a skipped post time. The 128 social unit tests and the 37 image tests still pass.

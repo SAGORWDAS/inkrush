@@ -97,12 +97,13 @@ final class Pages {
 	}
 
 	/**
-	 * Warns when the daily generation limit is lower than the posts of a day could need.
+	 * Says how the daily generation limit stands against what a day of posts could use.
 	 *
-	 * In Past-Hour Posting every post may have several articles written for it, because a story
-	 * that turns out to be unusable gives way to another while there is still time. When the limit
-	 * is below that total, an ordinary day of retries exhausts it and the last posts of the day are
-	 * skipped for want of generations rather than for want of news.
+	 * Each post may have several articles written for it, because a story that turns out to be
+	 * unusable gives way to another while there is still time, and every attempt counts against the
+	 * limit. One generation is held back for each post still to come, so no post can be left with
+	 * nothing by an earlier one. Two cases are still worth saying out loud: a limit too small to
+	 * give every post of the day one article, and a limit too small for them all to retry.
 	 */
 	public static function ai_limit_note(): void {
 		if ( ! PastHour::enabled() ) {
@@ -115,9 +116,21 @@ final class Pages {
 		if ( $slots < 1 || $limit >= $need ) {
 			return;
 		}
-		echo '<div class="zzzc-field"><p class="zzzc-help"><strong>Not enough for a full day.</strong> ' . esc_html(
+
+		if ( $limit < $slots ) {
+			echo '<div class="zzzc-field"><p class="zzzc-help"><strong>Too low for today.</strong> ' . esc_html(
+				sprintf(
+					'Today has %1$d post times and the limit is %2$d, so there is not one article for each. The earliest posts give way to the later ones, and the first of the day may write nothing at all. Raise it to at least %1$d.',
+					$slots,
+					$limit
+				)
+			) . '</p></div>';
+			return;
+		}
+
+		echo '<div class="zzzc-field"><p class="zzzc-help">' . esc_html(
 			sprintf(
-				'Today has %1$d post times, and each may have up to %2$d articles written for it, which is %3$d generations. At %4$d, the limit can run out before the last post times and they would be skipped. Raise it to %3$d, or lower the articles per post.',
+				'Today has %1$d post times, each allowed up to %2$d articles, which is %3$d generations in all. At %4$d there is enough for every post to write one, which is held back for it, but not enough for them all to try again. Raise it to %3$d for the full allowance.',
 				$slots,
 				$each,
 				$need,

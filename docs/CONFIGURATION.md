@@ -101,7 +101,7 @@ These have their own **Save automatic stop** button. Whichever limit comes first
 | Discovery every (minutes) | 60 | 5 to 1,440 |
 | Start research before a slot (hours) | 4 | 1 to 48 |
 | Articles to keep ready per category | 1 | 1 to 20 |
-| Maximum article generations per day | 12 | 1 to 500 |
+| Maximum article generations per day | 18 | 1 to 500 |
 | Skip queued articles older than (hours) | 48 | 1 to 720 |
 | Worker run length (seconds) | 50 | 10 to 280 |
 

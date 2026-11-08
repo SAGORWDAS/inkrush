@@ -1,5 +1,41 @@
 # Test results
 
+## Version 1.10.3: the day's generation allowance
+
+The 1.10.2 audit left the generation limit as a warning on a settings page, which only helps the
+owner who reads it. This makes it a property of the code instead: the allowance is shared across the
+day's post times rather than being first come, first served.
+
+### What changed
+
+| Where | What it does now |
+|---|---|
+| `PastHour::later_posts()` | Counts the PENDING post times still to come today after this one, with the same author filter the rest of the class uses |
+| `PastHour::why_not_selecting()` | Holds one generation back for each of them. A post may use `limit - used - later` and no more, so no post time can be left unable to write a single article by an earlier one. The limit itself is untouched and still absolute |
+| `Admin\Pages::ai_limit_note()` | Distinguishes a limit too low for one article per post time from one that allows an article each but no retries |
+| `Settings::defaults()` | `daily_ai_limit` 12 → 18. Sites that have saved their own value keep it |
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Image tests, `tests/unit/run-images.php` | The 37 from 1.10.1, re-run | **37 passed, 0 failed** on PHP 8.3.36 |
+| Social unit tests, `tests/unit/run-unit.php` | The 128 from 1.10.0, re-run | **128 passed, 0 failed** |
+| PHP syntax | `php -l` across every plugin and test file | **No errors** |
+
+### What was not tested
+
+**The change itself has not been executed.** `PastHour::why_not_selecting()` needs the database, so
+no unit harness can reach it. Two integration tests were written for it, PH-38 and PH-39 in
+`tests/test-6-past-hour.php`, covering the reservation, that the later post times are left alone, and
+that a fully spent limit still names the limit rather than the reservation. Neither has been run,
+because the integration suite needs a WordPress install. The same is true of the Schedule page note
+and the 1.10.2 Dashboard line.
+
+The arithmetic is worth stating plainly so it can be checked against a real day: with a limit of 5
+and three post times, the 10:00 post may use 3, and once 3 are spent it is told they are held for the
+2 posts after it. With the shipped defaults, 18 and three post times at three articles each, the
+reservation never binds at all — it only matters once a day's failures have eaten into the limit.
 ## Version 1.10.2: an audit of the skipped-post paths
 
 Not a response to a failure on the site. The whole path from `Schedule::ensure_slots()` through

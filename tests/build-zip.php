@@ -8,7 +8,7 @@
 
 $root    = dirname( __DIR__ );
 $source  = $root . '/zzz-copy-das-sobur';
-$version = '1.10.2';
+$version = '1.10.3';
 $dist    = $root . '/dist';
 
 if ( ! is_dir( $dist ) ) {

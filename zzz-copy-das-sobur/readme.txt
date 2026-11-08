@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.10.2
+Stable tag: 1.10.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -113,6 +113,14 @@ No. It has no tracking or telemetry.
 
 == Changelog ==
 
+= 1.10.3 =
+Makes the daily generation allowance safe for the whole day, so no post time can be left with nothing by an earlier one.
+
+**One post could spend the day's article generations.** Every generation attempt counts against **Maximum article generations per day**, the failed ones included, and each post time may have up to three articles written for it. One post having a bad run of unusable stories could therefore spend the whole day's allowance, and the later post times were skipped for want of generations rather than for want of news. One generation is now held back for each post time still to come that day. A post may use everything above that reservation and no more, so every post time of the day can always write at least one article, and the limit itself is still absolute.
+
+The Schedule page says where the limit stands against the day: too low to give every post one article, or enough for one each but not enough for them all to try again. The default is now 18 rather than 12, which covers three post times at three articles each with room for failures. Your own setting is unchanged, and the page will tell you if it is tight.
+
+Nothing about how articles, images or social posts are chosen has changed in this version.
 = 1.10.2 =
 Two findings from an audit of everything that can cause a post time to be skipped.
 

@@ -85,10 +85,10 @@ Reaching a limit stops automation exactly like the Stop button. The Dashboard th
 
 ## Limits that protect your costs
 
-- **Maximum article generations per day:** 12 by default.
+- **Maximum article generations per day:** 18 by default. Every attempt counts, the failed ones included. One generation is held back for each post time still to come that day, so one post having a bad run of unusable stories can never leave the later posts of the day unable to write anything.
 - **Articles to keep ready per category:** 1 by default, so spare articles do not go stale.
 - **Skip queued articles older than:** 48 hours by default.
-- With Past-Hour Posting, a post that has had two failed articles does not pay for a third.
+- With Past-Hour Posting, a post stops paying for articles once **Articles to write before giving up on a post** have been written for it, which is 3 by default.
 
 ## Monitoring
 
