@@ -201,10 +201,24 @@ final class ImageHistory {
 				'status_reason' => 'Released by an administrator.',
 			)
 		);
+		// Releasing the reservation is not enough on its own. The article that was holding this
+		// image has it recorded on its own image run as ready to use, and the publisher reuses a
+		// ready run without searching again, so without this the article would publish with the
+		// very image that was just released. An image already on a published post is left alone:
+		// releasing a reservation must not pull the picture off something already live.
+		$searching_again = false;
+		if ( (int) $row['article_job_id'] && ! (int) $row['wp_post_id'] ) {
+			$searching_again = ImagePipeline::forget_released_image( (int) $row['article_job_id'], (int) $row['id'] );
+		}
+
 		Events::log(
 			'image',
 			'warning',
-			sprintf( 'Administrator released image reservation: %s. It can now be used again.', (string) $row['image_title'] ),
+			sprintf(
+				'Administrator released image reservation: %1$s. It can now be used again.%2$s',
+				(string) $row['image_title'],
+				$searching_again ? ' The article it was held for will search for another image.' : ''
+			),
 			array(
 				'article_job_id' => (int) $row['article_job_id'],
 				'wp_post_id'     => (int) $row['wp_post_id'],

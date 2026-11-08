@@ -28,8 +28,15 @@ final class PastHour {
 	/** A publisher's clock may run slightly ahead. A date further ahead than this is not believed. */
 	private const FUTURE_TOLERANCE = 300;
 
-	/** AI spending guard for one post. A failed article can be replaced once. */
-	private const MAX_AI_ARTICLES = 2;
+	/**
+	 * AI spending guard for one post, when the setting is missing.
+	 *
+	 * The setting exists because two was too few in practice. On 2026-11-08 the 16:00 post was
+	 * skipped after both of its articles were written and validated and then found no usable
+	 * image, leaving the slot empty although two perfectly good articles had been paid for.
+	 * The day's own limit, Maximum article generations per day, still caps the real spending.
+	 */
+	private const MAX_AI_ARTICLES = 3;
 
 	/** Politeness guard for one post, since each story tried means fetching a publisher page. */
 	private const MAX_STORIES = 8;
@@ -459,10 +466,19 @@ final class PastHour {
 		}
 		$jobs    = Db::table( 'article_jobs' );
 		$written = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$jobs} WHERE slot_id = %d AND ai_attempts > 0", (int) $slot['id'] ) ); // phpcs:ignore WordPress.DB
-		if ( $written >= self::MAX_AI_ARTICLES ) {
-			return sprintf( 'The %d articles written for this post could not be used.', self::MAX_AI_ARTICLES );
+		$allowed = self::max_articles();
+		if ( $written >= $allowed ) {
+			return sprintf( 'The %d articles written for this post could not be used.', $allowed );
 		}
 		return '';
+	}
+
+	/**
+	 * How many articles may be written for one post before it is given up on.
+	 */
+	public static function max_articles(): int {
+		$setting = (int) Settings::get( 'past_hour_max_articles' );
+		return $setting > 0 ? $setting : self::MAX_AI_ARTICLES;
 	}
 
 	private static function note( array $slot, string $text ): void {

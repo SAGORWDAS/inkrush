@@ -10,6 +10,27 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.10.1] - 2026-11-08
+
+Fixes three faults found on the owner's site. Image tests built from the real logs: 37 passed. The 128 social unit tests still pass.
+
+### Fixed
+
+- **An article was illustrated with a photograph of someone it was not about.** The 10:00 post on 2026-11-07, about Dana White being offered the press secretary job, used `Boy feeling Barack Obama's hair.jpg`, which scored 81. A surname used alone, "White", was credited to the highest-scoring name containing the word, which was "White House" and not "Dana White", so the building became the subject. A surname now joins the name it ends, and an ambiguous short form is left alone rather than guessed at.
+- **One bad search could decide the image.** Searching stopped as soon as a file scored 75, which on that article happened on the first and only query. At least two searches now always run.
+- **Nothing checked whether the picture showed the wrong person.** A file whose own title names a person the article never mentions is now refused outright, whatever it scores, and the reason names that person.
+- **A photograph of a child passed the protection meant to prevent it.** The waiver for the child, victim and identifiable-people rules was satisfied by any subject, including a place, so an article mentioning the White House switched it off for a photograph filed under the White House. Only a person's name waives it now.
+- **"and" joined two unrelated subjects into one name.** "Ghana and China" was searched as a phrase and found nothing usable. The two countries are now separate subjects. The genuine name particles, as in "Bank of the West", are unchanged.
+- **A row of chart labels became an article's subject.** "Measure Achievers Challengers Aspirants Share" was searched and returned no files at all. A run of four or more capitalised words is now only used when the title, the headline or a tag confirms it.
+- **A short run of capitals before a full stop did not end a name**, so "the UFC. White has run" was read as a name called "UFC. White". "U.S." and "St." are unaffected.
+- **Releasing an image did not release it.** Releasing a reservation on the Images page left the article pointing at that image, so it published with it anyway. The article now searches again, unless the image is already on a published post, which is left alone.
+- **A post was skipped although two good articles had been written for it.** Both were lost at the image step, which used up a fixed limit of two.
+
+### Added
+
+- **Articles to write before giving up on a post**, on the Schedule page, from 1 to 5 and now 3 by default. Maximum article generations per day still caps the day's spending.
+- `tests/unit/run-images.php`: 37 checks built from the real articles, file titles and searches in the logs, including the pictures that were chosen correctly and must keep being chosen, and the four fixes from 1.9.1.
+
 ## [1.10.0] - 2026-11-08
 
 Social media distribution. Not yet run against any real platform: see the 1.10.0 section of `zzz-copy-das-sobur/docs/TEST-RESULTS.md` for exactly what was and was not tested.

@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,21 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.10.1 =
+Fixes three faults found on the owner's site on 2026-11-07 and 2026-11-08.
+
+**An article was published with a photograph of someone it was not about.** The 10:00 post, about Dana White being offered the press secretary job, was illustrated with a photograph of Barack Obama and a child, which scored 81. Three things combined. A surname used on its own, "White", was credited to the highest-scoring name containing that word, which was "White House" rather than "Dana White", so the building became the subject and the man disappeared. Searching then stopped after the very first query because one file scored above 75, so no later query could correct it. And nothing checked whether the chosen picture was of a person the article never mentions.
+
+Now a surname joins the name it ends, so "White" belongs to "Dana White" and not to "White House", and an ambiguous short form is left alone rather than guessed at. Searching never stops on the first query alone. A picture whose own title names a person the article does not mention is refused outright, whatever it scores, and the reason names that person.
+
+**A photograph of a child passed the protection meant to stop exactly that.** The rule that waives the child, victim and identifiable-people checks when the article is about those people was satisfied by any subject, including a place. An article mentioning the White House therefore switched off the child protection for a photograph filed under the White House. Only a person's name waives it now.
+
+**The 16:00 post was skipped although two good articles had been written for it.** Both failed to find an image because their subjects were wrong: "Ghana and China" was read as one name and searched as a phrase, and a row of chart labels, "Measure Achievers Challengers Aspirants Share", became another article's subject. "and" no longer joins two names, so Ghana and China are searched separately, and a run of four or more capitalised words is only used when the title, the headline or a tag confirms it. A short run of capitals before a full stop now ends a name, so "the UFC. White has run" is no longer read as a name called "UFC. White".
+
+**Releasing an image did not release it.** Releasing a reservation on the Images page left the article's own image record pointing at that image, so the article published with it anyway. It now searches again, unless the image is already on a published post, which is left alone.
+
+**Articles to write before giving up on a post** is a new setting on the Schedule page, from 1 to 5 and now 3 rather than a fixed 2, because two was too few when both were lost to the image step. Maximum article generations per day still caps the day's spending.
 
 = 1.10.0 =
 New Social Media Distribution. Once WordPress confirms an article is publicly published, InkRush can post it to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, each through that platform's own official API. It is switched off on upgrade and publishes nothing until you connect an account and turn a platform on.

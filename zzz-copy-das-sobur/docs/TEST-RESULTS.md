@@ -1,5 +1,53 @@
 # Test results
 
+## Version 1.10.1: wrong image, and a skipped post
+
+### What went wrong on the site
+
+| When | What happened |
+|---|---|
+| 2026-11-07 10:00 | Published "Trump offers press secretary position to UFC head Dana White" with `Boy feeling Barack Obama's hair.jpg`, which scored 81. The only search run was "White House staff" |
+| 2026-11-07 22:18 | The administrator released that image. The post published with it anyway at 23:30 |
+| 2026-11-08 16:00 | Skipped. Both articles written for it were validated and then found no image. One searched "Ghana and China", the other "Measure Achievers Challengers Aspirants Share" |
+
+### Checks
+
+| Layer | What it was | Result |
+|---|---|---|
+| Image tests, `tests/unit/run-images.php` | 37 checks built from the real articles, file titles and searches in the logs of 2026-11-07 and 2026-11-08, including the pictures that were chosen correctly and must keep being chosen | **37 passed, 0 failed** on PHP 8.3.36 |
+| Social unit tests | The 128 from 1.10.0, re-run to confirm nothing regressed | **128 passed, 0 failed** |
+| PHP syntax | `php -l` across all 74 classes and every test file | **No errors** |
+| Static reference check | Every static call resolves to a declared method | **0 unresolved** |
+
+With the real article text from the 10:00 post, the subject is now `Dana White` rather than the
+building, the searches are `Dana White | Dana White trump | Dana White President Donald Trump |
+UFC`, and the Obama photograph scores 62 instead of 81 and is refused outright with the reason
+"The picture is of Barack Obama, who the article does not mention."
+
+For the 16:00 post, the searches are now `Ghana | Ghana china | China | industrialisation`
+instead of the phrase that found nothing, and the chart labels no longer become a subject.
+
+The four fixes from 1.9.1 were re-tested as part of this, because they touch the same code: the
+publisher and a quoted outlet are still not subjects, "Is" still does not begin a name, a plain
+number is still not searched, and "Apple. What" is still two sentences.
+
+### What was not tested
+
+**None of this has run on the owner's site, or against the real Wikimedia Commons.** The tests
+use the article text and the file titles taken from the logs, with the Commons responses written
+to match what the logs record. Whether the new searches actually find a usable photograph for
+these stories can only be known by running them.
+
+**The integration suite has not been run.** `tests/test-5-images.php` and the other 251 tests need
+a WordPress install, which the machine these fixes were written on does not have. The synthetic
+analysis arrays in IMG-8 and IMG-28 were checked by hand against the new code: they carry no
+`text` key, which is read with a null-coalescing default, and their file titles are in sentence
+case, so the new check for a person's name in a title does not fire on them.
+
+**The new setting's effect is a judgement, not a measurement.** Raising the articles written per
+post from 2 to 3 gives a post one more chance at the cost of one more AI article. Whether 3 is the
+right number for this site will only show over several days.
+
 ## Version 1.10.0: social media distribution
 
 ### What was tested, and how

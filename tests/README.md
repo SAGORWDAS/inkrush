@@ -42,6 +42,7 @@ anywhere PHP does:
 
 ```bash
 php tests/unit/run-unit.php
+php tests/unit/run-images.php
 ```
 
 They need the `mbstring`, `openssl` and `sodium` extensions. On a PHP build without them loaded by

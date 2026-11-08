@@ -59,14 +59,22 @@ final class ArticleAnalyzer {
 	 */
 	private static function names( string $text ): array {
 		$found = array();
-		preg_match_all( '/\p{Lu}[\p{L}\p{N}\'’&.\-]*(?:\s+(?:(?:of|de|la|the|and|van|von)\s+)?\p{Lu}[\p{L}\p{N}\'’&.\-]*)*/u', $text, $match );
+		// "and" is deliberately not a connector. "Ghana and China" is two subjects, not one name, and
+		// searching Commons for the whole phrase finds nothing. The genuine name particles stay, so
+		// "Bank of the West" and "Ludwig van Beethoven" are still read as one name.
+		preg_match_all( '/\p{Lu}[\p{L}\p{N}\'’&.\-]*(?:\s+(?:(?:of|de|la|the|van|von)\s+)?\p{Lu}[\p{L}\p{N}\'’&.\-]*)*/u', $text, $match );
 		foreach ( $match[0] as $phrase ) {
 			// "Apple. What" is the end of one sentence and the start of the next. A longer word with
 			// a full stop ends the name, while "U.S." and "St." do not.
 			$groups = array( array() );
 			foreach ( preg_split( '/\s+/u', trim( $phrase ) ) ?: array() as $word ) {
 				$groups[ count( $groups ) - 1 ][] = $word;
-				if ( preg_match( '/^[\p{L}\p{N}\'’&\-]{4,}\.$/u', $word ) ) {
+				// A longer word with a full stop ends the name. So does a short run of capitals,
+				// because "the UFC. White has run" is two sentences, not a name called "UFC. White".
+				// "U.S." and "St." are not ended: the first has inner stops, the second is not capitals.
+				$sentence_end = preg_match( '/^[\p{L}\p{N}\'’&\-]{4,}\.$/u', $word )
+					|| preg_match( '/^\p{Lu}{2,}\.$/u', $word );
+				if ( $sentence_end ) {
 					$groups[] = array();
 				}
 			}
@@ -263,21 +271,59 @@ final class ArticleAnalyzer {
 		}
 		// A short form on its own, such as "Brand" for "Russell Brand", counts toward the full name.
 		// Otherwise an article that mostly says "Brand" would search for the word "Brand".
+		//
+		// Which full name it belongs to has to be decided carefully. In a story about Dana White and
+		// the White House, the word "White" appears in both, and crediting it to the wrong one both
+		// inflates the wrong subject and destroys the evidence for the right one. So:
+		//
+		// - A short form that is the LAST word of a name is a surname, which is how English news
+		//   refers back to a person: "Dana White ... White said". That beats a name where the word
+		//   merely begins it, such as "White House".
+		// - When the short form sits in the same position in two or more names, there is no way to
+		//   tell which was meant, so it is left alone rather than guessed at.
 		foreach ( array_keys( $scores ) as $short ) {
 			$short = (string) $short;
 			if ( false !== strpos( $short, ' ' ) ) {
 				continue;
 			}
-			$full = '';
+
+			$surname = array();
+			$other   = array();
 			foreach ( array_keys( $scores ) as $long ) {
 				$long = (string) $long;
-				if ( false !== strpos( $long, ' ' ) && preg_match( self::word_pattern( $short ), $long ) && ( '' === $full || $scores[ $long ] > $scores[ $full ] ) ) {
-					$full = $long;
+				if ( false === strpos( $long, ' ' ) || ! preg_match( self::word_pattern( $short ), $long ) ) {
+					continue;
+				}
+				$words = preg_split( '/\s+/u', $long ) ?: array();
+				if ( 0 === strcasecmp( (string) end( $words ), $short ) ) {
+					$surname[] = $long;
+				} else {
+					$other[] = $long;
 				}
 			}
-			if ( '' !== $full ) {
-				$scores[ $full ] += $scores[ $short ];
-				unset( $scores[ $short ] );
+
+			// A surname match wins outright. Only when there is none does a name that merely
+			// contains the word count, and only when exactly one does.
+			$candidates = $surname ?: $other;
+			if ( 1 !== count( $candidates ) ) {
+				continue;
+			}
+
+			$full            = $candidates[0];
+			$scores[ $full ] += $scores[ $short ];
+			unset( $scores[ $short ] );
+		}
+
+		// A run of four or more capitalized words is only a name when the title, the headline or a
+		// tag says so. Left unchecked, a row of chart labels in the text, such as "Measure
+		// Achievers Challengers Aspirants Share", becomes the article's subject and is searched
+		// for as a phrase, which finds nothing at all. A genuine long name, such as a force or a
+		// council the article is about, is named in the title, the headline or the tags.
+		$confirming = mb_strtolower( $title_text . ' . ' . $head_text . ' . ' . implode( ' . ', $tags ) );
+		foreach ( array_keys( $scores ) as $name ) {
+			$name = (string) $name;
+			if ( substr_count( trim( $name ), ' ' ) >= 3 && false === mb_strpos( $confirming, mb_strtolower( $name ) ) ) {
+				unset( $scores[ $name ] );
 			}
 		}
 
@@ -449,6 +495,10 @@ final class ArticleAnalyzer {
 			'keywords' => $keywords,
 			'concepts' => $concepts,
 			'queries'  => $picked,
+			// The article's own words, so a candidate can be checked against everything the
+			// article actually says, not only against the handful of subjects drawn from it.
+			// Bounded, because it is compared against for every file found.
+			'text'     => mb_strtolower( mb_substr( $title_text . ' . ' . $head_text . ' . ' . $plain_body, 0, 20000 ) ),
 		);
 	}
 }

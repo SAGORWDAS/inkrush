@@ -385,7 +385,13 @@ final class ImagePipeline {
 			foreach ( $result['items'] as $item ) {
 				$out['items'][ $item['page_id'] ] = $item;
 			}
-			if ( $enough && $enough( array_values( $out['items'] ) ) ) {
+			// Never stop on the first search alone. The first query is built from the single
+			// subject the analyzer thought most likely, and when that subject is wrong the first
+			// query is exactly the one that finds a confident, irrelevant picture. Searching at
+			// least twice costs one more request and gives a wrong first guess something to lose
+			// to. Wikimedia Commons is free, and the comparison is on files already in hand.
+			$searched_enough = count( $out['searched'] ) >= 2 || count( $queries ) < 2;
+			if ( $enough && $searched_enough && $enough( array_values( $out['items'] ) ) ) {
 				$out['stopped_early'] = true;
 				break;
 			}
@@ -580,6 +586,46 @@ final class ImagePipeline {
 	 * Gives an article a fresh set of image attempts, after an administrator asks for a retry,
 	 * or once automatically for a held article.
 	 */
+	/**
+	 * Forgets an image an administrator released, so the article searches again.
+	 *
+	 * reset_run deliberately leaves a run that is ready or assigned alone, because an article
+	 * that already has its picture should not keep searching. That is right everywhere except
+	 * here: when an administrator releases the reservation, the whole point is that this article
+	 * must not use this image. Without this the article publishes with the image anyway, because
+	 * prepare() reuses a ready run before it searches.
+	 *
+	 * The downloaded attachment is left in the Media Library rather than deleted, so nothing is
+	 * destroyed if the image turns out to be in use somewhere else.
+	 *
+	 * @param int $article_job_id The article that was holding it.
+	 * @param int $history_id     The reservation that was released.
+	 * @return bool True when the article will now search again.
+	 */
+	public static function forget_released_image( int $article_job_id, int $history_id ): bool {
+		$run = self::get_run( $article_job_id );
+		if ( ! $run || (int) $run['history_id'] !== $history_id ) {
+			return false;
+		}
+		// An image already on a published post stays there. Releasing a reservation must not
+		// take the picture off something readers can already see.
+		if ( 'assigned' === (string) $run['status'] ) {
+			return false;
+		}
+
+		self::save_run(
+			$article_job_id,
+			array(
+				'status'        => 'pending',
+				'attempts'      => 0,
+				'history_id'    => 0,
+				'attachment_id' => 0,
+				'reason'        => 'The image was released by an administrator, so another one is needed.',
+			)
+		);
+		return true;
+	}
+
 	public static function reset_run( int $article_job_id, bool $automatic = false ): void {
 		$run = self::get_run( $article_job_id );
 		if ( $run && ! in_array( $run['status'], array( 'ready', 'assigned' ), true ) ) {

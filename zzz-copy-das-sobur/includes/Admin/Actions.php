@@ -298,7 +298,7 @@ final class Actions {
 			'rotation_pool'     => (array) self::post( 'rotation_pool', array() ),
 			'slot_categories'   => (array) self::post( 'slot_categories', array() ),
 		);
-		foreach ( array( 'past_hour_prep_minutes', 'past_hour_max_age_minutes', 'daily_target', 'interval_hours', 'first_time', 'timezone', 'daily_cap', 'cap_scope', 'catchup', 'slot_grace_minutes', 'catchup_gap_minutes', 'rotation_mode', 'discovery_interval_minutes', 'category_buffer', 'daily_ai_limit', 'research_lead_hours', 'max_article_age_hours', 'run_budget_seconds' ) as $key ) {
+		foreach ( array( 'past_hour_prep_minutes', 'past_hour_max_age_minutes', 'past_hour_max_articles', 'daily_target', 'interval_hours', 'first_time', 'timezone', 'daily_cap', 'cap_scope', 'catchup', 'slot_grace_minutes', 'catchup_gap_minutes', 'rotation_mode', 'discovery_interval_minutes', 'category_buffer', 'daily_ai_limit', 'research_lead_hours', 'max_article_age_hours', 'run_budget_seconds' ) as $key ) {
 			$values[ $key ] = self::post( $key );
 		}
 		$result = Settings::update( $values );

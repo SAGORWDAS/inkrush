@@ -34,6 +34,118 @@ final class CandidateScorer {
 	private const SENSITIVE_CATEGORY = '/\b(crime|war|conflict|medical|health)\b/iu';
 
 	/**
+	 * Last words that make a capitalized run a place, a building or an organisation rather than a
+	 * person. "Oak Street Health" and "Apple Store TRX" name things; "Barack Obama" names someone.
+	 */
+	private const NOT_PERSON_WORDS = array(
+		'street', 'avenue', 'av', 'road', 'lane', 'drive', 'boulevard', 'square', 'bridge', 'tower',
+		'building', 'house', 'hall', 'castle', 'church', 'cathedral', 'temple', 'mosque', 'museum',
+		'gallery', 'library', 'park', 'garden', 'gardens', 'beach', 'river', 'lake', 'bay', 'island',
+		'mountain', 'valley', 'forest', 'station', 'airport', 'port', 'harbour', 'harbor', 'stadium',
+		'arena', 'theatre', 'theater', 'hospital', 'clinic', 'school', 'college', 'university',
+		'academy', 'institute', 'hotel', 'store', 'shop', 'market', 'mall', 'centre', 'center',
+		'apartments', 'health', 'bank', 'company', 'corporation', 'group', 'holdings', 'ltd',
+		'limited', 'inc', 'plc', 'llc', 'gmbh', 'county', 'city', 'town', 'village', 'state',
+		'province', 'district', 'region', 'republic', 'kingdom', 'union', 'federation', 'council',
+		'ministry', 'department', 'agency', 'office', 'bureau', 'commission', 'committee', 'party',
+		'club', 'society', 'association', 'foundation', 'trust', 'force', 'army', 'navy', 'police',
+		'railway', 'line', 'route', 'highway', 'festival', 'conference', 'summit', 'games',
+		'championship', 'cup', 'league', 'series', 'show', 'awards', 'museum', 'zoo',
+	);
+
+	/**
+	 * Proper names in a file's own title that look like a person rather than a place or an
+	 * organisation. Two or three capitalized words, all letters, not ending in a word that makes
+	 * the run a thing.
+	 *
+	 * The file title is used rather than the whole label text, because a title describes what the
+	 * picture shows, while the categories describe everything it is filed under.
+	 *
+	 * @return string[]
+	 */
+	public static function person_names_in_title( array $candidate ): array {
+		$title = (string) preg_replace( '/^File:/i', '', (string) $candidate['title'] );
+		$title = (string) preg_replace( '/\.[a-z0-9]{2,5}$/i', '', $title );
+		$title = str_replace( array( '_', '-' ), ' ', $title );
+		// Anything in brackets is a photographer's reference or a date, not what is shown.
+		$title = (string) preg_replace( '/\([^)]*\)/u', ' ', $title );
+
+		// Whole runs, with no upper bound, so a long run is seen for what it is. Checking a window
+		// of two or three words inside a longer run would read "Moda Apartments Oak Street Health"
+		// as a person called "Moda Apartments Oak".
+		preg_match_all( '/\p{Lu}[\p{Ll}\'’]+(?:\s+\p{Lu}[\p{Ll}\'’]+)*/u', $title, $match );
+
+		$found = array();
+		foreach ( $match[0] as $run ) {
+			$run   = (string) preg_replace( '/[\'’]s$/u', '', trim( $run ) );
+			$words = preg_split( '/\s+/u', $run ) ?: array();
+			// A person's name is two or three words. Longer is a place or an organisation.
+			if ( count( $words ) < 2 || count( $words ) > 3 ) {
+				continue;
+			}
+			// A two-letter part is an abbreviation, as in "Parsons Bl" for a boulevard.
+			$short = false;
+			foreach ( $words as $word ) {
+				if ( mb_strlen( (string) $word ) < 3 ) {
+					$short = true;
+				}
+			}
+			if ( $short ) {
+				continue;
+			}
+			$last = mb_strtolower( (string) end( $words ) );
+			if ( in_array( $last, self::NOT_PERSON_WORDS, true ) ) {
+				continue;
+			}
+			// A run that begins with a describing word, such as "Boy feeling", is not a name.
+			$first = mb_strtolower( (string) $words[0] );
+			if ( in_array( $first, self::NOT_PERSON_WORDS, true ) ) {
+				continue;
+			}
+			$found[] = $run;
+		}
+
+		return array_values( array_unique( $found ) );
+	}
+
+	/**
+	 * Whether the article mentions this name anywhere: its subjects, its tags or its own words.
+	 */
+	private static function article_mentions( string $name, array $analysis ): bool {
+		$haystacks = array_merge(
+			(array) ( $analysis['entities'] ?? array() ),
+			(array) ( $analysis['concepts'] ?? array() ),
+			(array) ( $analysis['keywords'] ?? array() ),
+			array( (string) ( $analysis['main'] ?? '' ), (string) ( $analysis['text'] ?? '' ) )
+		);
+
+		foreach ( $haystacks as $haystack ) {
+			$haystack = (string) $haystack;
+			if ( '' === trim( $haystack ) ) {
+				continue;
+			}
+			if ( self::has_phrase( mb_strtolower( $haystack ), $name ) ) {
+				return true;
+			}
+		}
+
+		// A surname on its own is enough: an article about "Dana White" that calls him "White"
+		// still mentions the person in a photograph titled "Dana White at UFC 300".
+		$words = preg_split( '/\s+/u', trim( $name ) ) ?: array();
+		$last  = (string) end( $words );
+		if ( mb_strlen( $last ) >= 4 ) {
+			foreach ( $haystacks as $haystack ) {
+				$haystack = (string) $haystack;
+				if ( '' !== trim( $haystack ) && self::has_phrase( mb_strtolower( $haystack ), $last ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * All the words Commons has about a file.
 	 */
 	public static function label_text( array $candidate ): string {
@@ -63,6 +175,26 @@ final class CandidateScorer {
 	 * Whether an entity names a specific subject. A word for a kind of person, such as "Patients" or
 	 * "Police", does not, so a photo labeled with it is not "about them".
 	 */
+	/**
+	 * Whether a name looks like a person rather than a place, a building or an organisation.
+	 * Two or three capitalized words, none of which makes the name a thing.
+	 */
+	public static function looks_like_a_person( string $name ): bool {
+		$words = preg_split( '/\s+/u', trim( $name ) ) ?: array();
+		if ( count( $words ) < 2 || count( $words ) > 3 ) {
+			return false;
+		}
+		foreach ( $words as $word ) {
+			if ( ! preg_match( '/^\p{Lu}[\p{Ll}\'’]+$/u', (string) $word ) ) {
+				return false;
+			}
+			if ( in_array( mb_strtolower( (string) $word ), self::NOT_PERSON_WORDS, true ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private static function names_a_subject( string $entity ): bool {
 		return ! preg_match( self::MINORS, $entity )
 			&& ! preg_match( self::VICTIMS, $entity )
@@ -107,9 +239,27 @@ final class CandidateScorer {
 			return 'The labels suggest a chart, logo, map, scan or similar, not a photograph.';
 		}
 
+		// A picture whose own title names a person the article never mentions is the wrong picture,
+		// however well the rest of its labels happen to match. A photograph titled "Boy feeling
+		// Barack Obama's hair" is filed under the White House, so for an article about the White
+		// House press secretary it matches on keywords, on an entity and on concepts, and scores
+		// highly. It is still a photograph of Barack Obama and a child, and the article is about
+		// neither. This is checked before anything else about people, because it is the clearest
+		// signal that the picture is of someone else entirely.
+		foreach ( self::person_names_in_title( $candidate ) as $person ) {
+			if ( ! self::article_mentions( $person, $analysis ) ) {
+				return sprintf( 'The picture is of %s, who the article does not mention.', $person );
+			}
+		}
+
+		// Whether the article is about the people this picture shows. Only a person counts here.
+		// An article mentioning a place or an organisation that the picture is also filed under,
+		// such as "White House", does not make a photograph of a child in it fair to use, so a
+		// match on something that is not a person does not switch the protections below off.
 		$about_them = false;
 		foreach ( (array) $analysis['entities'] as $entity ) {
-			if ( self::names_a_subject( (string) $entity ) && self::has_phrase( $text, (string) $entity ) ) {
+			$entity = (string) $entity;
+			if ( self::names_a_subject( $entity ) && self::looks_like_a_person( $entity ) && self::has_phrase( $text, $entity ) ) {
 				$about_them = true;
 				break;
 			}

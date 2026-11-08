@@ -46,6 +46,7 @@ final class Settings {
 			'past_hour_enabled'          => 1,
 			'past_hour_prep_minutes'     => 120,
 			'past_hour_max_age_minutes'  => 120,
+			'past_hour_max_articles'     => 3,
 			'auto_stop_days'             => 0,
 			'auto_stop_posts'            => 0,
 			// Publishing.
@@ -201,6 +202,7 @@ final class Settings {
 			'max_article_age_hours'      => array( 1, 720 ),
 			'past_hour_prep_minutes'     => array( 15, 180 ),
 			'past_hour_max_age_minutes'  => array( 60, 180 ),
+			'past_hour_max_articles'     => array( 1, 5 ),
 			'auto_stop_days'             => array( 0, 365 ),
 			'auto_stop_posts'            => array( 0, 10000 ),
 			'post_author'                => array( 0, PHP_INT_MAX ),
