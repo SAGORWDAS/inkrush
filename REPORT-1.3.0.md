@@ -106,7 +106,7 @@ Details are in `docs/IMAGES.md`.
 
 ## 16. Install and upgrade
 
-Press Stop, upload `dist/zzz-copy-das-sobur-1.3.0 WITH IMAGES SEARCH.zip`, and choose to replace the current version. The tables are added automatically. Images are on by default, so turn them off on the Images page if you want the old behavior.
+Press Stop, upload `dist/inkrush-1.3.0.zip`, and choose to replace the current version. The tables are added automatically. Images are on by default, so turn them off on the Images page if you want the old behavior.
 
 ## 17. Rollback
 

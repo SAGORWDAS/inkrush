@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the **Logs** page. Every stage records its result and its reason. Filter by severity "error", by stage, or by the article's job number. The complete guide, with every retrieval result and Past-Hour Posting reason, is [TROUBLESHOOTING.md](../zzz-copy-das-sobur/docs/TROUBLESHOOTING.md) in the plugin folder.
+Start with the **Logs** page. Every stage records its result and its reason. Filter by severity "error", by stage, or by the article's job number. The complete guide, with every retrieval result and Past-Hour Posting reason, is [TROUBLESHOOTING.md](../inkrush/docs/TROUBLESHOOTING.md) in the plugin folder.
 
 ## Quick checks
 

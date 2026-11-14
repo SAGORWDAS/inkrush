@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to InkRush are listed here. Its technical name and folder are `zzz-copy-das-sobur`.
+All notable changes to InkRush are listed here. Its technical name is `zzz-copy-das-sobur`, and its source is in the `inkrush/` folder.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries come from the plugin's `readme.txt` changelog. Dates come from the project's git history. The public repository starts with 1.8.0, so earlier commits are not in it. Versions before 1.3.0 were made before this repository existed, so their dates are not recorded.
 
@@ -115,7 +115,7 @@ Fixes three faults found on the owner's site. Image tests built from the real lo
 
 ## [1.10.0] - 2026-11-08
 
-Social media distribution. Not yet run against any real platform: see the 1.10.0 section of `zzz-copy-das-sobur/docs/TEST-RESULTS.md` for exactly what was and was not tested.
+Social media distribution. Not yet run against any real platform: see the 1.10.0 section of `inkrush/docs/TEST-RESULTS.md` for exactly what was and was not tested.
 
 ### Added
 

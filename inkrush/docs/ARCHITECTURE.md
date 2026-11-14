@@ -3,7 +3,7 @@
 ## File structure
 
 ```
-zzz-copy-das-sobur/
+inkrush/                   In the repository. Named zzz-copy-das-sobur inside the ZIP and on a site
   zzz-copy-das-sobur.php   Plugin header, autoloader, hooks
   uninstall.php            Removes data only if the administrator opted in
   defaults/                Exact supplied prompts, and the accuracy instruction
@@ -309,7 +309,7 @@ The display name is InkRush: the plugin header, the admin menu, page titles, mes
 
 | Identifier | Value |
 |---|---|
-| Folder, main file, slug and text domain | `zzz-copy-das-sobur` |
+| Folder inside the ZIP and on a site, main file, slug and text domain | `zzz-copy-das-sobur` |
 | PHP namespace and constants | `ZZZCopy\\`, `ZZZC_*`, `ZZZCOPY_SECRET_KEY` |
 | Options, tables, hooks, filters, post meta and the cron schedule | `zzzc_*`, `{prefix}zzzc_*`, `_zzzc_*` |
 | Admin page slugs | `zzzc-dashboard` and the other `zzzc-*` pages. Assets load on any hook containing `zzzc-`, so the menu title does not affect them |

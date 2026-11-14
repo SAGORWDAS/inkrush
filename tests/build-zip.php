@@ -1,13 +1,13 @@
 <?php
 /**
  * Builds the release ZIP with forward-slash paths, so it installs on any host.
- * The file is named after the brand, inkrush-{version}.zip. The folder inside stays zzz-copy-das-sobur,
+ * The file is named after the brand, inkrush-{version}.zip. The source folder is inkrush. The folder inside the ZIP stays zzz-copy-das-sobur,
  * the plugin's technical name, so uploading it replaces an installed copy instead of adding a second one.
  * Usage: php -d extension=zip tests/build-zip.php
  */
 
 $root    = dirname( __DIR__ );
-$source  = $root . '/zzz-copy-das-sobur';
+$source  = $root . '/inkrush';
 $version = '1.11.0';
 $dist    = $root . '/dist';
 

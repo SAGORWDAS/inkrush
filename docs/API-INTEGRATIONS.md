@@ -42,7 +42,7 @@ Images are found through the official [MediaWiki API](https://commons.wikimedia.
 - The plugin searches with terms built from the article's title, text and tags, and reads each file's size, type and license details.
 - It sends at most one request every 3 seconds by default, and keeps results for 6 hours. It respects the waits Wikimedia asks for.
 - Images are downloaded only from Wikimedia's media hosts, as a copy 1920 pixels wide when the original is larger.
-- The choice is made by rules, not AI. See [IMAGES.md](../zzz-copy-das-sobur/docs/IMAGES.md) for the licenses accepted, scoring and credits.
+- The choice is made by rules, not AI. See [IMAGES.md](../inkrush/docs/IMAGES.md) for the licenses accepted, scoring and credits.
 
 Press **Test Wikimedia connection** on the Images page to check access. Follow the [Wikimedia Foundation's terms of use](https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use) and each file's license.
 

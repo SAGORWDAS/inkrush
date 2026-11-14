@@ -6,7 +6,7 @@ They run inside a real WordPress install, using a separate `test_` table prefix 
 
 ## Setup
 
-1. Have a WordPress site with this plugin in `wp-content/plugins/zzz-copy-das-sobur`.
+1. Have a WordPress site with this plugin in `wp-content/plugins/zzz-copy-das-sobur`. That is the plugin's technical name, which WordPress knows it by. Copy or link the repository's `inkrush/` folder there under that name.
 2. In `wp-config.php`, set the prefix like this:
 
 ```php

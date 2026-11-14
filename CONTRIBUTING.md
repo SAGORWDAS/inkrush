@@ -12,20 +12,20 @@ Thank you for helping. InkRush is a one-person project by Sagor Das, so please b
 
 | Path | What it is |
 |---|---|
-| `zzz-copy-das-sobur/` | The plugin. This folder is what goes into the release ZIP |
-| `zzz-copy-das-sobur/includes/` | PHP classes in the `ZZZCopy` namespace, loaded by the autoloader in the main plugin file |
-| `zzz-copy-das-sobur/defaults/` | The owner's article and tag prompts, stored exactly as written |
-| `zzz-copy-das-sobur/docs/` | Detailed docs, including architecture and test results |
+| `inkrush/` | The plugin. This folder is what goes into the release ZIP, where it is named `zzz-copy-das-sobur` so that an installed copy upgrades in place |
+| `inkrush/includes/` | PHP classes in the `ZZZCopy` namespace, loaded by the autoloader in the main plugin file |
+| `inkrush/defaults/` | The owner's article and tag prompts, stored exactly as written |
+| `inkrush/docs/` | Detailed docs, including architecture and test results |
 | `tests/` | Automated tests and a mock server. Not part of the ZIP |
 | `docs/` | User guides and maintainer notes for this repository |
 
-Read [ARCHITECTURE.md](zzz-copy-das-sobur/docs/ARCHITECTURE.md) and [docs/MAINTAINER-NOTES.md](docs/MAINTAINER-NOTES.md) before changing code.
+Read [ARCHITECTURE.md](inkrush/docs/ARCHITECTURE.md) and [docs/MAINTAINER-NOTES.md](docs/MAINTAINER-NOTES.md) before changing code.
 
 ## Rules for code changes
 
 - Keep the code compatible with PHP 8.1 and WordPress 6.5.
 - Do not add third-party libraries, CDNs, web fonts or telemetry, and no outside services beyond news sources, OpenRouter and Wikimedia Commons.
-- Do not change the prompts in `zzz-copy-das-sobur/defaults/`, even to fix typos, without the owner's agreement.
+- Do not change the prompts in `inkrush/defaults/`, even to fix typos, without the owner's agreement.
 - AI is used only for writing articles and tags. Images are chosen by rules.
 - Keep the admin screens monochrome, minimal and fast.
 - Do not rename the plugin folder, slug, text domain, namespace, hooks, options or database tables. Live sites depend on them.

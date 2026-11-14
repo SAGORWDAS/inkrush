@@ -21,7 +21,7 @@ Fixes are made to the latest version only. Please update to the latest version b
 
 ## What this policy covers
 
-The plugin code in this repository: the PHP, JavaScript and CSS in `zzz-copy-das-sobur/`.
+The plugin code in this repository: the PHP, JavaScript and CSS in `inkrush/`.
 
 Not covered: WordPress itself, your hosting, other plugins and themes, and the outside services the plugin uses (OpenRouter, Wikimedia Commons, Google News and publisher websites). Report problems with those to their owners.
 

@@ -10,7 +10,7 @@ InkRush is an AI-powered WordPress news automation plugin. It finds news stories
 - **Developed by:** Sagor Das
 - **Developer contact:** das.sagorwork@gmail.com
 
-> **Technical name.** The plugin shows as **InkRush** in WordPress. Its technical name stays `zzz-copy-das-sobur` (the folder inside the ZIP, the slug and the text domain), and its web user agent stays `ZZZCopyDasSobur`, so existing sites, settings, data and publishers' robots.txt rules keep working.
+> **Technical name.** The plugin shows as **InkRush** in WordPress. Its technical name stays `zzz-copy-das-sobur` (the folder inside the ZIP, the slug and the text domain), so an installed copy upgrades in place. The source in this repository is in the `inkrush/` folder, and its web user agent stays `ZZZCopyDasSobur`, so existing sites, settings, data and publishers' robots.txt rules keep working.
 
 ## Contents
 
@@ -114,7 +114,7 @@ For full details, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 - An OpenRouter account with an API key and credits.
 - Recommended: permission to add a server cron job.
 
-These are the declared minimums. Which versions were actually tested is recorded in [TEST-RESULTS.md](zzz-copy-das-sobur/docs/TEST-RESULTS.md).
+These are the declared minimums. Which versions were actually tested is recorded in [TEST-RESULTS.md](inkrush/docs/TEST-RESULTS.md).
 
 ## Installation
 
@@ -149,7 +149,7 @@ The plugin reads a publisher page only when that site's robots.txt allows it, an
 
 Images come from Wikimedia Commons through its official API. The plugin accepts CC0, public domain and CC BY files, and CC BY-SA files unless you turn them off. It refuses non-commercial, no-derivatives, unknown and conflicting licenses. It reads file labels, not the pictures themselves, so some images will not suit their story. Check them.
 
-Full details are in [IMAGES.md](zzz-copy-das-sobur/docs/IMAGES.md).
+Full details are in [IMAGES.md](inkrush/docs/IMAGES.md).
 
 ## Publishing and authors
 
@@ -164,7 +164,7 @@ The default schedule is 3 posts a day, 6 hours apart, from 10:00, in the fixed t
 
 To run for a set time only, use **Automatic stop** on the Schedule page: automation then stops by itself after a number of days, or a number of published posts, whichever comes first. Both count from the last Start.
 
-A server cron job that runs every minute makes timing reliable. Without one, WordPress's own scheduler runs only when someone visits the site. See [SERVER-CRON.md](zzz-copy-das-sobur/docs/SERVER-CRON.md).
+A server cron job that runs every minute makes timing reliable. Without one, WordPress's own scheduler runs only when someone visits the site. See [SERVER-CRON.md](inkrush/docs/SERVER-CRON.md).
 
 ## Troubleshooting
 

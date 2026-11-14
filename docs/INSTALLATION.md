@@ -1,6 +1,6 @@
 # Installing InkRush
 
-This guide takes you from the ZIP file to the first automatic post. The plugin's own, more detailed guide is [INSTALL.md](../zzz-copy-das-sobur/docs/INSTALL.md).
+This guide takes you from the ZIP file to the first automatic post. The plugin's own, more detailed guide is [INSTALL.md](../inkrush/docs/INSTALL.md).
 
 ## Before you start
 
@@ -50,7 +50,7 @@ Press **Test search** on a category to see what it finds right now. Nothing is s
 2. Set the posts per day, hours between posts and first post time.
 3. Decide whether to keep **Past-Hour Posting** on. With it on, each post uses a story no more than 2 hours old, or is skipped.
 4. Optional: under **Automatic stop**, set a number of days or published posts after which automation stops by itself. 0 means no limit.
-5. Set up the server cron job shown on this page. See [SERVER-CRON.md](../zzz-copy-das-sobur/docs/SERVER-CRON.md).
+5. Set up the server cron job shown on this page. See [SERVER-CRON.md](../inkrush/docs/SERVER-CRON.md).
 
 ## 5. Authors
 
@@ -72,7 +72,7 @@ On the **Dashboard**, press **Start Automation**. Anything still missing is list
 
 ## Updating
 
-Upload the new ZIP the same way. WordPress offers to replace the installed version. The plugin upgrades its own database on the next page load. Back up your database before updating. See [OPERATIONS.md](../zzz-copy-das-sobur/docs/OPERATIONS.md) for backup, upgrade and rollback.
+Upload the new ZIP the same way. WordPress offers to replace the installed version. The plugin upgrades its own database on the next page load. Back up your database before updating. See [OPERATIONS.md](../inkrush/docs/OPERATIONS.md) for backup, upgrade and rollback.
 
 ## Removing
 

@@ -1,6 +1,6 @@
 # How the automation works
 
-This guide explains what InkRush does in the background after you press **Start Automation**, and how to keep it running on time. The technical design is in [ARCHITECTURE.md](../zzz-copy-das-sobur/docs/ARCHITECTURE.md).
+This guide explains what InkRush does in the background after you press **Start Automation**, and how to keep it running on time. The technical design is in [ARCHITECTURE.md](../inkrush/docs/ARCHITECTURE.md).
 
 ## The worker
 
@@ -14,7 +14,7 @@ The worker can be started in three ways:
 | Server cron, web request | `POST https://your-site/wp-json/zzzc/v1/tick` every minute, with the token in the `X-ZZZC-Token` header | For hosts that only allow URL-based cron. The token can only trigger a worker run |
 | WP-Cron | Automatic, every minute | The fallback. It runs only when someone visits the site, so posts can be late on a quiet site |
 
-The Schedule page shows the exact command, address and token for your site. Setup steps are in [SERVER-CRON.md](../zzz-copy-das-sobur/docs/SERVER-CRON.md).
+The Schedule page shows the exact command, address and token for your site. Setup steps are in [SERVER-CRON.md](../inkrush/docs/SERVER-CRON.md).
 
 A separate daily task, run by WordPress's own cron, removes old data according to the retention settings.
 

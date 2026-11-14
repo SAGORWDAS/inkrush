@@ -14,7 +14,7 @@ Nothing here has been applied. Repository settings (description, topics, Discuss
 
 ## Suggested GitHub settings
 
-**Repository name.** The current name, `zzz-copy-das-sobur-1.3.0-with-images-search`, contains an old version number and no brand. A name such as `inkrush` or `inkrush-wordpress-news-automation` is easier to find and remember. GitHub redirects the old address after a rename, but local clones should update their remote. The plugin folder and slug inside the repository stay `zzz-copy-das-sobur` either way, for compatibility with existing sites.
+**Repository name.** The repository is named `inkrush`. Its first name contained an old version number and no brand. The source folder inside the repository is `inkrush/`. The plugin's technical name, the folder inside the ZIP and on a site, stays `zzz-copy-das-sobur` for compatibility with existing sites.
 
 **About description** (under 350 characters):
 
