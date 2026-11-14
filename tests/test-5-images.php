@@ -278,7 +278,8 @@ t(
 		t_false( $check( array( 'artist' => '' ) )['ok'], 'CC BY with no creator' );
 		t_false( $check( array( 'artist' => 'Unknown author' ) )['ok'], 'CC BY with unknown creator' );
 		t_false( $check( array( 'extra' => array( 'Restrictions' => 'trademarked' ) ) )['ok'], 'restricted' );
-		t_false( $check( array( 'extra' => array( 'Restrictions' => 'personality' ) ) )['ok'], 'personality rights' );
+		t_true( $check( array( 'extra' => array( 'Restrictions' => 'personality' ) ) )['ok'], 'the personality notice is accepted from 1.11.0' );
+		t_false( $check( array( 'extra' => array( 'Restrictions' => 'personality|trademarked' ) ) )['ok'], 'a trademark beside it is not' );
 		t_false( $check( array( 'extra' => array( 'NonFree' => 'true' ) ) )['ok'], 'not free' );
 		t_false( $check( array( 'short' => 'Public domain', 'code' => 'pd', 'copyrighted' => 'True', 'lurl' => '' ) )['ok'], 'public domain but copyrighted' );
 		t_true( $check( array() )['ok'], 'a correct CC BY passes' );
@@ -308,7 +309,8 @@ t(
 		};
 		t_contains( 'Too small', $rule( array( 'w' => 1000, 'h' => 600 ) ) );
 		t_contains( 'Too small', $rule( array( 'w' => 1600, 'h' => 600 ) ) );
-		t_contains( 'Not a landscape', $rule( array( 'w' => 1600, 'h' => 2000 ) ) );
+		t_contains( 'A portrait image', $rule( array( 'w' => 1600, 'h' => 2000 ) ) );
+		t_eq( '', $rule( array( 'w' => 2000, 'h' => 2000 ) ), 'a square picture is accepted from 1.11.0' );
 		t_contains( 'MB limit', $rule( array( 'size' => 30000000 ) ) );
 		t_contains( 'file type', $rule( array( 'mime' => 'image/svg+xml' ) ) );
 		t_contains( 'file type', $rule( array( 'mime' => 'image/gif' ) ) );

@@ -214,8 +214,10 @@ final class CandidateScorer {
 		if ( (int) $candidate['width'] < (int) Settings::get( 'image_min_width' ) || (int) $candidate['height'] < (int) Settings::get( 'image_min_height' ) ) {
 			return sprintf( 'Too small: %1$d by %2$d pixels.', $candidate['width'], $candidate['height'] );
 		}
-		if ( (int) $candidate['width'] <= (int) $candidate['height'] ) {
-			return 'Not a landscape image.';
+		// A square picture is accepted from 1.11.0 (the owner's decision of 2026-11-14). A tall one is
+		// still refused, because a theme crops it to a wide space and the image is never edited.
+		if ( (int) $candidate['width'] < (int) $candidate['height'] ) {
+			return 'A portrait image, taller than it is wide.';
 		}
 		if ( (int) $candidate['size'] > (int) Settings::get( 'image_max_file_mb' ) * 1048576 ) {
 			return sprintf( 'The file is over the %d MB limit.', Settings::get( 'image_max_file_mb' ) );

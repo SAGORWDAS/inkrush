@@ -83,9 +83,16 @@ final class PastHour {
 		return self::prep_minutes() * 60;
 	}
 
-	/** Other categories are searched only in the second half of the age limit before the post. */
+	/** The longest story age there was before 1.11.0, which still sets when other categories are tried. */
+	private const FALLBACK_AGE_CAP = 180 * 60;
+
+	/**
+	 * Other categories are searched only in the second half of the age limit before the post.
+	 * An age limit over 3 hours counts as 3 hours here, so with stories up to 12 hours old the
+	 * planned category still has the first part of preparation to itself, as it did before.
+	 */
 	private static function fallback_within(): int {
-		return (int) ( self::max_age() / 2 );
+		return (int) ( min( self::max_age(), self::FALLBACK_AGE_CAP ) / 2 );
 	}
 
 	public static function prep_start( array $slot ): int {
@@ -367,6 +374,19 @@ final class PastHour {
 				)
 			);
 			self::retire_article( $article, $reason );
+			if ( in_array( (string) $article['error_code'], self::PUBLISHER_FAILURES, true ) ) {
+				$publisher = trim( (string) ( Lifecycle::item( (int) $article['source_item_id'] )['publisher'] ?? '' ) );
+				if ( '' !== $publisher ) {
+					self::log(
+						'info',
+						sprintf( 'Other stories from %1$s are passed over for the %2$s post, because this one could not be reached. They can be used for a later post.', $publisher, self::post_time( $slot ) ),
+						array(
+							'category_id'    => (int) $article['category_id'],
+							'source_item_id' => (int) $article['source_item_id'],
+						)
+					);
+				}
+			}
 			self::update_slot(
 				(int) $slot['id'],
 				array(
@@ -581,16 +601,47 @@ final class PastHour {
 		return false;
 	}
 
+	/**
+	 * Failures that belong to the publisher and not to the one story: its pages cannot be found from
+	 * a Google News headline, or it refuses this plugin, or it sits behind a paywall. The next story
+	 * from the same publisher fails the same way. On 2026-11-14 four of the eight stories tried for
+	 * the 22:00 post were from one publisher whose headlines never matched its feed.
+	 */
+	private const PUBLISHER_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled' );
+
+	/**
+	 * Publishers that already failed in one of those ways for this post. Their other stories are
+	 * passed over for this post only, so its tries are not all spent on one site.
+	 *
+	 * @return string[]
+	 */
+	private static function failed_publishers( array $slot ): array {
+		global $wpdb;
+		$jobs  = Db::table( 'article_jobs' );
+		$items = Db::table( 'source_items' );
+		$codes = "'" . implode( "','", self::PUBLISHER_FAILURES ) . "'";
+		$found = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT i.publisher FROM {$jobs} j INNER JOIN {$items} i ON i.id = j.source_item_id WHERE j.slot_id = %d AND i.publisher <> '' AND j.error_code IN ({$codes})", (int) $slot['id'] ) ); // phpcs:ignore WordPress.DB
+		return array_values( array_filter( array_map( 'strval', (array) $found ), 'strlen' ) );
+	}
+
 	private static function eligible_items( array $slot, array $category_ids ): array {
 		global $wpdb;
-		$table = Db::table( 'source_items' );
-		$in    = '(' . implode( ',', array_map( 'intval', $category_ids ) ) . ')';
-		return $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE status = 'DISCOVERED' AND category_id IN {$in} AND published_at >= %s AND published_at <= %s ORDER BY adapter = %s DESC, published_at DESC, id DESC LIMIT 20", // phpcs:ignore WordPress.DB
+		$table  = Db::table( 'source_items' );
+		$in     = '(' . implode( ',', array_map( 'intval', $category_ids ) ) . ')';
+		$failed = self::failed_publishers( $slot );
+		$not    = $failed ? ' AND publisher NOT IN (' . implode( ',', array_fill( 0, count( $failed ), '%s' ) ) . ')' : '';
+		$args   = array_merge(
+			array(
 				Clock::mysql( self::earliest_story( $slot ) ),
 				Clock::mysql( Clock::now() + self::FUTURE_TOLERANCE ),
-				Discovery::FEED
+			),
+			$failed,
+			array( Discovery::FEED )
+		);
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE status = 'DISCOVERED' AND category_id IN {$in} AND published_at >= %s AND published_at <= %s{$not} ORDER BY adapter = %s DESC, published_at DESC, id DESC LIMIT 20", // phpcs:ignore WordPress.DB
+				$args
 			),
 			ARRAY_A
 		);

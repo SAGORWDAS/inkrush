@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '12';
+	public const DB_VERSION = '13';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -53,6 +53,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '12', '<' ) ) {
 			self::upgrade_to_12();
+		}
+		if ( '' !== $previous && version_compare( $previous, '13', '<' ) ) {
+			self::upgrade_to_13();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -191,6 +194,19 @@ final class Schema {
 	 */
 	private static function upgrade_to_12(): void {
 		Events::log( 'config', 'info', 'Upgraded plugin data. Social media distribution is available on the new Social Media page. It is switched off, and nothing is published to social media until you connect an account and turn a platform on.' );
+	}
+
+	/**
+	 * Version 13: the owner asked on 2026-11-14 for stories up to 12 hours old, after the site's log
+	 * showed 17 of 26 posts skipped. The preparation time is the owner's own and is kept. No table changes.
+	 */
+	private static function upgrade_to_13(): void {
+		$stored = get_option( 'zzzc_settings', array() );
+		$stored = is_array( $stored ) ? $stored : array();
+		$stored['past_hour_max_age_minutes'] = 720;
+		update_option( 'zzzc_settings', $stored, false );
+		Settings::flush_cache();
+		Events::log( 'config', 'info', 'Upgraded plugin data. Past-Hour Posting now uses stories up to 720 minutes (12 hours) old. Posts still go out at their set times, and the preparation time is unchanged. You can lower the story age on the Schedule page.' );
 	}
 
 	private static function create_tables(): void {

@@ -92,6 +92,12 @@ function wp_parse_url( $url, $component = -1 ) {
 	return -1 === $component ? parse_url( (string) $url ) : parse_url( (string) $url, $component );
 }
 
+/** Enough of esc_url_raw() for a license address: an http or https address is kept, anything else is not. */
+function esc_url_raw( $url ) {
+	$url = trim( (string) $url );
+	return preg_match( "#^(https?:)?//#i", $url ) ? $url : "";
+}
+
 function home_url( $path = '' ) {
 	return 'https://example.test' . $path;
 }

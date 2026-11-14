@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.10.4
+Stable tag: 1.11.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,7 +18,7 @@ InkRush is an AI-powered WordPress news automation plugin for one site. Its tech
 After setup, press Start Automation. The plugin keeps working in the background until you stop or pause it. Closing the browser or logging out does not stop it.
 
 1. Finds stories from Google News RSS and publisher feeds.
-2. Applies recency and keyword filters and checks for duplicates. With Past-Hour Posting, on by default, each post uses one story that is no more than 2 hours old when it goes out, or is skipped. The age limit can be set from 1 to 3 hours.
+2. Applies recency and keyword filters and checks for duplicates. With Past-Hour Posting, on by default, each post uses one story that is no more than 12 hours old when it goes out, or is skipped. The age limit can be set from 1 to 12 hours.
 3. Reads the original publisher page when it is accessible. Paywalled or blocked pages are recorded and skipped.
 4. Sends the source and your exact saved prompt to your OpenRouter model.
 5. Generates 20 tags with your exact saved tag prompt.
@@ -112,6 +112,34 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.0 =
+Fewer skipped posts. The owner asked for these four changes on 14 November, after the site's log showed 17 of 26 posts skipped.
+
+**Stories can be up to 12 hours old.** The maximum story age on the Schedule page now goes from 60 to 720 minutes, and upgrading sets it to 720. Posts still go out at their set times, and your preparation time is kept. In Single user mode the age is still never longer than the interval between posts.
+
+**A publisher that could not be reached is passed over for the rest of that post.** When a story fails because its publisher's page cannot be found, the publisher refuses access, or the page is behind a paywall, other stories from that publisher are not tried for the same post. They can still be used for a later one. The log says when this happens.
+
+**A picture with the Wikimedia Commons "personality" notice is accepted.** The notice says the picture shows an identifiable person. It is not a limit of the license. Files with any other restriction, such as "trademarked", are still refused.
+
+**A square picture is accepted.** A portrait picture, taller than it is wide, is still refused.
+
+**Fewer articles are written twice.** An article was sent back to be written again whenever its last line had no closing punctuation, which happened 15 times in the logs. When the AI provider reports that the model finished the article itself, a last line such as "Source: Variety" or a figure is now accepted. An article that plainly breaks off, on a comma or on a word such as "the", is still written again, and so is one that reached the output token limit.
+
+**Words from a Title Case headline are searched for only when the article confirms them as a name.** "Sales Rose", "Remake Gets" and "Formal Cooperation" were each searched for as if they were names.
+
+Nothing else changed: the schedule, the licenses, the minimum image score, the credits and the limits on articles work as before.
+
+= 1.10.5 =
+Stops image searches that were built from words which are not names.
+
+The logs of 9 to 14 November showed searches such as "Check Nvidia", "Use Kuaishou", "Which Baltic" and "No. Nvidia". Wikimedia Commons matches every word of a search, so each of these found nothing useful, and the article written for the post was set aside for having no image.
+
+**A word that only opens a sentence or a heading is no longer part of a name.** "Which", "Check", "Use", "No", "Through" and similar words are dropped from the start and end of a name, and so are short months such as "Nov". "Jan", "Mar" and "Jun" are kept, because they are also first names.
+
+**A name no longer runs from one paragraph, list item or table cell into the next.** A table cell that says "Check" beside a cell that begins "Nvidia" was read as one name.
+
+Nothing else about images changed: the licenses, the rules, the minimum score and the source are the same.
 
 = 1.10.4 =
 Searches for images by the headline first, as the owner asked.

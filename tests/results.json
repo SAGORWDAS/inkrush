@@ -1,11 +1,11 @@
 {
     "wordpress": "7.1.4",
-    "php": "8.1.34",
-    "database": "10.11.19-MariaDB",
-    "seconds": 348.4,
+    "php": "8.3.36",
+    "database": "11.4.5-MariaDB",
+    "seconds": 423,
     "counts": {
-        "PASS": 251,
-        "FAIL": 0,
+        "PASS": 258,
+        "FAIL": 47,
         "ERROR": 0
     },
     "tests": [
@@ -14,7 +14,7 @@
             "name": "Plugin is active, tables exist and the header has the exact name",
             "status": "PASS",
             "message": "",
-            "ms": 6
+            "ms": 11
         },
         {
             "id": "M2",
@@ -28,14 +28,14 @@
             "name": "The owner's 21 categories exist in order, with the supplied topic URLs where they apply, and can be edited, added, disabled, duplicated, reordered and deleted",
             "status": "PASS",
             "message": "",
-            "ms": 36
+            "ms": 28
         },
         {
             "id": "Categories",
             "name": "Upgrading from 1.0 adds the missing categories, leaves existing ones untouched and is not repeated",
             "status": "PASS",
             "message": "",
-            "ms": 193
+            "ms": 220
         },
         {
             "id": "Categories",
@@ -49,7 +49,7 @@
             "name": "A category added later is used only once it is ready, and its status says why not",
             "status": "PASS",
             "message": "",
-            "ms": 72
+            "ms": 89
         },
         {
             "id": "AC-02,M6",
@@ -63,21 +63,21 @@
             "name": "Prompts with unusual content are stored and returned byte for byte",
             "status": "PASS",
             "message": "",
-            "ms": 12
+            "ms": 11
         },
         {
             "id": "AC-03",
             "name": "Start refuses when configuration is missing, and starts persistent processing when ready",
             "status": "PASS",
             "message": "",
-            "ms": 118
+            "ms": 87
         },
         {
             "id": "AC-03,M9",
             "name": "Start refuses an unavailable model, shows an error and does not substitute another",
             "status": "PASS",
             "message": "",
-            "ms": 24
+            "ms": 28
         },
         {
             "id": "M8",
@@ -91,35 +91,35 @@
             "name": "Settings validate input and persist through a reload",
             "status": "PASS",
             "message": "",
-            "ms": 2
+            "ms": 3
         },
         {
             "id": "M12",
             "name": "State machine rejects invalid transitions and logs them",
             "status": "PASS",
             "message": "",
-            "ms": 30
+            "ms": 35
         },
         {
             "id": "AC-16",
             "name": "API key is encrypted at rest and only a masked hint is available",
             "status": "PASS",
             "message": "",
-            "ms": 10
+            "ms": 8
         },
         {
             "id": "MA-1",
             "name": "Single user mode is the default, and upgrading to version 11 keeps slots, the Post author and posting exactly as before",
-            "status": "PASS",
-            "message": "",
-            "ms": 1353
+            "status": "FAIL",
+            "message": "expected '11', got '13'",
+            "ms": 0
         },
         {
             "id": "MA-2",
             "name": "Schedule values are checked: times, timezone, weekdays, dates, posts at each time, limits and the missed rule, each with a clear message",
             "status": "PASS",
             "message": "",
-            "ms": 259
+            "ms": 267
         },
         {
             "id": "MA-3",
@@ -133,91 +133,434 @@
             "name": "Times are planned per author in the author's timezone, follow weekdays, From and Until and dates to skip, and an author added mid-day gets only the times left",
             "status": "PASS",
             "message": "",
-            "ms": 528
+            "ms": 531
         },
         {
             "id": "MA-5",
             "name": "With 2 posts at one time, 2 slots are planned and filled one after another for the same author",
             "status": "PASS",
             "message": "",
-            "ms": 1807
+            "ms": 1940
         },
         {
             "id": "MA-6",
             "name": "An author's categories limit the category of their times, the article chosen, the fallback and the research",
             "status": "PASS",
             "message": "",
-            "ms": 1605
+            "ms": 1635
         },
         {
             "id": "MA-7",
             "name": "Each post is credited to the author whose time it is, not to the Post author, including after a crash",
             "status": "PASS",
             "message": "",
-            "ms": 2158
+            "ms": 2227
         },
         {
             "id": "MA-8",
             "name": "A paused, revoked or deleted author's time is not used: the article waits for another author, no AI is spent for them, and the check is repeated right before the post",
             "status": "PASS",
             "message": "",
-            "ms": 1157
+            "ms": 1195
         },
         {
             "id": "MA-9",
             "name": "Daily, weekly and monthly limits, counted in the author's own calendar with weeks from Monday, stop their times and their research",
             "status": "PASS",
             "message": "",
-            "ms": 3330
+            "ms": 3415
         },
         {
             "id": "MA-10",
             "name": "The site's Maximum posts per day and Maximum article generations per day stay ceilings above every author",
             "status": "PASS",
             "message": "",
-            "ms": 2329
+            "ms": 2407
         },
         {
             "id": "MA-11",
             "name": "A missed time follows the author's own rule: published at that author's next time, or skipped",
             "status": "PASS",
             "message": "",
-            "ms": 1979
+            "ms": 2034
         },
         {
             "id": "MA-12",
             "name": "Switching modes needs an active author with a schedule, plans the coming times again, never keeps both, and is logged with who switched",
             "status": "PASS",
             "message": "",
-            "ms": 243
+            "ms": 216
         },
         {
             "id": "MA-13",
             "name": "Start Automation in Multiple users mode asks for a scheduled author instead of the Post author",
             "status": "PASS",
             "message": "",
-            "ms": 176
+            "ms": 174
         },
         {
             "id": "MA-14",
             "name": "Past-Hour Posting in Multiple users mode searches only the author's categories, credits the author, and uses the story age as set",
             "status": "PASS",
             "message": "",
-            "ms": 1378
+            "ms": 1392
         },
         {
             "id": "MA-15",
             "name": "The Authors page has the Posting mode card and schedule form, both save through checked forms, and other screens show the author",
             "status": "PASS",
             "message": "",
-            "ms": 494
+            "ms": 488
         },
         {
             "id": "MA-16",
             "name": "Logs name the author on schedule changes, posts and times not used, and can be filtered by that person",
             "status": "PASS",
             "message": "",
-            "ms": 1165
+            "ms": 1200
+        },
+        {
+            "id": "S-01",
+            "name": "The new tables exist and distribution is off until it is switched on",
+            "status": "PASS",
+            "message": "",
+            "ms": 2
+        },
+        {
+            "id": "S-02",
+            "name": "An upgrade from the previous version changes no existing data",
+            "status": "FAIL",
+            "message": "the existing article is still published: expected 'QUEUED', got 'PUBLISHED'",
+            "ms": 728
+        },
+        {
+            "id": "S-03",
+            "name": "A platform cannot be switched on without a connected account",
+            "status": "PASS",
+            "message": "",
+            "ms": 4
+        },
+        {
+            "id": "S-04",
+            "name": "An account credential is stored encrypted and never returned by an ordinary read",
+            "status": "PASS",
+            "message": "",
+            "ms": 17
+        },
+        {
+            "id": "S-10",
+            "name": "A published article is queued for every platform that is switched on",
+            "status": "FAIL",
+            "message": "the article was published to the website, got false",
+            "ms": 690
+        },
+        {
+            "id": "S-11",
+            "name": "A draft article is never distributed",
+            "status": "FAIL",
+            "message": "the article was created as a draft: expected 'DRAFT_CREATED', got 'QUEUED'",
+            "ms": 676
+        },
+        {
+            "id": "S-12",
+            "name": "Publishing a draft by hand distributes it only when that setting is on",
+            "status": "FAIL",
+            "message": "there is a draft post, got false",
+            "ms": 698
+        },
+        {
+            "id": "S-13",
+            "name": "A scheduled post is distributed when it actually goes public, not before",
+            "status": "PASS",
+            "message": "",
+            "ms": 63
+        },
+        {
+            "id": "S-14",
+            "name": "An article already distributed is not distributed again when it is edited",
+            "status": "FAIL",
+            "message": "one record to begin with: expected 1, got 0",
+            "ms": 676
+        },
+        {
+            "id": "S-15",
+            "name": "Deleting an article leaves published social posts alone and cancels the rest",
+            "status": "FAIL",
+            "message": "the published post stays recorded as published: expected 1, got 0",
+            "ms": 703
+        },
+        {
+            "id": "S-20",
+            "name": "Queued social posts still publish after automation is stopped",
+            "status": "FAIL",
+            "message": "the social post was published although automation is stopped: expected 'published', got ''",
+            "ms": 770
+        },
+        {
+            "id": "S-21",
+            "name": "The worker keeps its schedule after a stop while distribution is on",
+            "status": "PASS",
+            "message": "",
+            "ms": 24
+        },
+        {
+            "id": "S-22",
+            "name": "Social job types are allowed when automation is stopped, and news types are not",
+            "status": "PASS",
+            "message": "",
+            "ms": 18
+        },
+        {
+            "id": "S-23",
+            "name": "Research being paused does not stop social publishing",
+            "status": "FAIL",
+            "message": "it was published while research is paused: expected 'published', got ''",
+            "ms": 844
+        },
+        {
+            "id": "S-30 facebook",
+            "name": "Publishes to Facebook Pages and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 854
+        },
+        {
+            "id": "S-30 instagram",
+            "name": "Publishes to Instagram and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 853
+        },
+        {
+            "id": "S-30 x",
+            "name": "Publishes to X and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 855
+        },
+        {
+            "id": "S-30 linkedin",
+            "name": "Publishes to LinkedIn and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 852
+        },
+        {
+            "id": "S-30 threads",
+            "name": "Publishes to Threads and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 856
+        },
+        {
+            "id": "S-30 bluesky",
+            "name": "Publishes to Bluesky and records the identifier it returned",
+            "status": "FAIL",
+            "message": "there is a record, got false",
+            "ms": 850
+        },
+        {
+            "id": "S-31",
+            "name": "One platform failing leaves the others published",
+            "status": "FAIL",
+            "message": "Bluesky is published: expected 'published', got ''",
+            "ms": 902
+        },
+        {
+            "id": "S-32",
+            "name": "A platform failure never changes the article",
+            "status": "FAIL",
+            "message": "the article is still published: expected 'PUBLISHED', got 'QUEUED'",
+            "ms": 849
+        },
+        {
+            "id": "S-40",
+            "name": "Asking twice for the same article and account creates only one record",
+            "status": "FAIL",
+            "message": "one record: expected 1, got 0",
+            "ms": 710
+        },
+        {
+            "id": "S-41",
+            "name": "The idempotency key is unique in the database",
+            "status": "FAIL",
+            "message": "the database refuses a second row with the same key: expected 0, got 1",
+            "ms": 689
+        },
+        {
+            "id": "S-42",
+            "name": "A published post is never sent again, however often a retry is asked for",
+            "status": "FAIL",
+            "message": "it is published: expected 'published', got ''",
+            "ms": 859
+        },
+        {
+            "id": "S-43",
+            "name": "A worker that stops mid-publish leaves the post to be checked, not retried",
+            "status": "FAIL",
+            "message": "the stale record is recovered: expected 1, got 0",
+            "ms": 688
+        },
+        {
+            "id": "S-50",
+            "name": "A request that times out is checked against the platform instead of being resent",
+            "status": "FAIL",
+            "message": "the post is being checked: expected 'reconciling', got ''",
+            "ms": 740
+        },
+        {
+            "id": "S-51",
+            "name": "Reconciliation finds a post that did reach the platform and does not send it again",
+            "status": "FAIL",
+            "message": "it is recorded as published: expected 'published', got ''",
+            "ms": 762
+        },
+        {
+            "id": "S-52",
+            "name": "Reconciliation that finds nothing allows the post to be sent again",
+            "status": "FAIL",
+            "message": "it was sent again and published, because the platform did not have it: expected 'published', got ''",
+            "ms": 812
+        },
+        {
+            "id": "S-60",
+            "name": "A rate limit waits as the platform asked and uses no attempt",
+            "status": "FAIL",
+            "message": "it is waiting: expected 'scheduled', got ''",
+            "ms": 710
+        },
+        {
+            "id": "S-61",
+            "name": "A temporary platform problem is retried, and gives up after the set number of attempts",
+            "status": "FAIL",
+            "message": "it ends as failed: expected 'failed', got ''",
+            "ms": 889
+        },
+        {
+            "id": "S-62",
+            "name": "A refused credential marks the account so the administrator can see it",
+            "status": "FAIL",
+            "message": "the post failed: expected 'failed', got ''",
+            "ms": 805
+        },
+        {
+            "id": "S-63",
+            "name": "A credential near expiry is queued to be renewed",
+            "status": "PASS",
+            "message": "",
+            "ms": 22
+        },
+        {
+            "id": "S-64",
+            "name": "A token renewal replaces the saved credential",
+            "status": "PASS",
+            "message": "",
+            "ms": 21
+        },
+        {
+            "id": "S-70",
+            "name": "A platform that requires a picture is skipped when there is none it can use",
+            "status": "FAIL",
+            "message": "Instagram is skipped rather than failed: expected 'skipped', got ''",
+            "ms": 806
+        },
+        {
+            "id": "S-71",
+            "name": "A post is never published claiming a picture whose upload failed",
+            "status": "PASS",
+            "message": "",
+            "ms": 782
+        },
+        {
+            "id": "S-72",
+            "name": "A platform that fetches the picture by address refuses a site it cannot reach",
+            "status": "PASS",
+            "message": "",
+            "ms": 1
+        },
+        {
+            "id": "S-80",
+            "name": "With approval on, a post waits with its text ready and is not sent",
+            "status": "FAIL",
+            "message": "it is waiting for approval: expected 'awaiting', got ''",
+            "ms": 808
+        },
+        {
+            "id": "S-81",
+            "name": "A scheduled social post is not published before its time, and can be cancelled",
+            "status": "FAIL",
+            "message": "it can be cancelled before publication, got false",
+            "ms": 725
+        },
+        {
+            "id": "S-82",
+            "name": "Editing one platform's text leaves the other platforms alone",
+            "status": "FAIL",
+            "message": "the edit was accepted, got false",
+            "ms": 841
+        },
+        {
+            "id": "S-83",
+            "name": "Text longer than the platform allows is refused rather than silently cut",
+            "status": "FAIL",
+            "message": "and the limit is named: did not find '300' in 'This social post no longer exists.'",
+            "ms": 691
+        },
+        {
+            "id": "S-84",
+            "name": "The text sent is within the platform's limit, counting the link and the hashtags",
+            "status": "FAIL",
+            "message": "something was sent to X, got false",
+            "ms": 839
+        },
+        {
+            "id": "S-90",
+            "name": "With two accounts on one platform and none chosen, nothing is published",
+            "status": "PASS",
+            "message": "",
+            "ms": 692
+        },
+        {
+            "id": "S-91",
+            "name": "Six platforms give six independent jobs for one article",
+            "status": "FAIL",
+            "message": "six records, one per platform: expected 6, got 0",
+            "ms": 728
+        },
+        {
+            "id": "S-92",
+            "name": "Disconnecting an account deletes its credentials and keeps its published history",
+            "status": "FAIL",
+            "message": "the post was published: expected 'published', got ''",
+            "ms": 847
+        },
+        {
+            "id": "S-95",
+            "name": "An authorisation state is accepted once and only for the platform that issued it",
+            "status": "PASS",
+            "message": "",
+            "ms": 8
+        },
+        {
+            "id": "S-96",
+            "name": "An application secret is stored encrypted and shown only as its last four characters",
+            "status": "PASS",
+            "message": "",
+            "ms": 4
+        },
+        {
+            "id": "S-97",
+            "name": "No credential appears in the activity log",
+            "status": "PASS",
+            "message": "",
+            "ms": 977
+        },
+        {
+            "id": "S-98",
+            "name": "Every social log entry names its platform, its article and its job",
+            "status": "FAIL",
+            "message": "there is at least one problem recorded, got false",
+            "ms": 937
         },
         {
             "id": "AC-05,M5",
@@ -245,70 +588,70 @@
             "name": "A real fetch through the plugin stores new stories and applies keyword filters",
             "status": "PASS",
             "message": "",
-            "ms": 35
+            "ms": 36
         },
         {
             "id": "AC-06,M11",
             "name": "Duplicates are caught by URL, tracking variants, canonical, story id, headline and text",
             "status": "PASS",
             "message": "",
-            "ms": 36
+            "ms": 37
         },
         {
             "id": "AC-06,M11",
             "name": "Text similarity detects a near-copy and separates unrelated text",
             "status": "PASS",
             "message": "",
-            "ms": 7
+            "ms": 12
         },
         {
             "id": "AC-07,M10",
             "name": "Each source failure is held or recorded, and no AI request is made for it",
             "status": "PASS",
             "message": "",
-            "ms": 383
+            "ms": 420
         },
         {
             "id": "Retries",
             "name": "HTTP 429 honors Retry-After, 5xx retries with backoff, and both stop at the limit",
             "status": "PASS",
             "message": "",
-            "ms": 352
+            "ms": 377
         },
         {
             "id": "Retrieval",
             "name": "A readable page yields metadata, clean text and a move to AI",
             "status": "PASS",
             "message": "",
-            "ms": 50
+            "ms": 52
         },
         {
             "id": "Retrieval",
             "name": "Source threshold is configurable",
             "status": "PASS",
             "message": "",
-            "ms": 72
+            "ms": 76
         },
         {
             "id": "AC-16,Security",
             "name": "SSRF checks refuse private networks, unsafe schemes and credentials",
             "status": "PASS",
             "message": "",
-            "ms": 9
+            "ms": 15
         },
         {
             "id": "Security",
             "name": "robots.txt rules: agent groups, longest match and wildcards",
             "status": "PASS",
             "message": "",
-            "ms": 6
+            "ms": 7
         },
         {
             "id": "Discovery,Resolver",
             "name": "A Google-style link is resolved through the publisher feed, and is not guessed when there is no match",
             "status": "PASS",
             "message": "",
-            "ms": 95
+            "ms": 104
         },
         {
             "id": "Extractor",
@@ -336,28 +679,28 @@
             "name": "A name that cannot be looked up is a temporary network problem, and real refusals stay refusals",
             "status": "PASS",
             "message": "",
-            "ms": 4
+            "ms": 2
         },
         {
             "id": "NET-2",
             "name": "An unreadable robots.txt retries the story instead of blocking it, and a real refusal still blocks it",
             "status": "PASS",
             "message": "",
-            "ms": 90
+            "ms": 85
         },
         {
             "id": "NET-3",
             "name": "A publisher feed is retried when its robots.txt is unreadable, and is refused when it disallows",
             "status": "PASS",
             "message": "",
-            "ms": 13
+            "ms": 11
         },
         {
             "id": "NET-4",
             "name": "An outage while matching a Google story is retried and is not remembered as \"no feed\"",
             "status": "PASS",
             "message": "",
-            "ms": 49
+            "ms": 53
         },
         {
             "id": "NET-5",
@@ -378,7 +721,7 @@
             "name": "Parser handles Markdown with table and lists, code fences, labels and preambles",
             "status": "PASS",
             "message": "",
-            "ms": 0
+            "ms": 1
         },
         {
             "id": "AC-17,M25",
@@ -406,7 +749,7 @@
             "name": "Each defect is caught with its own error",
             "status": "PASS",
             "message": "",
-            "ms": 20
+            "ms": 27
         },
         {
             "id": "M14",
@@ -420,119 +763,119 @@
             "name": "The request uses the configured model and the exact prompt version, with the source placed before it",
             "status": "PASS",
             "message": "",
-            "ms": 654
+            "ms": 777
         },
         {
             "id": "M7",
             "name": "A prompt edit during a job does not change that job",
             "status": "PASS",
             "message": "",
-            "ms": 669
+            "ms": 798
         },
         {
             "id": "M12,M13,AC-09",
             "name": "A full run through retrieval, AI, tags and validation reaches the queue",
             "status": "PASS",
             "message": "",
-            "ms": 641
+            "ms": 785
         },
         {
             "id": "AI errors",
             "name": "Invalid key pauses AI, shows a clear error, and makes no repeated calls",
             "status": "PASS",
             "message": "",
-            "ms": 811
+            "ms": 925
         },
         {
             "id": "AI errors",
             "name": "No credits pauses AI, and publishing can still run",
             "status": "PASS",
             "message": "",
-            "ms": 238
+            "ms": 240
         },
         {
             "id": "AC-03,M9",
             "name": "A model that disappears later is not swapped for another",
             "status": "PASS",
             "message": "",
-            "ms": 247
+            "ms": 265
         },
         {
             "id": "AI errors",
             "name": "429 waits for Retry-After, and temporary errors retry and then succeed",
             "status": "PASS",
             "message": "",
-            "ms": 763
+            "ms": 889
         },
         {
             "id": "AI errors",
             "name": "Persistent provider failure stops at the limit and is marked failed",
             "status": "PASS",
             "message": "",
-            "ms": 224
+            "ms": 232
         },
         {
             "id": "AI errors",
             "name": "Network timeout and unreadable replies are retried, and errors inside a 200 are understood",
             "status": "PASS",
             "message": "",
-            "ms": 12744
+            "ms": 12827
         },
         {
             "id": "AI errors",
             "name": "Moderation refusal fails that article only and does not pause AI",
             "status": "PASS",
             "message": "",
-            "ms": 139
+            "ms": 152
         },
         {
             "id": "M12",
             "name": "Malformed output retries with the same prompt, then is held and never queued",
             "status": "PASS",
             "message": "",
-            "ms": 5330
+            "ms": 5702
         },
         {
             "id": "M12",
             "name": "A bad first answer followed by a good one proceeds normally",
             "status": "PASS",
             "message": "",
-            "ms": 741
+            "ms": 747
         },
         {
             "id": "M13",
             "name": "Tag policy: fewer than 20 retries then holds, more than 20 keeps 20, and duplicates are removed",
             "status": "PASS",
             "message": "",
-            "ms": 1730
+            "ms": 1912
         },
         {
             "id": "M25",
             "name": "A forbidden dash is replaced under the default policy and noted in diagnostics",
             "status": "PASS",
             "message": "",
-            "ms": 639
+            "ms": 779
         },
         {
             "id": "AC-15,M23",
             "name": "Provider-reported tokens and cost are recorded",
             "status": "PASS",
             "message": "",
-            "ms": 647
+            "ms": 846
         },
         {
             "id": "AC-15,M23",
             "name": "A missing cost is fetched from the generation endpoint, and stays Unavailable if it cannot be read",
             "status": "PASS",
             "message": "",
-            "ms": 2133
+            "ms": 2985
         },
         {
             "id": "AI limit",
             "name": "The daily AI limit stops further generations",
             "status": "PASS",
             "message": "",
-            "ms": 820
+            "ms": 1046
         },
         {
             "id": "Classification",
@@ -553,21 +896,21 @@
             "name": "Schedule settings are honored, and slots that would cross midnight are not created",
             "status": "PASS",
             "message": "",
-            "ms": 4
+            "ms": 5
         },
         {
             "id": "AC-12",
             "name": "Daylight saving: slots keep their wall-clock time in a named zone, and a fixed offset never moves",
             "status": "PASS",
             "message": "",
-            "ms": 6
+            "ms": 10
         },
         {
             "id": "M18",
             "name": "Starting mid-day does not count earlier slots as due, and the day continues at the next slot",
             "status": "PASS",
             "message": "",
-            "ms": 1399
+            "ms": 1858
         },
         {
             "id": "M12",
@@ -581,203 +924,203 @@
             "name": "Round robin rotation: no repeat in a day while alternatives exist, and it continues the next day",
             "status": "PASS",
             "message": "",
-            "ms": 51
+            "ms": 62
         },
         {
             "id": "M19",
             "name": "Rotation modes: per slot, weighted, pools, disabled categories and active days",
             "status": "PASS",
             "message": "",
-            "ms": 659
+            "ms": 972
         },
         {
             "id": "AC-09,AC-10,AC-17,M14,M15,M25",
             "name": "Draft mode creates a draft with every field mapped correctly and its featured image",
             "status": "PASS",
             "message": "",
-            "ms": 845
+            "ms": 986
         },
         {
             "id": "AC-10,M16",
             "name": "Automatic mode publishes with no approval, and a category can override the mode",
             "status": "PASS",
             "message": "",
-            "ms": 915
+            "ms": 1068
         },
         {
             "id": "AC-10,M16",
             "name": "Owner's setup out of the box: only the API key is needed, nothing posts before Start, then articles go live in new WordPress categories",
             "status": "PASS",
             "message": "",
-            "ms": 1314
+            "ms": 1504
         },
         {
             "id": "Publishing",
             "name": "Options: visible attribution, reuse-only tags, category mapping and no auto-create",
             "status": "PASS",
             "message": "",
-            "ms": 733
+            "ms": 894
         },
         {
             "id": "AC-11,M17",
             "name": "The daily cap is never exceeded, however many articles are ready",
             "status": "PASS",
             "message": "",
-            "ms": 2457
+            "ms": 2890
         },
         {
             "id": "AC-11,M17",
             "name": "The cap resets exactly at local midnight in UTC+10:30, not at UTC midnight",
             "status": "PASS",
             "message": "",
-            "ms": 3715
+            "ms": 4355
         },
         {
             "id": "AC-11",
             "name": "Cap scope: drafts and published are counted separately, and \"published only\" ignores drafts",
             "status": "PASS",
             "message": "",
-            "ms": 1385
+            "ms": 1636
         },
         {
             "id": "AC-13,M22",
             "name": "A timeout after the post is created does not create a second post on retry",
             "status": "PASS",
             "message": "",
-            "ms": 911
+            "ms": 1010
         },
         {
             "id": "AC-13,M22",
             "name": "A crash before meta is written still finds the post, and a lost mapping is not duplicated",
             "status": "PASS",
             "message": "",
-            "ms": 827
+            "ms": 960
         },
         {
             "id": "AC-13",
             "name": "Two workers cannot publish the same item, and the database refuses a second mapping",
             "status": "PASS",
             "message": "",
-            "ms": 892
+            "ms": 1039
         },
         {
             "id": "Publishing",
             "name": "A WordPress post error retries and then stops at PUBLISH_FAILED, and can be retried by hand",
             "status": "PASS",
             "message": "",
-            "ms": 934
+            "ms": 1071
         },
         {
             "id": "M18",
             "name": "Catch-up \"publish next available\": an empty slot is deferred, then filled at the next slot time",
             "status": "PASS",
             "message": "",
-            "ms": 1662
+            "ms": 1906
         },
         {
             "id": "M18",
             "name": "Catch-up \"skip\": a missed slot stays missed, and an unfilled slot closes when the day ends",
             "status": "PASS",
             "message": "",
-            "ms": 879
+            "ms": 921
         },
         {
             "id": "M18",
             "name": "A worker outage past the grace period defers the slot with a clear reason, and cannot exceed the cap",
             "status": "PASS",
             "message": "",
-            "ms": 3328
+            "ms": 3546
         },
         {
             "id": "Publishing",
             "name": "Old queued articles are skipped, and the same-category article is preferred with fallback when empty",
             "status": "PASS",
             "message": "",
-            "ms": 1547
+            "ms": 1628
         },
         {
             "id": "M11",
             "name": "Duplicates are checked before queue entry and again before the post is created",
             "status": "PASS",
             "message": "",
-            "ms": 888
+            "ms": 900
         },
         {
             "id": "AC-14,M21",
             "name": "Pause Research stops discovery and retrieval while publishing continues, and the state persists",
             "status": "PASS",
             "message": "",
-            "ms": 1461
+            "ms": 1495
         },
         {
             "id": "AC-14,M21",
             "name": "Pause Publishing stops post creation while research and AI continue",
             "status": "PASS",
             "message": "",
-            "ms": 1503
+            "ms": 1460
         },
         {
             "id": "AC-14,M21",
             "name": "Stop cancels future work, keeps records, and a job claimed earlier does not start new ones",
             "status": "PASS",
             "message": "",
-            "ms": 1498
+            "ms": 1535
         },
         {
             "id": "AC-14",
             "name": "Stop takes effect at the next safe checkpoint during a worker run",
             "status": "PASS",
             "message": "",
-            "ms": 117
+            "ms": 107
         },
         {
             "id": "M27",
             "name": "Stale running jobs are recovered and shown, and a dead worker is reported",
             "status": "PASS",
             "message": "",
-            "ms": 1288
+            "ms": 1361
         },
         {
             "id": "Jobs",
             "name": "A job that keeps crashing stops at its limit, and only one worker runs at a time",
             "status": "PASS",
             "message": "",
-            "ms": 62
+            "ms": 61
         },
         {
             "id": "M21",
             "name": "Retry item and Skip item work and respect the current state",
             "status": "PASS",
             "message": "",
-            "ms": 820
+            "ms": 858
         },
         {
             "id": "AC-18,M26",
             "name": "Every pipeline stage and control action is logged, and logs filter and redact",
             "status": "PASS",
             "message": "",
-            "ms": 982
+            "ms": 1011
         },
         {
             "id": "AC-16,M24",
             "name": "The API key never appears in logs, stored responses, usage, jobs or any admin page",
             "status": "PASS",
             "message": "",
-            "ms": 841
+            "ms": 849
         },
         {
             "id": "AC-16,Security",
             "name": "Non-administrators are refused on pages, actions, AJAX and the worker endpoint needs its token",
             "status": "PASS",
             "message": "",
-            "ms": 96
+            "ms": 95
         },
         {
             "id": "Admin",
             "name": "All screens render without PHP warnings, in empty and populated states",
             "status": "PASS",
             "message": "",
-            "ms": 821
+            "ms": 777
         },
         {
             "id": "Admin",
@@ -798,35 +1141,35 @@
             "name": "Daily maintenance applies retention and never touches posts",
             "status": "PASS",
             "message": "",
-            "ms": 863
+            "ms": 872
         },
         {
             "id": "M28",
             "name": "Deactivation stops scheduled work and keeps everything; uninstall removes data only when chosen",
             "status": "PASS",
             "message": "",
-            "ms": 1731
+            "ms": 1736
         },
         {
             "id": "M25,AC-17",
             "name": "The plugin source contains no image generation, no other third-party services and no external assets",
-            "status": "PASS",
-            "message": "",
-            "ms": 20
+            "status": "FAIL",
+            "message": "LinkedIn.php: found forbidden 'cdn.'",
+            "ms": 16
         },
         {
             "id": "End to end",
             "name": "From Start to a published post with no admin session, through discovery, AI and slot time",
             "status": "PASS",
             "message": "",
-            "ms": 1922
+            "ms": 1828
         },
         {
             "id": "PLAN-1",
             "name": "Research waits until a slot is close, so news is not chosen today and published tomorrow",
             "status": "PASS",
             "message": "",
-            "ms": 65
+            "ms": 57
         },
         {
             "id": "PLAN-2",
@@ -840,14 +1183,14 @@
             "name": "A CC BY image is imported, set as featured, verified, and its full credit is stored",
             "status": "PASS",
             "message": "",
-            "ms": 1149
+            "ms": 930
         },
         {
             "id": "IMG-2",
             "name": "A verified public domain image is assigned",
             "status": "PASS",
             "message": "",
-            "ms": 966
+            "ms": 906
         },
         {
             "id": "IMG-3",
@@ -861,21 +1204,21 @@
             "name": "With CC BY-SA turned off, it is rejected, the file is not downloaded, and the article is held",
             "status": "PASS",
             "message": "",
-            "ms": 243
+            "ms": 233
         },
         {
             "id": "IMG-5",
             "name": "CC BY-NC is rejected",
             "status": "PASS",
             "message": "",
-            "ms": 240
+            "ms": 231
         },
         {
             "id": "IMG-6",
             "name": "CC BY-ND is rejected",
             "status": "PASS",
             "message": "",
-            "ms": 259
+            "ms": 239
         },
         {
             "id": "IMG-7",
@@ -889,84 +1232,84 @@
             "name": "A low resolution, portrait, oversized or wrong-type file is rejected",
             "status": "PASS",
             "message": "",
-            "ms": 238
+            "ms": 236
         },
         {
             "id": "IMG-9",
             "name": "A previously used image is never reused, even across categories and days",
             "status": "PASS",
             "message": "",
-            "ms": 1092
+            "ms": 1098
         },
         {
             "id": "IMG-10",
             "name": "After deleting the post and the Media Library file, the image stays reserved until an admin releases it",
             "status": "PASS",
             "message": "",
-            "ms": 2043
+            "ms": 2067
         },
         {
             "id": "IMG-11",
             "name": "Two simultaneous jobs: separate PHP processes race, and exactly one gets the image",
-            "status": "PASS",
-            "message": "",
-            "ms": 6022
+            "status": "FAIL",
+            "message": "workers really waited for the start time, got false",
+            "ms": 137
         },
         {
             "id": "IMG-12",
             "name": "Corrupted, truncated, flat, redirected and non-image files are refused, and the next file is used",
             "status": "PASS",
             "message": "",
-            "ms": 364
+            "ms": 397
         },
         {
             "id": "IMG-12b",
             "name": "When the best file is corrupted, the next good file is used",
             "status": "PASS",
             "message": "",
-            "ms": 904
+            "ms": 913
         },
         {
             "id": "IMG-13",
             "name": "A failed download waits and retries without regenerating the article, its tags, or a second post",
             "status": "PASS",
             "message": "",
-            "ms": 976
+            "ms": 958
         },
         {
             "id": "IMG-13b",
             "name": "A Commons rate limit stops the searches and honors Retry-After; attempts are bounded",
             "status": "PASS",
             "message": "",
-            "ms": 268
+            "ms": 243
         },
         {
             "id": "IMG-14",
             "name": "A failed assignment is logged, the post stays a draft, and Retry image reuses the same file",
             "status": "PASS",
             "message": "",
-            "ms": 921
+            "ms": 964
         },
         {
             "id": "IMG-14b",
             "name": "With \"hold\" set, no usable image keeps the article out of public view, and Retry works",
             "status": "PASS",
             "message": "",
-            "ms": 985
+            "ms": 982
         },
         {
             "id": "IMG-15,17",
             "name": "The credit shows once, directly after the image, with working creator, source and license links",
             "status": "PASS",
             "message": "",
-            "ms": 888
+            "ms": 918
         },
         {
             "id": "IMG-15b",
             "name": "A theme or builder that skips the thumbnail filter still shows the credit once, at the top of the text",
             "status": "PASS",
             "message": "",
-            "ms": 885
+            "ms": 899
         },
         {
             "id": "IMG-18",
@@ -980,112 +1323,112 @@
             "name": "Creator-less CC0 and public domain credits are honest; \"required only\" hides them",
             "status": "PASS",
             "message": "",
-            "ms": 888
+            "ms": 903
         },
         {
             "id": "IMG-19",
             "name": "No credit on blog listings, feeds, other posts, or while the page head is built",
             "status": "PASS",
             "message": "",
-            "ms": 930
+            "ms": 937
         },
         {
             "id": "IMG-20",
             "name": "Draft mode: a draft gets the image and credit",
             "status": "PASS",
             "message": "",
-            "ms": 829
+            "ms": 842
         },
         {
             "id": "IMG-21",
             "name": "Automatic mode: the post is not public until its image and credit are in place",
             "status": "PASS",
             "message": "",
-            "ms": 895
+            "ms": 915
         },
         {
             "id": "IMG-22",
             "name": "The image is found while the article waits in the queue, and reused at the slot with no second search",
             "status": "PASS",
             "message": "",
-            "ms": 891
+            "ms": 917
         },
         {
             "id": "IMG-23",
             "name": "Three posts a day stays three: the daily cap is not used by images, and no search runs once it is met",
             "status": "PASS",
             "message": "",
-            "ms": 2664
+            "ms": 2754
         },
         {
             "id": "IMG-24",
             "name": "Stop and Pause publishing still hold: no image search runs",
             "status": "PASS",
             "message": "",
-            "ms": 178
+            "ms": 171
         },
         {
             "id": "IMG-25",
             "name": "Crash after the post is created: recovery finishes the same post with the same image",
             "status": "PASS",
             "message": "",
-            "ms": 895
+            "ms": 909
         },
         {
             "id": "IMG-26",
             "name": "A crash during download gives the reservation back on the next attempt",
             "status": "PASS",
             "message": "",
-            "ms": 898
+            "ms": 931
         },
         {
             "id": "IMG-27",
             "name": "The same picture under another name is refused: exact copy, and a re-saved copy",
             "status": "PASS",
             "message": "",
-            "ms": 1443
+            "ms": 1464
         },
         {
             "id": "IMG-28",
             "name": "Label rules refuse adult, graphic, watermarked, non-photo, children and victim files; score has a floor",
             "status": "PASS",
             "message": "",
-            "ms": 234
+            "ms": 243
         },
         {
             "id": "IMG-29",
             "name": "Old saved settings that allowed a post without an image are ignored: images cannot be turned off",
             "status": "PASS",
             "message": "",
-            "ms": 1646
+            "ms": 1694
         },
         {
             "id": "IMG-29b",
             "name": "Upgrading removes the old image switches, adds the retry column, and says so",
             "status": "PASS",
             "message": "",
-            "ms": 124
+            "ms": 135
         },
         {
             "id": "IMG-30",
             "name": "Admin screens show image settings, tools, history, status and totals with no PHP notices",
             "status": "PASS",
             "message": "",
-            "ms": 904
+            "ms": 921
         },
         {
             "id": "IMG-31",
             "name": "Retry image is offered for a post published before images were required, which stays published, and a subscriber cannot use the admin actions",
             "status": "PASS",
             "message": "",
-            "ms": 1510
+            "ms": 1545
         },
         {
             "id": "IMG-32",
             "name": "Only approved hosts can supply an image file, and bad replies from the API are handled",
             "status": "PASS",
             "message": "",
-            "ms": 20
+            "ms": 29
         },
         {
             "id": "IMG-33",
@@ -1099,34 +1442,34 @@
             "name": "A file with padding after the picture is accepted, and a download smaller than Commons states is refused",
             "status": "PASS",
             "message": "",
-            "ms": 1016
+            "ms": 1093
         },
         {
             "id": "IMG-35",
             "name": "A DNS failure during the Commons search waits and retries, and does not end the image attempt",
             "status": "PASS",
             "message": "",
-            "ms": 928
+            "ms": 934
         },
         {
             "id": "IMG-36",
             "name": "A DNS failure during a download gives the image back, and does not block it forever",
             "status": "PASS",
             "message": "",
-            "ms": 278
+            "ms": 246
         },
         {
             "id": "IMG-37",
             "name": "Title Case headlines give real names, not the whole headline",
             "status": "PASS",
             "message": "",
-            "ms": 1
+            "ms": 0
         },
         {
             "id": "IMG-38",
             "name": "An ordinary word or a piece of a word cannot make a people photo count as being about the article",
-            "status": "PASS",
-            "message": "",
+            "status": "FAIL",
+            "message": "the named person still counts: expected '', got 'The labels suggest identifiable people, and the article is not about them.'",
             "ms": 0
         },
         {
@@ -1134,77 +1477,77 @@
             "name": "While publishing is paused, recovery after a crash does not publish, and it finishes after Resume",
             "status": "PASS",
             "message": "",
-            "ms": 960
+            "ms": 927
         },
         {
             "id": "IMG-40",
             "name": "The credit names the file, including on older posts that saved no title, and the title is escaped",
             "status": "PASS",
             "message": "",
-            "ms": 908
+            "ms": 954
         },
         {
             "id": "IMG-41",
             "name": "The credit stays when the plugin is deactivated, and shows only once while it runs",
             "status": "PASS",
             "message": "",
-            "ms": 889
+            "ms": 917
         },
         {
             "id": "IMG-42",
             "name": "Older posts get the copy on upgrade and deactivation, without changing their dates",
             "status": "PASS",
             "message": "",
-            "ms": 994
+            "ms": 1019
         },
         {
             "id": "IMG-43",
             "name": "A long wait from Wikimedia is respected: nothing is sent, and a short wait is slept through",
             "status": "PASS",
             "message": "",
-            "ms": 2067
+            "ms": 2071
         },
         {
             "id": "IMG-44",
             "name": "An article waits out a long Wikimedia wait without using up an attempt, then gets its image",
             "status": "PASS",
             "message": "",
-            "ms": 933
+            "ms": 937
         },
         {
             "id": "IMG-45",
             "name": "A rate limit partway through the searches does not end the image attempt when nothing suitable has been found yet",
             "status": "PASS",
             "message": "",
-            "ms": 959
+            "ms": 950
         },
         {
             "id": "IMG-45b",
             "name": "A rate limit after a file already taken waits too, and attempts stay bounded",
             "status": "PASS",
             "message": "",
-            "ms": 279
+            "ms": 273
         },
         {
             "id": "IMG-45c",
             "name": "A good file found before the rate limit is used straight away",
             "status": "PASS",
             "message": "",
-            "ms": 860
+            "ms": 918
         },
         {
             "id": "IMG-46",
             "name": "A rate limit reported inside a normal reply counts as a rate limit",
             "status": "PASS",
             "message": "",
-            "ms": 42
+            "ms": 45
         },
         {
             "id": "IMG-47",
             "name": "A CC BY-SA image is imported and fully credited, and turning it off later leaves the post as it is",
             "status": "PASS",
             "message": "",
-            "ms": 893
+            "ms": 909
         },
         {
             "id": "IMG-48",
@@ -1218,7 +1561,7 @@
             "name": "The people rule still applies to CC BY-SA files",
             "status": "PASS",
             "message": "",
-            "ms": 242
+            "ms": 235
         },
         {
             "id": "IMG-50",
@@ -1230,8 +1573,8 @@
         {
             "id": "IMG-51",
             "name": "A name written with 's, or later by surname alone, still searches for the full name",
-            "status": "PASS",
-            "message": "",
+            "status": "FAIL",
+            "message": "'s inside a name is kept, got false",
             "ms": 0
         },
         {
@@ -1239,14 +1582,14 @@
             "name": "A resized copy is downloaded when Commons offers one, and the admin preview uses a small standard width",
             "status": "PASS",
             "message": "",
-            "ms": 2010
+            "ms": 2047
         },
         {
             "id": "IMG-53",
             "name": "Searches ask Commons only for large enough files, and stop once a strong match is found",
-            "status": "PASS",
-            "message": "",
-            "ms": 3469
+            "status": "FAIL",
+            "message": "one search was enough: expected 1, got 2",
+            "ms": 718
         },
         {
             "id": "IMG-54",
@@ -1260,35 +1603,35 @@
             "name": "A post from this plugin cannot go public by hand, or on a schedule, without a featured image that loads. Other posts are not affected",
             "status": "PASS",
             "message": "",
-            "ms": 1019
+            "ms": 1028
         },
         {
             "id": "IMG-56",
             "name": "If the featured image file is gone at publishing, the post stays a draft, and it goes out once the file is back",
             "status": "PASS",
             "message": "",
-            "ms": 942
+            "ms": 945
         },
         {
             "id": "IMG-57",
             "name": "A slot takes the article whose image is ready, and the next one gets its image straight after",
             "status": "PASS",
             "message": "",
-            "ms": 1433
+            "ms": 1496
         },
         {
             "id": "IMG-58",
             "name": "A held article gets one more image search 6 hours later, and only one",
             "status": "PASS",
             "message": "",
-            "ms": 2105
+            "ms": 2158
         },
         {
             "id": "IMG-59",
             "name": "When a strong match ends the searching but its file cannot be used, the other searches run and their file is used",
-            "status": "PASS",
-            "message": "",
-            "ms": 738
+            "status": "FAIL",
+            "message": "did not find 'stopped after 1 of' in 'Featured image 1123 assigned to post 1124, and its credit was saved. | Selected File:Harbour at night.jpg (score 39, CC BY 4.0, by Jane Doe). Commons page: https:\/\/commons.wikimedia.org\/wiki\/File:Harbour_at_night.jpg | Could not use File:Sydney Harbour Bridge reopens.jpg: The downloaded file is not a valid JPEG, PNG or WebP image. | Searched Wikimedia Commons: 2 files checked, 2 passed. Searches: '",
+            "ms": 733
         },
         {
             "id": "IMG-60",
@@ -1316,7 +1659,7 @@
             "name": "The publisher's name is not searched in the real image step, and a no-image log gives the best score reached",
             "status": "PASS",
             "message": "",
-            "ms": 268
+            "ms": 246
         },
         {
             "id": "PH-1",
@@ -1330,126 +1673,126 @@
             "name": "Scenario 2: a fresh story is found, written and published at the post time, with its ages recorded",
             "status": "PASS",
             "message": "",
-            "ms": 1074
+            "ms": 1035
         },
         {
             "id": "PH-3",
             "name": "A story from before the window is not written, even though it is under 60 minutes old when the search runs",
             "status": "PASS",
             "message": "",
-            "ms": 192
+            "ms": 171
         },
         {
             "id": "PH-4",
             "name": "Scenario 3: nothing at first, one search every 15 minutes, and a story appearing during a retry is used",
             "status": "PASS",
             "message": "",
-            "ms": 1128
+            "ms": 1168
         },
         {
             "id": "PH-5",
             "name": "Scenario 4: other categories are tried only from 09:30, one at a time, and the first with a story ends the search",
             "status": "PASS",
             "message": "",
-            "ms": 1144
+            "ms": 1170
         },
         {
             "id": "PH-6",
             "name": "The planned category is preferred over a newer story elsewhere, and \"use another category\" being off is respected",
             "status": "PASS",
             "message": "",
-            "ms": 220
+            "ms": 207
         },
         {
             "id": "PH-7",
             "name": "Scenario 5: no category has news, so the post is skipped with the exact reason and nothing is written",
             "status": "PASS",
             "message": "",
-            "ms": 359
+            "ms": 356
         },
         {
             "id": "PH-8",
             "name": "Scenario 6: a story that goes over 60 minutes during writing is dropped, and no more is spent on it",
             "status": "PASS",
             "message": "",
-            "ms": 140
+            "ms": 141
         },
         {
             "id": "PH-9",
             "name": "While there is time, a story that stops qualifying is replaced by another one that does",
             "status": "PASS",
             "message": "",
-            "ms": 122
+            "ms": 118
         },
         {
             "id": "PH-10",
             "name": "An article page dated older than its feed entry is rejected before any AI call, and a newer or unstated page date changes nothing",
             "status": "PASS",
             "message": "",
-            "ms": 122
+            "ms": 125
         },
         {
             "id": "PH-11",
             "name": "Scenario 7: a ready article is not published when the story is over 60 minutes old at publishing",
             "status": "PASS",
             "message": "",
-            "ms": 738
+            "ms": 782
         },
         {
             "id": "PH-12",
             "name": "The final check runs after the image step: time lost finding an image stops the post, and the image is given back",
             "status": "PASS",
             "message": "",
-            "ms": 644
+            "ms": 668
         },
         {
             "id": "PH-13",
             "name": "Scenario 8: a skipped post stays skipped, its story is not used later, and the next post is unaffected",
             "status": "PASS",
             "message": "",
-            "ms": 1733
+            "ms": 1799
         },
         {
             "id": "PH-14",
             "name": "Articles queued before Past-Hour Posting was turned on are not published, and preparation that never ran skips the post",
             "status": "PASS",
             "message": "",
-            "ms": 194
+            "ms": 183
         },
         {
             "id": "PH-15",
             "name": "Scenario 9: repeated searches and workers cause one article per post, one post per article, and no shared story",
             "status": "PASS",
             "message": "",
-            "ms": 2121
+            "ms": 2406
         },
         {
             "id": "PH-16",
             "name": "Failed stories are replaced without AI spending, and each post writes at most 2 articles",
-            "status": "PASS",
-            "message": "",
-            "ms": 803
+            "status": "FAIL",
+            "message": "the refused page, then the next newest: expected 2, got 1",
+            "ms": 177
         },
         {
             "id": "PH-17",
             "name": "No article is started while publishing is paused, AI is blocked, or the daily limits are reached, and the reason is recorded",
             "status": "PASS",
             "message": "",
-            "ms": 85
+            "ms": 88
         },
         {
             "id": "PH-18",
             "name": "Scenario 10: turned off, the earlier workflow runs: hourly research, older stories, the buffer and the queue",
             "status": "PASS",
             "message": "",
-            "ms": 961
+            "ms": 1152
         },
         {
             "id": "PH-19",
             "name": "Turned off part way through, an article already prepared simply joins the earlier workflow, and retries work again",
             "status": "PASS",
             "message": "",
-            "ms": 1003
+            "ms": 1115
         },
         {
             "id": "PH-20",
@@ -1463,98 +1806,98 @@
             "name": "Preparation time can be changed, the plugin timezone sets the clock, and a short preparation can use other categories at once",
             "status": "PASS",
             "message": "",
-            "ms": 1507
+            "ms": 1609
         },
         {
             "id": "PH-22",
             "name": "The image is found during preparation and reused at publishing, and while Wikimedia is down the post waits, then is skipped, never going out without an image",
             "status": "PASS",
             "message": "",
-            "ms": 2162
+            "ms": 2310
         },
         {
             "id": "PH-23",
             "name": "With an image required and none found, the post is skipped, and failed content is never published",
             "status": "PASS",
             "message": "",
-            "ms": 338
+            "ms": 345
         },
         {
             "id": "PH-24",
             "name": "The Dashboard shows the status, times, story, ages, category, fallback, processing and result of each post",
             "status": "PASS",
             "message": "",
-            "ms": 1170
+            "ms": 1363
         },
         {
             "id": "PH-25",
             "name": "The Schedule page has both settings and they save, and the Logs filter has the new stage",
             "status": "PASS",
             "message": "",
-            "ms": 747
+            "ms": 867
         },
         {
             "id": "PH-26",
             "name": "Upgrading adds the new columns, turns the feature on, keeps existing settings, and records it",
             "status": "PASS",
             "message": "",
-            "ms": 263
+            "ms": 253
         },
         {
             "id": "PH-27",
             "name": "Unused stories do not pile up forever, and stale searches for a closed post are dropped",
             "status": "PASS",
             "message": "",
-            "ms": 108
+            "ms": 117
         },
         {
             "id": "PH-28",
             "name": "Categories with a Google topic also have a search covering the story age, and an upgrade adds it without touching what the owner changed",
             "status": "PASS",
             "message": "",
-            "ms": 89
+            "ms": 107
         },
         {
             "id": "PH-29",
             "name": "A story from a publisher feed is tried before a newer Google News story, and a Google story is used when no feed has one",
             "status": "PASS",
             "message": "",
-            "ms": 1866
+            "ms": 2171
         },
         {
             "id": "PH-30",
             "name": "The Dashboard does not show a dropped story as the chosen one, and says when preparation is already under way",
             "status": "PASS",
             "message": "",
-            "ms": 99
+            "ms": 105
         },
         {
             "id": "PH-31",
             "name": "A story with no usable image gives way to another story, and the post goes out with an image",
             "status": "PASS",
             "message": "",
-            "ms": 1220
+            "ms": 1368
         },
         {
             "id": "PH-32",
             "name": "Stories up to 2 hours old are used by default: preparation starts at 08:00 for a 10:00 post, and a story from 08:20 goes out",
             "status": "PASS",
             "message": "",
-            "ms": 1053
+            "ms": 1214
         },
         {
             "id": "PH-33",
             "name": "With a 2-hour window other categories are tried from halfway, 60 minutes before the post, not 30",
             "status": "PASS",
             "message": "",
-            "ms": 1095
+            "ms": 1352
         },
         {
             "id": "PH-34",
             "name": "The story age and preparation time are checked together, and neither is longer than the gap between posts",
             "status": "PASS",
             "message": "",
-            "ms": 39
+            "ms": 35
         },
         {
             "id": "PH-35",
@@ -1568,140 +1911,175 @@
             "name": "Upgrading moves a 60-minute preparation time to 120 and adds the 120-minute story age, but keeps a time the owner chose",
             "status": "PASS",
             "message": "",
-            "ms": 111
+            "ms": 138
         },
         {
             "id": "PH-37",
             "name": "The Schedule form saves the story age, and a preparation time longer than it is marked on the form",
             "status": "PASS",
             "message": "",
-            "ms": 49
+            "ms": 55
+        },
+        {
+            "id": "PH-38",
+            "name": "One post cannot spend the day: a generation is held back for each post still to come",
+            "status": "FAIL",
+            "message": "did not find 'are held for the 2 posts after this one' in ''",
+            "ms": 770
+        },
+        {
+            "id": "PH-39",
+            "name": "Above the reservation the post writes as usual, and the limit itself is still absolute",
+            "status": "PASS",
+            "message": "",
+            "ms": 813
+        },
+        {
+            "id": "PH-40",
+            "name": "1.11.0: upgrading sets the story age to 12 hours, keeps the preparation time, and says so in the log",
+            "status": "PASS",
+            "message": "",
+            "ms": 71
+        },
+        {
+            "id": "PH-41",
+            "name": "1.11.0: after a publisher refuses access, its other stories are passed over for that post and kept for a later one",
+            "status": "PASS",
+            "message": "",
+            "ms": 733
+        },
+        {
+            "id": "PH-42",
+            "name": "1.11.0: with a 12-hour story age, a story from the evening before is used for the 10:00 post, and one older than 12 hours is not",
+            "status": "PASS",
+            "message": "",
+            "ms": 57
         },
         {
             "id": "AU-1",
             "name": "Nobody is authorised automatically: a fresh install has no author, Automation cannot start, and an administrator gets no access by role",
             "status": "PASS",
             "message": "",
-            "ms": 145
+            "ms": 149
         },
         {
             "id": "AU-2",
             "name": "Access can be granted, paused, resumed and revoked, one user or many, and each change records who made it",
             "status": "PASS",
             "message": "",
-            "ms": 400
+            "ms": 424
         },
         {
             "id": "AU-3",
             "name": "Each post is credited to the active Post author, and the post, its link and the log all record it",
             "status": "PASS",
             "message": "",
-            "ms": 1038
+            "ms": 1204
         },
         {
             "id": "AU-4",
             "name": "A paused or revoked author is never credited: the article is held, research waits, and Retry publishes it once they are active again",
             "status": "PASS",
             "message": "",
-            "ms": 986
+            "ms": 1104
         },
         {
             "id": "AU-5",
             "name": "A deleted WordPress user shows as User missing, is recorded in Logs, and is never credited",
             "status": "PASS",
             "message": "",
-            "ms": 331
+            "ms": 325
         },
         {
             "id": "AU-6",
             "name": "A WordPress role change is recorded and changes nothing here, and granting access never changes a role",
             "status": "PASS",
             "message": "",
-            "ms": 257
+            "ms": 276
         },
         {
             "id": "AU-7",
             "name": "The Authors page lists username, name, email and role, can be searched and filtered, and only plugin administrators can open it",
             "status": "PASS",
             "message": "",
-            "ms": 376
+            "ms": 407
         },
         {
             "id": "AU-8",
             "name": "Grant, pause and revoke are checked on the server: a row button, a bulk choice, refused without the nonce or the capability, and the filters are kept",
             "status": "PASS",
             "message": "",
-            "ms": 409
+            "ms": 431
         },
         {
             "id": "AU-9",
             "name": "With Past-Hour Posting, no story is chosen and no AI is spent while there is no active author, and the post is skipped",
             "status": "PASS",
             "message": "",
-            "ms": 92
+            "ms": 96
         },
         {
             "id": "AU-10",
             "name": "Publishing one of the plugin's drafts outside the worker records who did it",
             "status": "PASS",
             "message": "",
-            "ms": 1739
+            "ms": 1962
         },
         {
             "id": "AU-11",
             "name": "Upgrading authorises only the user already credited, or else the first administrator, and nobody else",
             "status": "PASS",
             "message": "",
-            "ms": 415
+            "ms": 473
         },
         {
             "id": "AU-12",
             "name": "Logs show names instead of numbers and the credited author, and can be filtered by person",
             "status": "PASS",
             "message": "",
-            "ms": 127
+            "ms": 146
         },
         {
             "id": "AS-1",
             "name": "Off by default: both limits are 0, nothing stops by itself, and the worker runs as before",
             "status": "PASS",
             "message": "",
-            "ms": 80
+            "ms": 82
         },
         {
             "id": "AS-2",
             "name": "The post limit stops automation right after the post that reaches it, like the Stop button: the next article stays queued, the tick is cancelled and no later post is made",
             "status": "PASS",
             "message": "",
-            "ms": 1493
+            "ms": 1775
         },
         {
             "id": "AS-3",
             "name": "Drafts do not count toward the post limit",
             "status": "PASS",
             "message": "",
-            "ms": 1430
+            "ms": 1629
         },
         {
             "id": "AS-4",
             "name": "Both limits count from the last Start, and count again from 0 after a new Start, which works exactly as before",
             "status": "PASS",
             "message": "",
-            "ms": 1758
+            "ms": 2008
         },
         {
             "id": "AS-5",
             "name": "The days limit stops the worker 24 hours per day after Start, even while paused, before any job runs",
-            "status": "PASS",
-            "message": "",
-            "ms": 114
+            "status": "FAIL",
+            "message": "expected false, got true",
+            "ms": 94
         },
         {
             "id": "AS-6",
             "name": "With both limits set, whichever comes first stops automation, and the summary says so",
             "status": "PASS",
             "message": "",
-            "ms": 1461
+            "ms": 1748
         },
         {
             "id": "AS-7",
@@ -1715,34 +2093,34 @@
             "name": "The Schedule page has its own Automatic stop form: saving checks the nonce, does not rebuild the schedule, logs the change, and warns when a limit is already reached",
             "status": "PASS",
             "message": "",
-            "ms": 77
+            "ms": 71
         },
         {
             "id": "AS-9",
             "name": "The Dashboard shows the limits, says when automation stopped by itself and why, and stops saying so after a new Start or a manual Stop",
             "status": "PASS",
             "message": "",
-            "ms": 1488
+            "ms": 1597
         },
         {
             "id": "AS-10",
             "name": "A limit reached partway through a worker run stops it at the next safe checkpoint, before another job starts",
-            "status": "PASS",
-            "message": "",
-            "ms": 84
+            "status": "FAIL",
+            "message": "no job started after the limit: expected 0, got 4",
+            "ms": 666
         },
         {
             "id": "BR-1",
             "name": "The Plugins page shows InkRush by Sagor Das, with the tagline, while the file, slug and text domain are unchanged",
             "status": "PASS",
             "message": "",
-            "ms": 18
+            "ms": 19
         },
         {
             "id": "BR-2",
             "name": "The menu and page titles say InkRush, while every page slug is unchanged",
-            "status": "PASS",
-            "message": "",
+            "status": "FAIL",
+            "message": "expected array (\n  0 => 'zzzc-dashboard',\n  1 => 'zzzc-sources',\n  2 => 'zzzc-ai',\n  3 => 'zzzc-schedule',\n  4 => 'zzzc-publishing',\n  5 => 'zzzc-authors',\n  6 => 'zzzc-images',\n  7 => 'zzzc-articles',\n  8 => 'zzzc-usage',\n  9 => 'zzzc-logs',\n), got array (\n  0 => 'zzzc-dashboard',\n  1 => 'zzzc-sources',\n  2 => 'zzzc-ai',\n  3 => 'zzzc-schedule',\n  4 => 'zzzc-publishing',\n  5 => 'zzzc-authors',\n  6 => 'zzzc-images',\n  7 => 'zzzc-social',\n  8 => 'zzzc-social-posts',\n  9 => 'zzzc-articles',\n  10 => 'zzzc-usage',\n  11 => 'zzzc-logs',\n)",
             "ms": 0
         },
         {
@@ -1757,7 +2135,7 @@
             "name": "OpenRouter sees the app name InkRush, while the user agent and robots token keep their original names",
             "status": "PASS",
             "message": "",
-            "ms": 31
+            "ms": 15
         },
         {
             "id": "BR-5",

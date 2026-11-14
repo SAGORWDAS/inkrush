@@ -1,5 +1,110 @@
 # Test results
 
+## Version 1.11.0: fewer skipped posts
+
+The owner's decisions of 2026-11-14: stories up to 12 hours old with posts still at their set times,
+a publisher that just failed passed over for the same post, the Commons "personality" notice accepted,
+and square pictures accepted. Then two fixes the owner asked for the same day: the cut-off check that
+sent 15 articles back to be written again, and Title Case headline words searched for as names.
+
+Run on 2026-11-15 on a local site set up for this: WordPress 7.1.4, PHP 8.3.36 and MariaDB 11.4.5 on
+Windows, with the plugin folder linked to the source.
+
+| Check | Result |
+|---|---|
+| `php tests/run.php`, the full suite | 258 pass, 47 fail, 0 errors |
+| The same suite on the untouched 1.10.4 commit | 254 pass, 48 fail, 0 errors |
+| Tests that fail on 1.11.0 and pass on 1.10.4 | None |
+| `php tests/unit/run-images.php` | 73 pass, 0 fail (55 before, 18 new) |
+| `php tests/unit/run-validator.php` | 17 pass, 0 fail (new; 8 of them fail on the 1.10.4 code) |
+| `php tests/unit/run-unit.php` | 128 pass, 0 fail |
+
+**The 47 failures are not from this release.** Every one of them also fails on the 1.10.4 commit, on
+the same machine. The one test that fails only on 1.10.4, AC-02/M6, compares the stored prompt with
+the file byte for byte and failed there because that checkout had different line endings.
+
+| Tests | Count | What the failure says |
+|---|---|---|
+| S-02 to S-98, social media distribution | 34 | Most stop at "the article was published to the website, got false", before any platform is contacted |
+| IMG-11, IMG-38, IMG-51, IMG-53, IMG-59 | 5 | Image rules and searches behave differently from what these tests expect |
+| PH-16, PH-38 | 2 | PH-16 still expects 2 articles for each post. PH-38 does not find the generation-reservation message |
+| AS-5, AS-10 | 2 | The automatic stop does not act where these tests expect |
+| MA-1, BR-2, M25/AC-17 | 3 | The tests are out of date: database version 11, a page list without the two social pages, and "cdn." in a LinkedIn address |
+| S-41 | 1 | The database accepted a second row with the same idempotency key |
+
+These have not been looked into. Some are tests that were not updated when the code changed, and
+some may be faults in 1.10.x. Until each is read, neither can be assumed.
+
+**New tests in this release, all passing on the local site:**
+
+- PH-40: upgrading from database version 12 sets the story age to 720 minutes, keeps the preparation
+  time, logs the change, and does not run twice.
+- PH-41: after a publisher refuses access, its newer story is passed over and another publisher's is
+  chosen, the passed-over story stays available, and no try is used. A page that is not found sets
+  nobody aside.
+- PH-42: with a 720-minute story age, a story 11 hours old at the post time is chosen and one 13
+  hours old is refused.
+
+**Seen in a browser on the local site:** 1.10.4 was installed with the owner's values of 180 and 180
+minutes, then the plugin folder was switched to 1.11.0. The Schedule page then showed a story age of
+720 and a preparation time of 180, with the new wording. Logs showed "Upgraded plugin data. Past-Hour
+Posting now uses stories up to 720 minutes (12 hours) old." The Dashboard, Schedule and Logs pages
+loaded with no PHP warning. The local site is in Single user mode with a 6-hour interval, so its
+Dashboard correctly reported 360 minutes.
+
+**What was not tested:**
+
+- **Nothing has run on the owner's site**, and no post has been taken from start to publication on
+  1.11.0 by hand. The suite's end-to-end tests pass against the mock publisher, OpenRouter and
+  Commons.
+- **The cut-off check was changed without seeing one of the 15 articles it refused.** The log keeps
+  no article text. The change rests on the finish reason: a model that reports a normal stop chose
+  its ending. Whether those 15 would now pass is not known. If the model really does stop early
+  while reporting a normal stop, such an article now passes unless it breaks off on a comma or a
+  connecting word. The minimum word count and the other checks still apply to it.
+- The Title Case tests use the real headlines with stand-in bodies. A name that only the source
+  headline uses, and that the article text and tags never repeat, is no longer searched for.
+- No search was run against the real Wikimedia Commons, so how many more pictures the two image
+  changes let through is not known.
+- `dist/InkRush-User-Guide.pdf` was not rebuilt and still describes the earlier limits.
+
+**What to watch on the site after upgrading:**
+
+- The log line "Upgraded plugin data. Past-Hour Posting now uses stories up to 720 minutes".
+- "Preparation started" lines should say stories published from about 12 hours before the post.
+- "Other stories from … are passed over" lines after a publisher fails.
+- Whether the pictures chosen for stories about a person are the right person.
+- "Validation failed, generating again" lines should be rarer. Read the end of the next few published
+  articles to check none stops part way.
+
+## Version 1.10.5: words that are not names
+
+The owner sent the site's log for 2026-11-06 to 14. Of 26 post times, 9 were published and 17 skipped, and
+31 of the 40 articles that passed validation were set aside for having no usable image. Several of the
+searches behind them were built from words that are not names: `Check Nvidia`, `Use Kuaishou`,
+`Which Baltic`, `No. Nvidia`, `Through Nov`, `Laser Technology Which UNICROSS`.
+
+| Check | Result |
+|---|---|
+| `php tests/unit/run-images.php` | 55 pass, 0 fail (46 before, 9 new) |
+| `php tests/unit/run-unit.php` | 128 pass, 0 fail |
+| `php -l` on `ArticleAnalyzer.php` | No syntax errors |
+
+Run on PHP 8.3 on Windows, with no WordPress.
+
+**What was not tested:**
+
+- The suite that needs WordPress and the mock server (`tests/run.php`) was not run for this version.
+- The log keeps the source headline but not the generated title or body, so the new tests use stand-in
+  text. Of the 9 checks, 3 fail on the 1.10.4 code (`No. Nvidia`, the subject it displaced, and two
+  names joined across paragraphs). The others guard the result and pass on both. Whether the real
+  articles produced `Check Nvidia` through a table cell, a list or a title is an inference, not
+  something the log shows.
+- No search was run against the real Wikimedia Commons.
+- Other weak searches in the same log are **not** fixed: words from a Title Case headline that are not
+  names, such as `CEO Pay Raise Perk`, `Documentary Women` and `Formal Cooperation`.
+- "Check Point", the company, would now be searched as "Point".
+
 ## Version 1.10.4: the headline first
 
 The owner's guidelines of 2026-11-08, given with the article

@@ -158,7 +158,7 @@ t(
 	static function () {
 		t_eq( 1, Settings::defaults()['past_hour_enabled'] );
 		t_eq( 120, Settings::defaults()['past_hour_prep_minutes'] );
-		t_eq( 120, Settings::defaults()['past_hour_max_age_minutes'] );
+		t_eq( 720, Settings::defaults()['past_hour_max_age_minutes'] );
 
 		// A real fresh install, without the test harness turning it off.
 		delete_option( 'zzzc_settings' );
@@ -166,7 +166,7 @@ t(
 		Settings::ensure_defaults();
 		t_true( PastHour::enabled(), 'on after a fresh install' );
 		t_eq( 120, (int) Settings::get( 'past_hour_prep_minutes' ) );
-		t_eq( 120, PastHour::max_age_minutes(), 'the 6-hour gap leaves the 2-hour window' );
+		t_eq( 360, PastHour::max_age_minutes(), 'in Single user mode the 6-hour gap caps the 12-hour story age' );
 
 		t_true( is_wp_error( Settings::sanitize( 'past_hour_prep_minutes', 14 ) ), 'too short' );
 		t_true( is_wp_error( Settings::sanitize( 'past_hour_prep_minutes', 181 ) ), 'longer than the longest story age' );
@@ -1078,7 +1078,7 @@ t(
 		foreach ( $names as $name ) {
 			$found = $search( $by( $name ) );
 			t_eq( 1, count( $found ), $name . ' has a search' );
-			t_contains( 'when%3A2h', $found[0]['url'], $name . ' asks for the last 2 hours, the default story age' );
+			t_contains( 'when%3A6h', $found[0]['url'], $name . ' asks for the last 6 hours: the 12-hour default story age, capped by the 6-hour interval in Single user mode' );
 		}
 
 		// Turned off, the search follows the category's own recency setting.
@@ -1255,9 +1255,10 @@ t(
 	static function () {
 		wp_set_current_user( $GLOBALS['zzzt_admin'] );
 		ph_ready();
-		t_eq( 120, Settings::defaults()['past_hour_max_age_minutes'] );
+		t_eq( 720, Settings::defaults()['past_hour_max_age_minutes'] );
 		t_true( is_wp_error( Settings::sanitize( 'past_hour_max_age_minutes', 59 ) ), 'under an hour' );
-		t_true( is_wp_error( Settings::sanitize( 'past_hour_max_age_minutes', 181 ) ), 'over 3 hours' );
+		t_true( is_wp_error( Settings::sanitize( 'past_hour_max_age_minutes', 721 ) ), 'over 12 hours' );
+		t_eq( 720, Settings::sanitize( 'past_hour_max_age_minutes', '720' ) );
 		t_eq( 180, Settings::sanitize( 'past_hour_max_age_minutes', '180' ) );
 
 		// ph_ready sets both to 60.
@@ -1339,7 +1340,7 @@ t(
 
 		t_eq( Schema::DB_VERSION, get_option( 'zzzc_db_version' ) );
 		t_eq( 120, (int) Settings::get( 'past_hour_prep_minutes' ) );
-		t_eq( 120, (int) Settings::get( 'past_hour_max_age_minutes' ) );
+		t_eq( 720, (int) Settings::get( 'past_hour_max_age_minutes' ), 'the version 13 step runs after it' );
 		t_contains( 'now uses stories up to 120 minutes old, and preparation starts 120 minutes before each post', implode( ' | ', array_column( Events::query( array( 'stage' => 'config' ), 10 ), 'message' ) ) );
 
 		$saved = get_option( 'zzzc_settings' );
@@ -1350,7 +1351,7 @@ t(
 		update_option( 'zzzc_db_version', '8', true );
 		Schema::maybe_upgrade();
 		t_eq( 45, (int) Settings::get( 'past_hour_prep_minutes' ), 'the owner\'s own time is kept' );
-		t_eq( 120, (int) Settings::get( 'past_hour_max_age_minutes' ) );
+		t_eq( 720, (int) Settings::get( 'past_hour_max_age_minutes' ) );
 
 		// A second run of the upgrade changes nothing.
 		Schema::maybe_upgrade();
@@ -1458,5 +1459,127 @@ t(
 		ph_spend_generations( 5 );
 		ph_run( '21:35:00', 4 );
 		t_contains( 'The daily AI article limit has been reached', ph_slot( '22:00' )['status_reason'] );
+	}
+);
+
+t(
+	'PH-40',
+	'1.11.0: upgrading sets the story age to 12 hours, keeps the preparation time, and says so in the log',
+	static function () {
+		$saved = get_option( 'zzzc_settings' );
+		$saved['past_hour_max_age_minutes'] = 180;
+		$saved['past_hour_prep_minutes']    = 180;
+		update_option( 'zzzc_settings', $saved, false );
+		Settings::flush_cache();
+		update_option( 'zzzc_db_version', '12', true );
+		Schema::maybe_upgrade();
+
+		t_eq( '13', get_option( 'zzzc_db_version' ) );
+		t_eq( 720, (int) Settings::get( 'past_hour_max_age_minutes' ) );
+		t_eq( 180, (int) Settings::get( 'past_hour_prep_minutes' ), 'the preparation time is the owner\'s own' );
+		t_contains( 'up to 720 minutes (12 hours) old', implode( ' | ', array_column( Events::query( array( 'stage' => 'config' ), 10 ), 'message' ) ) );
+
+		// A lower age chosen afterwards is kept, because the step runs once.
+		Settings::update( array( 'past_hour_max_age_minutes' => 240 ) );
+		Schema::maybe_upgrade();
+		t_eq( 240, (int) Settings::get( 'past_hour_max_age_minutes' ) );
+	}
+);
+
+t(
+	'PH-41',
+	'1.11.0: after a publisher refuses access, its other stories are passed over for that post and kept for a later one',
+	static function () {
+		global $wpdb;
+		$items  = Db::table( 'source_items' );
+		$status = static function ( int $id ) use ( $wpdb, $items ): string {
+			return (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$items} WHERE id = %d", $id ) ); // phpcs:ignore WordPress.DB
+		};
+
+		$category = ph_ready();
+		set_local_now( PH_DAY . ' 09:30:00' );
+		Schedule::ensure_slots();
+		$first  = ph_item( $category, 'refused-first', '09:25:00' );
+		$second = ph_item( $category, 'refused-second', '09:20:00' );
+		$other  = ph_item( $category, 'other-publisher', '09:15:00' );
+		$wpdb->update( $items, array( 'publisher' => 'Other News' ), array( 'id' => $other ) );
+
+		set_local_now( PH_DAY . ' 09:30:05' );
+		PastHour::tick();
+		t_eq( $first, (int) ph_slot()['selected_item_id'], 'the newest story is chosen first' );
+
+		// What Retrieval::finish() records when the publisher answers HTTP 403.
+		Lifecycle::transition(
+			(int) ph_slot()['article_job_id'],
+			Lifecycle::BLOCKED,
+			array(
+				'error_code'    => 'http_403',
+				'error_message' => 'The publisher refused access with HTTP 403.',
+			)
+		);
+		PastHour::tick();
+		PastHour::tick();
+		t_eq( $other, (int) ph_slot()['selected_item_id'], 'the next story is from another publisher, though the refused publisher has a newer one' );
+		t_contains( 'Other stories from Mock News are passed over for the 10:00 post', ph_log() );
+		t_eq( 'DISCOVERED', $status( $second ), 'the passed-over story is kept for a later post' );
+		t_eq( 2, (int) ph_slot()['stories_tried'], 'and it did not use one of the post\'s tries' );
+
+		// A failure that belongs to one story, such as a page that is not found, sets nobody aside.
+		zzzt_reset();
+		$category = ph_ready();
+		set_local_now( PH_DAY . ' 09:30:00' );
+		Schedule::ensure_slots();
+		$first  = ph_item( $category, 'missing-first', '09:25:00' );
+		$second = ph_item( $category, 'same-publisher-second', '09:20:00' );
+		set_local_now( PH_DAY . ' 09:30:05' );
+		PastHour::tick();
+		t_eq( $first, (int) ph_slot()['selected_item_id'] );
+		Lifecycle::transition(
+			(int) ph_slot()['article_job_id'],
+			Lifecycle::BLOCKED,
+			array(
+				'error_code'    => 'http_404',
+				'error_message' => 'The page was not found (HTTP 404).',
+			)
+		);
+		PastHour::tick();
+		PastHour::tick();
+		t_eq( $second, (int) ph_slot()['selected_item_id'], 'the same publisher\'s next story is still tried' );
+		t_not_contains( 'are passed over', ph_log() );
+	}
+);
+
+t(
+	'PH-42',
+	'1.11.0: with a 12-hour story age, a story from the evening before is used for the 10:00 post, and one older than 12 hours is not',
+	static function () {
+		global $wpdb;
+		$items    = Db::table( 'source_items' );
+		$category = ph_ready(
+			array(
+				'interval_hours'            => 12,
+				'past_hour_max_age_minutes' => 720,
+				'past_hour_prep_minutes'    => 120,
+			)
+		);
+		t_eq( 720, PastHour::max_age_minutes() );
+		t_eq( 120, PastHour::prep_minutes() );
+
+		set_local_now( PH_DAY . ' 08:00:00' );
+		Schedule::ensure_slots();
+		$due   = ph_time( '10:00:00' );
+		$old   = ph_item( $category, 'thirteen-hours-old', '09:00:00' );
+		$fresh = ph_item( $category, 'eleven-hours-old', '09:00:00' );
+		$wpdb->update( $items, array( 'published_at' => gmdate( 'Y-m-d H:i:s', $due - 13 * 3600 ) ), array( 'id' => $old ) );
+		$wpdb->update( $items, array( 'published_at' => gmdate( 'Y-m-d H:i:s', $due - 11 * 3600 ) ), array( 'id' => $fresh ) );
+
+		set_local_now( PH_DAY . ' 08:00:05' );
+		PastHour::tick();
+		$slot = ph_slot();
+		t_eq( $fresh, (int) $slot['selected_item_id'], 'the story 11 hours old at the post time is chosen' );
+		t_contains( 'Only stories published from 22:05 can be used', ph_log() );
+		t_eq( '', PastHour::check_story( (array) Lifecycle::item( $fresh ), $slot ) );
+		t_contains( 'The limit is 720 minutes', PastHour::check_story( (array) Lifecycle::item( $old ), $slot ) );
+		t_eq( 'DISCOVERED', (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$items} WHERE id = %d", $old ) ), 'the older story is left alone' ); // phpcs:ignore WordPress.DB
 	}
 );

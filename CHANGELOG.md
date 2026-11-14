@@ -10,6 +10,45 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.0] - 2026-11-14
+
+Fewer skipped posts. The owner's four decisions of 2026-11-14, taken after the site's log for 2026-11-06 to 14 showed 9 posts published and 17 skipped. Includes the 1.10.5 fix, which was built the same day and not released on its own.
+
+### Changed
+
+- **Stories up to 12 hours old.** `past_hour_max_age_minutes` now ranges from 60 to 720 and defaults to 720. `Schema::DB_VERSION` is 13, and `upgrade_to_13()` sets the stored value to 720, keeps the preparation time and logs the change. Posts still go out at their set times. `PastHour::max_age_minutes()` is unchanged, so Single user mode still caps the age at the interval between posts.
+- `PastHour::fallback_within()` treats an age limit over 180 minutes as 180, so other categories are tried from 90 minutes before the post and not from the start of preparation. For an age of 180 minutes or less it returns what it did before.
+- **`LicenseChecker::check()` accepts a file whose only restriction is `personality`.** Any other value in `Restrictions`, alone or beside it, still refuses the file.
+- **`Validator::looks_truncated()` takes the finish reason.** When it is `stop`, `end_turn`, `stop_sequence`, `eos` or `complete`, a last line without closing punctuation counts as cut off only when it ends on a comma, a dash, an open bracket or quote, or one of the words in `UNFINISHED_ENDINGS`. With any other finish reason, or none, it is as strict as before. `…`, `»` and `*` now close a line. The log showed 15 articles regenerated for this.
+- **`Validator::ends_in_structure()`** replaces the test on the last element's tag, so a closing list or table wrapped in a `div` or `section` is recognised.
+- **`ArticleAnalyzer::split_run()` drops a Title Case run that nothing confirms.** When the article has running text, a run of capitalized headline words is a name only if the text or a tag confirms part of it. Runs of one or two words are no longer kept unchecked. Tags now confirm names as the title or headline writes them. A headline with no text behind it is read as before.
+- **`CandidateScorer::mandatory_failure()` accepts a square picture.** A portrait picture is refused with "A portrait image, taller than it is wide.", which replaces "Not a landscape image."
+
+### Added
+
+- **`PastHour::failed_publishers()`** and the `PUBLISHER_FAILURES` list. `eligible_items()` leaves out every publisher that already failed for this post with `publisher_url_unresolved`, `http_401`, `http_403`, `http_451` or `paywalled`. `watch_article()` logs it once, when the failure happens.
+- `tests/unit/run-images.php`: 18 further checks for the license, shape and Title Case rules. 73 pass, 0 fail. `tests/unit/stubs.php` gains `esc_url_raw()`.
+- `tests/unit/run-validator.php`, a new unit suite for the cut-off check. 17 pass, 0 fail, and 8 of them fail on the 1.10.4 code.
+- `tests/test-6-past-hour.php`: PH-40 for the upgrade step, PH-41 for passing over a failed publisher, and PH-42 for the 12-hour window. All three pass. PH-28 now expects `when:6h`, the 12-hour default capped by the 6-hour interval in Single user mode.
+
+### Tested
+
+- The full suite on a local site (WordPress 7.1.4, PHP 8.3.36, MariaDB 11.4.5): 258 pass, 47 fail. The untouched 1.10.4 commit gives 254 pass, 48 fail on the same machine, and no test fails on 1.11.0 that passes on 1.10.4. The 47 failures are listed in `docs/TEST-RESULTS.md` and have not been looked into.
+- The upgrade from 1.10.4 was also watched in a browser on that site.
+
+## [1.10.5] - 2026-11-14
+
+Fixes image searches built from words that are not names, found in the owner site's logs of 2026-11-09 to 14. Licenses, rules, the minimum score and the image source are unchanged.
+
+### Fixed
+
+- **`ArticleAnalyzer::names()` read sentence-opening words as part of a name.** "Check Nvidia", "Use Kuaishou", "Which Baltic", "No. Nvidia" and "Through Nov" were each sent to Commons as a search. `NOT_NAMES` gains the question words, prepositions and short verbs seen in the logs, and the short months that are nobody's name. A new `not_a_name()` ignores a trailing full stop, so "No." inside a run is recognised, and leaves an initial such as "A." alone.
+- **`ArticleAnalyzer::analyze()` joined names across block boundaries.** Paragraphs, list items, table cells and line breaks now end a run of capitalized words, as headings already did.
+
+### Added
+
+- `tests/unit/run-images.php`: 9 further checks. 55 pass, 0 fail. The headlines are the real ones from the logs. The titles and bodies are stand-ins, because the log does not keep the article text.
+
 ## [1.10.4] - 2026-11-08
 
 Image searching now starts from the headline, following the owner's guidelines of 2026-11-08. The workflow is unchanged: rules only, no AI, Wikimedia Commons only.

@@ -74,7 +74,7 @@ The only outside services it contacts are your news sources, OpenRouter and Wiki
 **Scheduling and publishing**
 
 - Posts per day, hours between posts, first post time and timezone.
-- **Past-Hour Posting**, on by default: each post uses a story no more than 2 hours old when it goes out (adjustable from 1 to 3 hours), or the post is skipped.
+- **Past-Hour Posting**, on by default: each post uses a story no more than 12 hours old when it goes out (adjustable from 1 to 12 hours), or the post is skipped.
 - Category rotation, a daily maximum, and a choice of what happens when a post time has no article.
 - Draft or Automatic Publish, for all categories or some.
 - WordPress categories created automatically, or mapped to your own.

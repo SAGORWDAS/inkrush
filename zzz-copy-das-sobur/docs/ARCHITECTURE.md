@@ -71,7 +71,7 @@ On by default (`past_hour_enabled`), and turned off on the Schedule page. All of
 |---|---|
 | `Planner` keeps a buffer of finished articles per category, researching hourly | `Planner::tick` calls `PastHour::tick` instead. One article at a time, for one post |
 | The slot takes any queued article of its category, then any category | The slot takes only its own article, linked by `slots.article_job_id` and `article_jobs.slot_id` |
-| A category's recency filter | The story age check, 120 minutes by default, on all sources and categories. Google News is asked for `when:2h`, the age in whole hours rounded up. Keyword filters still apply |
+| A category's recency filter | The story age check, 720 minutes by default from 1.11.0, on all sources and categories. Google News is asked for `when:12h`, the age in whole hours rounded up. Keyword filters still apply |
 | Catch-up at a later slot | None. Slots end as `FILLED`, `SKIPPED` or `MISSED` |
 | The image is found at the slot | The image is found as soon as the article is ready |
 

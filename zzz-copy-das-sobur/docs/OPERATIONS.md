@@ -16,6 +16,8 @@ The API key is encrypted with the WordPress salts, or with `ZZZCOPY_SECRET_KEY` 
 
 **Upgrading to 1.7.0 adds the Authors page.** The user already credited with posts, the chosen Post author or else the first administrator, becomes the one active author, and Logs records who. Nobody else is given access, administrators included. To credit someone else, grant them access on the Authors page and choose them on the Publishing page.
 
+**Upgrading to 1.11.0 widens Past-Hour Posting to 12 hours.** The maximum story age is set to 720 minutes, your preparation time is kept, and posts still go out at their set times. Lower the age on the Schedule page if you want fresher stories. A log entry records the change.
+
 **Upgrading to 1.6.0 widens Past-Hour Posting to 2 hours.** Stories can be up to 120 minutes old, and a preparation time still at the old default of 60 minutes moves to 120. One you changed is kept. Logs records it. Both are on the Schedule page.
 
 **Upgrading to 1.5.0 makes a featured image required on every post.** The upgrade removes the settings "Find images automatically", "Set the chosen image as the featured image" and "When no image can be used", and Logs records it. Posts already published are not changed. Ones with no image are listed on the Images page, with a Retry image button.

@@ -145,7 +145,7 @@ t(
 			$name = Db::table( $table );
 			t_eq( $name, $wpdb->get_var( "SHOW TABLES LIKE '{$name}'" ), "table $table exists" );
 		}
-		t_eq( '12', \ZZZCopy\Schema::DB_VERSION, 'database version is 12' );
+		t_true( version_compare( \ZZZCopy\Schema::DB_VERSION, '12', '>=' ), 'database version is 12 or later' );
 		t_false( SocialSettings::enabled(), 'distribution is off on a fresh install' );
 		t_eq( array(), SocialSettings::active_platforms(), 'no platform is active on a fresh install' );
 	}
@@ -167,7 +167,7 @@ t(
 
 		$after = db_count( 'article_jobs' ) . '|' . db_count( 'post_links' ) . '|' . db_count( 'source_items' );
 		t_eq( $before, $after, 'article, post and source records are untouched by the upgrade' );
-		t_eq( '12', get_option( 'zzzc_db_version' ), 'the database version moved to 12' );
+		t_eq( \ZZZCopy\Schema::DB_VERSION, get_option( 'zzzc_db_version' ), 'the database version moved on' );
 		t_false( SocialSettings::enabled(), 'the upgrade does not switch distribution on' );
 		t_eq( job_status( $job_id ), 'PUBLISHED', 'the existing article is still published' );
 	}

@@ -55,7 +55,7 @@ Defaults: 3 posts a day, 6 hours apart, from 10:00, at UTC+10:30.
 
 **Check the timezone.** A fixed `+10:30` never changes. If your location has daylight saving, enter its name instead, such as `Australia/Adelaide` or `Australia/Lord_Howe`, so the posts stay at the same local time all year.
 
-**Past-Hour Posting** is on by default. Each post uses one story no more than 2 hours old when it goes out, or is skipped. Set the maximum story age (120 minutes by default, 60 to 180) and how long before each post preparation starts (120 minutes by default, 15 to 180, never more than the story age). Turn it off to use the earlier workflow. Expect some skipped posts, especially for categories with little news. A server cron job matters more with this on, because a late worker can make a story too old.
+**Past-Hour Posting** is on by default. Each post uses one story no more than 12 hours old when it goes out, or is skipped. Set the maximum story age (720 minutes by default, 60 to 720) and how long before each post preparation starts (120 minutes by default, 15 to 180, never more than the story age). Turn it off to use the earlier workflow. Expect some skipped posts, especially for categories with little news. A server cron job matters more with this on, because a late worker can make a story too old.
 
 Also set rotation, what counts toward the daily maximum, and what happens when a slot has no article.
 

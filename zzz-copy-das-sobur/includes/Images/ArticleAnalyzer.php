@@ -14,7 +14,12 @@ final class ArticleAnalyzer {
 	private const STOP = array( 'the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'has', 'have', 'had', 'its', 'his', 'her', 'their', 'after', 'before', 'over', 'into', 'about', 'new', 'not', 'but', 'you', 'your', 'our', 'will', 'can', 'may', 'more', 'than', 'what', 'why', 'how', 'who', 'when', 'where', 'says', 'said', 'now', 'out', 'off', 'amid', 'against', 'report', 'reports', 'latest', 'today', 'news', 'update', 'here', 'know', 'need', 'could', 'would', 'should', 'being', 'been', 'they', 'them', 'also', 'plans', 'plan', 'first', 'next', 'year', 'years', 'week', 'month', 'day' );
 
 	/** Capitalized words that begin a sentence or heading and do not name anything. */
-	private const NOT_NAMES = array( 'The', 'A', 'An', 'And', 'But', 'For', 'With', 'After', 'Before', 'How', 'Why', 'What', 'When', 'Where', 'Who', 'This', 'That', 'These', 'Those', 'It', 'In', 'On', 'At', 'As', 'By', 'To', 'Of', 'If', 'New', 'Trending', 'FAQ', 'Here', 'They', 'We', 'You', 'Our', 'Their', 'His', 'Her', 'Its', 'Some', 'Many', 'Most', 'More', 'Key', 'Top', 'Stage', 'Date', 'Is', 'Are', 'Was', 'Were', 'Can', 'Could', 'Would', 'Should', 'Does', 'Do', 'Did', 'Has', 'Have', 'Had', 'However', 'Meanwhile', 'While', 'Despite', 'Although', 'According', 'There', 'Then', 'So', 'Yet', 'Also', 'Still' );
+	private const NOT_NAMES = array( 'The', 'A', 'An', 'And', 'But', 'For', 'With', 'After', 'Before', 'How', 'Why', 'What', 'When', 'Where', 'Who', 'This', 'That', 'These', 'Those', 'It', 'In', 'On', 'At', 'As', 'By', 'To', 'Of', 'If', 'New', 'Trending', 'FAQ', 'Here', 'They', 'We', 'You', 'Our', 'Their', 'His', 'Her', 'Its', 'Some', 'Many', 'Most', 'More', 'Key', 'Top', 'Stage', 'Date', 'Is', 'Are', 'Was', 'Were', 'Can', 'Could', 'Would', 'Should', 'Does', 'Do', 'Did', 'Has', 'Have', 'Had', 'However', 'Meanwhile', 'While', 'Despite', 'Although', 'According', 'There', 'Then', 'So', 'Yet', 'Also', 'Still',
+		// From the owner's logs of 2026-11-13 and 14: "Check Nvidia", "Use Kuaishou", "Which Baltic",
+		// "No. Nvidia" and "Through Nov" were each searched as if they were a name.
+		'Which', 'Whose', 'Whom', 'Check', 'Use', 'Using', 'Through', 'During', 'Since', 'Until', 'Between', 'Among', 'About', 'Against', 'Into', 'From', 'No', 'Not', 'Yes', 'Let', 'Just', 'Only', 'Even', 'Today', 'Yesterday', 'Tomorrow',
+		// Short months that are nobody's name. "Jan", "Mar" and "Jun" are left out, because they are.
+		'Feb', 'Apr', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec' );
 
 	/**
 	 * Last words of a news outlet's name. An outlet the article quotes or was published by is not what it is about.
@@ -55,6 +60,18 @@ final class ArticleAnalyzer {
 	}
 
 	/**
+	 * Whether a capitalized word only begins a sentence or heading. A short word keeps its full stop
+	 * inside a run, as "No." does in "No. Nvidia", so the stop is ignored. An initial such as "A." in
+	 * "A. Lange" is part of a name and is left alone.
+	 */
+	private static function not_a_name( string $word ): bool {
+		if ( preg_match( '/^\p{Lu}\.$/u', $word ) ) {
+			return false;
+		}
+		return in_array( rtrim( $word, '.' ), self::NOT_NAMES, true );
+	}
+
+	/**
 	 * Runs of capitalized words: the likely people, companies, products and places.
 	 */
 	private static function names( string $text ): array {
@@ -80,14 +97,14 @@ final class ArticleAnalyzer {
 			}
 			foreach ( $groups as $group ) {
 				$words = preg_split( '/\s+/u', trim( implode( ' ', $group ), " .'’-" ) ) ?: array();
-				while ( $words && in_array( $words[0], self::NOT_NAMES, true ) ) {
+				while ( $words && self::not_a_name( $words[0] ) ) {
 					// "New" is part of a place name in "New York", but only a describing word in "New iPhone".
 					if ( 'New' === $words[0] && isset( $words[1] ) && in_array( $words[1], self::NEW_PLACES, true ) ) {
 						break;
 					}
 					array_shift( $words );
 				}
-				while ( $words && in_array( end( $words ), self::NOT_NAMES, true ) ) {
+				while ( $words && self::not_a_name( (string) end( $words ) ) ) {
 					array_pop( $words );
 				}
 				// "Russell Brand's" names Russell Brand.
@@ -155,7 +172,8 @@ final class ArticleAnalyzer {
 
 	private static function split_run( string $run, array $known ): array {
 		$words = preg_split( '/\s+/u', $run ) ?: array();
-		if ( count( $words ) <= 2 ) {
+		// With no running text to check against, as with a headline alone, a short run is kept as it is.
+		if ( ! $known && count( $words ) <= 2 ) {
 			return array( $run );
 		}
 
@@ -170,6 +188,12 @@ final class ArticleAnalyzer {
 		}
 		if ( $confirmed ) {
 			return $confirmed;
+		}
+		// In Title Case every word has a capital, so capitals say nothing. When the article's own
+		// text and tags confirm none of these words as a name, they are not one: "Sales Rose",
+		// "Remake Gets" and "Formal Cooperation" were each searched for on Commons (1.11.0).
+		if ( $known ) {
+			return array();
 		}
 
 		// Nothing to confirm against: split at connecting words, then keep the start of each part.
@@ -379,11 +403,30 @@ final class ArticleAnalyzer {
 			},
 			$body
 		);
+		// A name never runs from one paragraph, list item or table cell into the next. Without a break
+		// here, a cell that says "Check" beside a cell that begins "Nvidia" reads as a name, "Check Nvidia".
+		$prose_html = (string) preg_replace( '#</(?:p|li|td|th|tr|dt|dd|div|blockquote|caption|figcaption)\s*>|<br\s*/?>#i', ' . ', $prose_html );
 		$prose = html_entity_decode( wp_strip_all_tags( str_replace( '<', ' <', $prose_html ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		// Preview image search passes the headline as the first line of the text.
 		$prose       = str_ireplace( array_values( array_filter( array( $title_text, $head_text ), 'strlen' ) ), ' . ', $prose );
 		$prose_names = self::names( $prose );
 		$known       = array_values( array_unique( $prose_names ) );
+		// A tag is a subject the article vouches for, so it confirms a headline's words too. It is
+		// taken as the title or headline writes it, so the tag "customer service" confirms "Customer
+		// Service" in a Title Case headline. A tag the headline does not use counts when it has a capital.
+		$lines = $title_text . ' . ' . $head_text;
+		foreach ( $known ? $tags : array() as $tag ) {
+			$tag = trim( (string) $tag );
+			if ( mb_strlen( $tag ) < 3 ) {
+				continue;
+			}
+			if ( preg_match( self::word_pattern( $tag, 'iu' ), $lines, $written ) ) {
+				$tag = $written[0];
+			}
+			if ( preg_match( '/^\p{Lu}/u', $tag ) && ! in_array( $tag, $known, true ) ) {
+				$known[] = $tag;
+			}
+		}
 
 		$scores = array();
 		foreach ( array_merge( self::line_names( $title_text, $known ), self::line_names( $head_text, $known ) ) as $name ) {

@@ -59,7 +59,7 @@ final class Validator {
 
 			if ( in_array( strtolower( $finish_reason ), array( 'length', 'max_tokens' ), true ) ) {
 				$errors[] = array( 'truncated', 'The model stopped because it reached the output token limit, so the article is cut off.' );
-			} elseif ( self::looks_truncated( $structure['last_text'], $structure['last_is_structure'] ) ) {
+			} elseif ( self::looks_truncated( $structure['last_text'], $structure['last_is_structure'], $finish_reason ) ) {
 				$errors[] = array( 'truncated', 'The article appears to stop mid-sentence.' );
 			}
 
@@ -148,11 +148,38 @@ final class Validator {
 		);
 	}
 
-	private static function looks_truncated( string $last_text, bool $last_is_structure ): bool {
+	/** Finish reasons that mean the model ended the article itself, and was not stopped. */
+	private const NATURAL_STOPS = array( 'stop', 'end_turn', 'stop_sequence', 'eos', 'complete' );
+
+	/** Last words that a finished sentence does not end on. */
+	private const UNFINISHED_ENDINGS = array( 'a', 'an', 'the', 'and', 'or', 'but', 'nor', 'of', 'to', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'as', 'into', 'than', 'that', 'which', 'who', 'whose', 'is', 'are', 'was', 'were', 'be', 'been', 'has', 'have', 'had', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must', 'its', 'their', 'his', 'her', 'our', 'your', 'this', 'these', 'those', 'because', 'while', 'when', 'where', 'if', 'although', 'after', 'before', 'about', 'between', 'during', 'said', 'says', 'not', 'also', 'very' );
+
+	/**
+	 * Whether the article stops part way through.
+	 *
+	 * Until 1.11.0 any last line without closing punctuation counted. In the owner site's log for
+	 * 2026-11-09 to 14 that sent 15 articles back to be written again, each a paid generation, and
+	 * a second attempt with the same prompt usually passed. When the provider reports that the
+	 * model ended the article itself, a last line such as "Source: Variety" or "Up 12%" is how the
+	 * article ends, not a cut. Then it only counts when the last line plainly breaks off: on a
+	 * comma, a dash or an open bracket, or on a word no sentence ends with, as in "officials said
+	 * that the". With any other finish reason, or none, the check is as strict as before.
+	 */
+	private static function looks_truncated( string $last_text, bool $last_is_structure, string $finish_reason = '' ): bool {
 		if ( $last_is_structure || '' === $last_text ) {
 			return false;
 		}
-		return ! preg_match( '/[.!?:;)\]"\'’”]\s*$/u', $last_text );
+		if ( preg_match( '/[.!?:;)\]"\'’”…»*]\s*$/u', $last_text ) ) {
+			return false;
+		}
+		if ( ! in_array( strtolower( trim( $finish_reason ) ), self::NATURAL_STOPS, true ) ) {
+			return true;
+		}
+		if ( preg_match( '/[,\-–—(\[“‘\/&+=]\s*$/u', $last_text ) ) {
+			return true;
+		}
+		preg_match( '/([\p{L}\'’]+)\s*$/u', $last_text, $match );
+		return isset( $match[1] ) && in_array( mb_strtolower( $match[1] ), self::UNFINISHED_ENDINGS, true );
 	}
 
 	/**
@@ -240,10 +267,39 @@ final class Validator {
 			$out['first_text'] = trim( (string) $elements[0]->textContent );
 			$last              = $elements[ count( $elements ) - 1 ];
 			$out['last_text']  = trim( (string) $last->textContent );
-			$out['last_is_structure'] = in_array( strtolower( $last->tagName ), array( 'table', 'ul', 'ol' ), true );
+			$out['last_is_structure'] = self::ends_in_structure( $last );
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Whether the article's last words sit in a list, a table or a heading, which do not end in a
+	 * full stop. The last element itself is checked, and so is whatever it ends with, because a
+	 * model sometimes wraps its closing table or list in a div or a section.
+	 */
+	private static function ends_in_structure( \DOMElement $element ): bool {
+		$structures = array( 'table', 'ul', 'ol', 'dl', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
+		for ( $depth = 0; $depth < 6; $depth++ ) {
+			$tag = strtolower( $element->tagName );
+			// A lone heading at the very end is reported as an empty section, as before.
+			if ( in_array( $tag, $structures, true ) && ! ( 0 === $depth && 'h' === $tag[0] ) ) {
+				return true;
+			}
+			$next = null;
+			for ( $child = $element->lastChild; $child; $child = $child->previousSibling ) {
+				if ( '' === trim( (string) $child->textContent ) ) {
+					continue;
+				}
+				$next = $child instanceof \DOMElement ? $child : null;
+				break;
+			}
+			if ( ! $next ) {
+				return false;
+			}
+			$element = $next;
+		}
+		return false;
 	}
 
 	private static function text_with_breaks( \DOMNode $node ): string {

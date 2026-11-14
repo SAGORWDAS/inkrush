@@ -52,7 +52,18 @@ final class LicenseChecker {
 			$out['reason'] = 'The file is marked as not free.';
 			return $out;
 		}
-		if ( '' !== self::field( $meta, 'Restrictions' ) ) {
+		// "personality" is the Commons notice that a picture shows an identifiable person. It reminds the
+		// user about using somebody's likeness, as in advertising, and is not a limit of the license, so
+		// it does not stop a news post (the owner's decision of 2026-11-14). It is on most photographs
+		// of living people, and refusing it left stories about a person with no picture. Every other
+		// restriction, such as "trademarked", still refuses the file.
+		$restrictions = array_filter(
+			array_map( 'trim', preg_split( '/[|,;]/', strtolower( self::field( $meta, 'Restrictions' ) ) ) ?: array() ),
+			static function ( $restriction ) {
+				return '' !== $restriction && 'personality' !== $restriction;
+			}
+		);
+		if ( $restrictions ) {
 			$out['reason'] = 'The file has extra restrictions: ' . self::field( $meta, 'Restrictions' ) . '.';
 			return $out;
 		}

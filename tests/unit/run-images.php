@@ -19,6 +19,7 @@
 require __DIR__ . '/stubs.php';
 
 use ZZZCopy\Images\ArticleAnalyzer;
+use ZZZCopy\Images\LicenseChecker;
 use ZZZCopy\Images\CandidateScorer;
 use ZZZCopy\Settings;
 
@@ -415,4 +416,138 @@ u_true(
 	'A picture of both people counts more of the article subjects than a picture of one'
 );
 u_is( '', CandidateScorer::mandatory_failure( $both, $published, 'Politics' ), 'And it passes the rules' );
+/* =====================================================================
+   1.10.5: words that open a sentence, a heading or a table cell are not names
+   From the owner's logs of 2026-11-09 to 14, where "No. Nvidia",
+   "Check Nvidia", "Use Kuaishou", "Which Baltic" and "Laser Technology
+   Which UNICROSS" were each sent to Commons as a search. The headlines
+   are the real ones. The titles and bodies are stand-ins, because the
+   log does not keep the article text.
+   ===================================================================== */
+
+$joined = static function ( array $analysis ): string {
+	return implode( ' | ', $analysis['queries'] ) . ' | ' . implode( ' | ', $analysis['entities'] );
+};
+
+// "No." answers a question, and the next sentence begins with the company.
+$nvidia = ArticleAnalyzer::analyze(
+	'Nvidia Employees Ask for Jensen Huang to Return',
+	'<p>Nvidia employees have signed a petition asking for Jensen Huang to return. Has the board replied? No. Nvidia has not commented. '
+	. 'Was Huang asked? No. Nvidia said nothing. Huang resigned this week, and Nvidia staff keep signing.</p>',
+	array( 'Nvidia', 'Jensen Huang', 'petition' ),
+	'Nvidia employees demand second chance for Jensen Huang, return petition gets over 1,600 comments',
+	'Technology',
+	'India Today'
+);
+u_false( false !== stripos( $joined( $nvidia ), 'No. Nvidia' ), '1.10.5: "No. Nvidia" is not one name' );
+u_true( in_array( 'Nvidia', $nvidia['entities'], true ), '1.10.5: Nvidia is the subject instead' );
+u_true( false !== stripos( $joined( $nvidia ), 'Jensen Huang' ), '1.10.5: Jensen Huang is still searched' );
+
+// A table cell, a list item and a paragraph each end what came before them.
+$cells = ArticleAnalyzer::analyze(
+	'Kuaishou Technology Shares Fall as Sales Rise',
+	'<p>Kuaishou Technology shares fell 60% while sales rose.</p>'
+	. '<table><tr><th>Use</th><th>Kuaishou</th></tr><tr><td>Check</td><td>Kuaishou</td></tr></table>'
+	. '<ul><li>Margin: Use</li><li>Kuaishou said its margin narrowed</li></ul>'
+	. '<p><strong>Quick Check</strong></p><p>Kuaishou expects more spending.</p>',
+	array( 'Kuaishou', 'Kuaishou Technology', 'margin' ),
+	'Kuaishou Technology Fell 60% While Sales Rose',
+	'Technology',
+	'Simply Wall St'
+);
+u_false( false !== stripos( $joined( $cells ), 'Use Kuaishou' ), '1.10.5: two table cells are not one name' );
+u_false( false !== stripos( $joined( $cells ), 'Check Kuaishou' ), '1.10.5: two paragraphs are not one name' );
+u_true( false !== stripos( $cells['queries'][0] ?? '', 'Kuaishou' ), '1.10.5: Kuaishou is searched first' );
+
+// A question heading in Title Case, with nothing in the text to confirm its words against.
+$which = ArticleAnalyzer::analyze(
+	'Students to Learn Production Skills',
+	'<p>Students will learn production skills on new machines this term.</p>'
+	. '<h2>Which UNICROSS Students Will Train First</h2><p>The first group starts this month.</p>',
+	array( 'UNICROSS', 'laser technology' ),
+	'UNICROSS Students to Acquire Modern Production Skills with New Laser Technology',
+	'Technology',
+	'Cross River State News'
+);
+u_false( false !== stripos( $joined( $which ), 'Which' ), '1.10.5: "Which" does not begin a name' );
+u_true( false !== stripos( $joined( $which ), 'UNICROSS' ), '1.10.5: UNICROSS is still searched' );
+
+// Names that look like the words above are kept whole.
+$capcom = ArticleAnalyzer::analyze(
+	'Resident Evil Remake Gets Update From Jun Takeuchi',
+	'<p>Jun Takeuchi of Capcom gave an update on the Resident Evil remake. Takeuchi said work continues.</p>',
+	array( 'Resident Evil', 'Jun Takeuchi', 'Capcom' ),
+	'Resident Evil 1 Remake Gets Official Update From Capcom',
+	'Entertainment',
+	'screenrant.com'
+);
+u_true( false !== stripos( $joined( $capcom ), 'Jun Takeuchi' ), '1.10.5: "Jun" is a first name, not a month' );
+
+/* =====================================================================
+   1.11.0: the personality notice, and square pictures
+   The owner's decisions of 2026-11-14, after the log showed all 37
+   files found for Jensen Huang and all 40 for Golshifteh Farahani
+   refused, most of them for "personality".
+   ===================================================================== */
+
+$license = static function ( string $restrictions ): array {
+	return LicenseChecker::check(
+		array(
+			'LicenseShortName'    => array( 'value' => 'CC BY 4.0' ),
+			'License'             => array( 'value' => 'cc-by-4.0' ),
+			'LicenseUrl'          => array( 'value' => 'https://creativecommons.org/licenses/by/4.0' ),
+			'Artist'              => array( 'value' => 'Example Photographer' ),
+			'AttributionRequired' => array( 'value' => 'true' ),
+			'Restrictions'        => array( 'value' => $restrictions ),
+		)
+	);
+};
+u_true( $license( '' )['ok'], '1.11.0: a correct CC BY passes' );
+u_true( $license( 'personality' )['ok'], '1.11.0: the personality notice does not refuse a file' );
+u_false( $license( 'trademarked' )['ok'], '1.11.0: a trademark restriction still refuses it' );
+u_false( $license( 'personality|trademarked' )['ok'], '1.11.0: and so does a trademark beside the personality notice' );
+u_true( false !== strpos( $license( 'personality|trademarked' )['reason'], 'trademarked' ), '1.11.0: the reason names the restriction' );
+u_false( $license( 'insignia' )['ok'], '1.11.0: any other restriction still refuses it' );
+
+$shape = static function ( int $width, int $height ) use ( $published ): string {
+	return CandidateScorer::mandatory_failure(
+		candidate( 'File:Dana White 2019.jpg', 'Dana White speaking.', 'Dana White', array( 'width' => $width, 'height' => $height ) ),
+		$published,
+		'Politics'
+	);
+};
+u_is( '', $shape( 3000, 1687 ), '1.11.0: a landscape picture passes, as before' );
+u_is( '', $shape( 2000, 2000 ), '1.11.0: a square picture passes' );
+u_true( false !== strpos( $shape( 1600, 2000 ), 'portrait' ), '1.11.0: a portrait picture is still refused' );
+/* =====================================================================
+   1.11.0: a Title Case headline names only what the article confirms
+   In Title Case every word has a capital, so "Sales Rose", "Remake
+   Gets" and "Formal Cooperation" each looked like a name and were sent
+   to Commons. The headlines are the real ones from the owner's logs of
+   2026-11-12 to 14. The bodies are stand-ins.
+   ===================================================================== */
+
+u_false( false !== stripos( $joined( $cells ), 'Sales Rose' ), '1.11.0: "Sales Rose" is a verb phrase, not a name' );
+u_false( false !== stripos( $joined( $cells ), 'Sales Rise' ), '1.11.0: nor is "Sales Rise"' );
+u_false( false !== stripos( $joined( $capcom ), 'Remake Gets' ), '1.11.0: nor is "Remake Gets"' );
+u_true( in_array( 'Jun Takeuchi', $capcom['entities'], true ), '1.11.0: a name the article uses is still a subject' );
+
+$talks = ArticleAnalyzer::analyze(
+	'John Strategy Club and Emberstone Capital Prepare for Formal Cooperation Talks',
+	'<p>John Strategy Club and Emberstone Capital have moved closer to a partnership. The two firms will hold formal cooperation talks next month. '
+	. 'Emberstone Capital said the partnership would cover research. John Strategy Club has not commented.</p>',
+	array( 'John Strategy Club', 'Emberstone Capital', 'partnership' ),
+	'John Strategy Club and Emberstone Capital Advance Strategic Partnership Discussions Prepare for Formal Cooperation Talks',
+	'Technology',
+	'TechBullion'
+);
+u_false( false !== stripos( $joined( $talks ), 'Formal Cooperation' ), '1.11.0: "Formal Cooperation" is not a name' );
+u_false( false !== stripos( $joined( $talks ), 'Advance Strategic' ), '1.11.0: nor is "Advance Strategic"' );
+u_true( in_array( 'Emberstone Capital', $talks['entities'], true ), '1.11.0: the two firms are still the subjects' );
+u_true( in_array( 'John Strategy Club', $talks['entities'], true ), '1.11.0: both of them' );
+
+// A headline with no article text behind it, as in the preview search, is read as it was before.
+$alone = ArticleAnalyzer::analyze( 'Kuaishou Technology Shares Fall', '', array(), 'Kuaishou Technology Shares Fall', 'Technology' );
+u_true( false !== stripos( implode( ' | ', $alone['queries'] ), 'Kuaishou Technology' ), '1.11.0: a headline alone still gives a search' );
+
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );
