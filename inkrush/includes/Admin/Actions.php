@@ -293,6 +293,7 @@ final class Actions {
 	private static function do_save_schedule(): void {
 		$values = array(
 			'past_hour_enabled' => self::post( 'past_hour_enabled', 0 ),
+			'post_risk_email'   => self::post( 'post_risk_email', 0 ),
 			'no_repeat'         => self::post( 'no_repeat', 0 ),
 			'category_fallback' => self::post( 'category_fallback', 0 ),
 			'rotation_pool'     => (array) self::post( 'rotation_pool', array() ),

@@ -36,7 +36,7 @@ final class PastHour {
 	 * image, leaving the slot empty although two perfectly good articles had been paid for.
 	 * The day's own limit, Maximum article generations per day, still caps the real spending.
 	 */
-	private const MAX_AI_ARTICLES = 3;
+	private const MAX_AI_ARTICLES = 4;
 
 	/**
 	 * Politeness guard for one post, since each story tried means fetching a publisher page.
@@ -340,10 +340,12 @@ final class PastHour {
 		}
 
 		// One article at a time for each post, so repeated searches can never start a second one.
-		if ( self::watch_article( $slot ) ) {
+		$watching = self::watch_article( $slot );
+		$slot     = (array) self::slot( $slot_id );
+		self::warn_if_at_risk( $slot );
+		if ( $watching ) {
 			return;
 		}
-		$slot = (array) self::slot( $slot_id );
 
 		$blocked = self::why_not_selecting( $slot );
 		if ( '' !== $blocked ) {
@@ -356,6 +358,87 @@ final class PastHour {
 			return;
 		}
 		self::search( $slot, $categories );
+	}
+
+	/**
+	 * Post times whose preparation has started and which have not gone out, for the Stop button's
+	 * warning. On 2026-11-14 automation was stopped twice by hand; a stop in this window skips a post.
+	 *
+	 * @return string[] Local post times, such as "10:00".
+	 */
+	public static function preparing_now(): array {
+		global $wpdb;
+		$table = Db::table( 'slots' );
+		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT due_at FROM {$table} WHERE status = %s AND prep_started_at IS NOT NULL AND due_at > %s ORDER BY due_at ASC", Schedule::PENDING, Clock::mysql() ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		return array_map(
+			static function ( $row ) {
+				return self::clock_time( Clock::to_timestamp( $row['due_at'] ) );
+			},
+			(array) $rows
+		);
+	}
+
+	/** How long before a post with nothing ready the owner is warned. */
+	private const RISK_WARNING = 60 * 60;
+
+	/**
+	 * Warns once per post when it is an hour away with no article ready with its image, so the
+	 * owner can step in before it is skipped: start the automation, add feeds, or loosen a setting.
+	 * Always logged. Emailed to the site's administration address unless that is turned off.
+	 */
+	private static function warn_if_at_risk( array $slot ): void {
+		if ( self::READY === (string) $slot['prep_status'] || Clock::to_timestamp( $slot['due_at'] ) - Clock::now() > self::RISK_WARNING ) {
+			return;
+		}
+		// A post meant to be held back is not at risk, and one whose search has only just begun has
+		// had no chance yet. That is the case when preparation starts less than an hour ahead.
+		if ( Publisher::cap_reached() || Automation::get( 'paused_publishing' ) || Clock::now() - Clock::to_timestamp( $slot['prep_started_at'] ) < self::RETRY_EVERY ) {
+			return;
+		}
+		$flag = 'zzzc_risk_warned_' . (int) $slot['id'];
+		if ( get_transient( $flag ) ) {
+			return;
+		}
+		set_transient( $flag, 1, DAY_IN_SECONDS );
+
+		$reason = (string) $slot['status_reason'];
+		if ( '' === $reason ) {
+			$reason = (int) $slot['article_job_id'] ? 'An article is still being written or its image is still being looked for.' : self::nothing_found_reason( $slot );
+		}
+		$text = sprintf(
+			'The %1$s post is less than an hour away and has no article ready with its image. Stories tried so far: %2$d. Current state: %3$s',
+			self::post_time( $slot ),
+			(int) $slot['stories_tried'],
+			$reason
+		);
+		self::log(
+			'warning',
+			$text,
+			array(
+				'status'      => 'AT_RISK',
+				'error_code'  => 'post_at_risk',
+				'category_id' => (int) $slot['category_id'],
+			)
+		);
+
+		if ( ! Settings::get( 'post_risk_email' ) ) {
+			return;
+		}
+		$to = (string) get_option( 'admin_email' );
+		if ( '' === $to ) {
+			return;
+		}
+		wp_mail(
+			$to,
+			sprintf( '[%1$s] The %2$s post may be skipped', wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ), self::post_time( $slot ) ),
+			$text . "\n\n"
+				. "InkRush keeps trying until the post time. Things that can help now:\n"
+				. "- Check that the automation is running on the Dashboard.\n"
+				. "- Add readable publisher feeds to this post's category.\n"
+				. "- Check the Logs page for what each story failed on.\n\n"
+				. admin_url( 'admin.php?page=zzzc-dashboard' ) . "\n\n"
+				. 'You can turn these emails off on the Schedule page.'
+		);
 	}
 
 	/**

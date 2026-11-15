@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '14';
+	public const DB_VERSION = '15';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -59,6 +59,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '14', '<' ) ) {
 			self::upgrade_to_14();
+		}
+		if ( '' !== $previous && version_compare( $previous, '15', '<' ) ) {
+			self::upgrade_to_15();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -221,6 +224,46 @@ final class Schema {
 		foreach ( Categories::ADDED_FEEDS as $name => $feeds ) {
 			$added = Categories::add_feeds( $name, $feeds );
 			Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. %1$d publisher feeds were added to %2$s. Your own feeds are kept. You can change the list on the Categories page.', $added, $name ) );
+		}
+	}
+
+	/**
+	 * Version 15: more chances for each post, the owner's request of 2026-11-15. Each setting is
+	 * raised to its new default only when it is lower, so a higher value the owner chose is kept.
+	 * The tested feeds for the other categories are added the same way as in version 14.
+	 */
+	private static function upgrade_to_15(): void {
+		$raise  = array(
+			'image_query_count'          => 5,
+			'image_candidates_per_query' => 40,
+			'past_hour_max_articles'     => 4,
+			'daily_ai_limit'             => 24,
+		);
+		$labels = array(
+			'image_query_count'          => 'image searches for each article',
+			'image_candidates_per_query' => 'files checked for each image search',
+			'past_hour_max_articles'     => 'articles to write before giving up on a post',
+			'daily_ai_limit'             => 'maximum article generations per day',
+		);
+		$stored = get_option( 'zzzc_settings', array() );
+		$stored = is_array( $stored ) ? $stored : array();
+		$done   = array();
+		foreach ( $raise as $key => $value ) {
+			// A value never saved already follows the new default.
+			if ( isset( $stored[ $key ] ) && (int) $stored[ $key ] < $value ) {
+				$done[]         = sprintf( '%1$s from %2$d to %3$d', $labels[ $key ], (int) $stored[ $key ], $value );
+				$stored[ $key ] = $value;
+			}
+		}
+		update_option( 'zzzc_settings', $stored, false );
+		Settings::flush_cache();
+		Events::log( 'config', 'info', 'Upgraded plugin data. ' . ( $done ? 'Raised: ' . implode( ', ', $done ) . '. More image files are checked for each article, and each post can write one more article before giving up.' : 'Your settings were already at or above the new defaults, so none were changed.' ) );
+
+		foreach ( Categories::FEEDS_1_11_3 as $name => $feeds ) {
+			$added = Categories::add_feeds( $name, $feeds );
+			if ( $added ) {
+				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. %1$d publisher feeds were added to %2$s. Your own feeds are kept. You can change the list on the Categories page.', $added, $name ) );
+			}
 		}
 	}
 

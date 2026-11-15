@@ -41,17 +41,18 @@ final class Settings {
 			'discovery_interval_minutes' => 60,
 			'category_buffer'            => 1,
 			'research_lead_hours'        => 4,
-			'daily_ai_limit'             => 18,
+			'daily_ai_limit'             => 24,
 			'max_article_age_hours'      => 48,
 			'past_hour_enabled'          => 1,
 			'past_hour_prep_minutes'     => 120,
 			'past_hour_max_age_minutes'  => 720,
-			'past_hour_max_articles'     => 3,
+			'past_hour_max_articles'     => 4,
+			'post_risk_email'            => 1,
 			'auto_stop_days'             => 0,
 			'auto_stop_posts'            => 0,
 			// Publishing.
-			'image_query_count'          => 4,
-			'image_candidates_per_query' => 20,
+			'image_query_count'          => 5,
+			'image_candidates_per_query' => 40,
 			'image_min_width'            => 1200,
 			'image_min_height'           => 675,
 			'image_preferred_ratio'      => 1.78,
@@ -282,6 +283,7 @@ final class Settings {
 
 			case 'image_allow_share_alike':
 			case 'past_hour_enabled':
+			case 'post_risk_email':
 			case 'no_repeat':
 			case 'category_fallback':
 			case 'category_auto_create':

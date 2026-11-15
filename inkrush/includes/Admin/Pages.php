@@ -217,7 +217,9 @@ final class Pages {
 		if ( ! $active ) {
 			self::action_button( 'start', 'Start Automation', array(), 'is-primary' );
 		} else {
-			self::action_button( 'stop', 'Stop Automation', array(), '', 'Stop automation? Future jobs are cancelled. Queued articles and history are kept.' );
+			$preparing = PastHour::enabled() ? PastHour::preparing_now() : array();
+			$warning   = $preparing ? sprintf( ' The %s post is being prepared now and will be skipped unless automation is started again before then.', implode( ' and ', $preparing ) ) : '';
+			self::action_button( 'stop', 'Stop Automation', array(), '', 'Stop automation? Future jobs are cancelled. Queued articles and history are kept.' . $warning );
 			if ( ! $state['paused_research'] ) {
 				self::action_button( 'pause_research', 'Pause Research' );
 			} else {
@@ -844,6 +846,7 @@ final class Pages {
 		self::number_row( 'past_hour_max_age_minutes', 'Maximum story age (minutes)', 'From 60 to 720, which is 12 hours. Measured at the post time: with 720, a 10:00 post can use a story published after about 22:05 the evening before. In Single user mode it is never longer than the interval between posts.' );
 		self::number_row( 'past_hour_prep_minutes', 'Start preparing before each post (minutes)', 'From 15 to 180, and no more than the maximum story age. Searches run every 15 minutes until a story is found. Other categories are searched from 60 minutes before a post with a 120-minute story age, and from 90 minutes before with a story age of 180 minutes or more.' );
 		self::number_row( 'past_hour_max_articles', 'Articles to write before giving up on a post (1 to 5)', 'An article that is written and then cannot be used, usually because no image passed, uses one of these. Raising it gives a post another chance at the cost of another AI article. Maximum article generations per day still caps the whole day.' );
+		self::check_row( 'post_risk_email', 'Email me when a post is at risk', 'When a post is 60 minutes away and has no article ready with its image, the site\'s administration email address gets one message for that post, saying what was tried. It is always written to the log as well.' );
 		if ( PastHour::max_age_minutes() < (int) Settings::get( 'past_hour_max_age_minutes' ) ) {
 			echo '<p class="zzzc-help"><strong>' . esc_html( sprintf( 'The interval between posts is %1$d hours, so stories may be at most %2$d minutes old, and preparation starts at most %3$d minutes before each post.', (int) Settings::get( 'interval_hours' ), PastHour::max_age_minutes(), PastHour::prep_minutes() ) ) . '</strong></p>';
 		}

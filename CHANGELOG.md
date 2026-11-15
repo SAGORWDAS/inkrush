@@ -10,6 +10,32 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.3] - 2026-11-15
+
+More chances for every post, a warning before one is skipped, and more feeds for 15 categories. Owner's request of 2026-11-15. A backup AI model was considered and left out at the owner's choice.
+
+### Changed
+
+- Defaults: `image_query_count` 5 (was 4), `image_candidates_per_query` 40 (was 20), `past_hour_max_articles` 4 (was 3), `daily_ai_limit` 24 (was 18). `PastHour::MAX_AI_ARTICLES` is 4.
+- `Schema::DB_VERSION` is 15. `upgrade_to_15()` raises each of those four stored settings to the new default only when it is lower, logs which were raised, and adds `Categories::FEEDS_1_11_3`.
+- The Stop button's confirmation names every post time from the new `PastHour::preparing_now()`.
+- `Categories::seed_row()` adds `ADDED_FEEDS` and `FEEDS_1_11_3` to a new install's seeds through the new `merge_feeds()`, which `add_feeds()` now uses too.
+
+### Added
+
+- **`PastHour::warn_if_at_risk()`**, run on every preparation tick. Once per post, when it is 60 minutes away and not `READY`, it logs `post_at_risk` with the stories tried and the current reason, and emails the site's `admin_email` unless the new `post_risk_email` setting (default on, Schedule page) is off. It stays quiet when the daily post cap is reached, publishing is paused, or preparation began less than 15 minutes earlier.
+- **`Categories::FEEDS_1_11_3`**: 35 feeds across 15 categories. A feed passed when robots.txt allows the feed and its articles, and at least two of its newest three articles were read with 250 words or more and none showed a paywall. The refused feeds are listed in the code. No feed passed for Insurance, Crime, Myths & Legends or Fitness.
+
+### Found, not changed
+
+- Existing seed feeds that failed the same check: Insurance Journal (robots.txt could not be read), Defense News (video pages), iHeartPublix (posts of about 120 words, under `min_source_words`), Live Science (paywall flag). They are left in place for the owner to decide.
+
+### Tested
+
+- `merge_feeds()`/`add_feeds()` against a stand-in database: existing feeds kept, a duplicate in different case with a trailing slash skipped, nothing added on a second run. Every seed was built with `seed_row()`: no duplicates, and every `FEEDS_1_11_3` key is a seeded category name.
+- Unit suites pass with 0 failures, and `php -l` is clean on every changed file.
+- The WordPress suite was **not run**: `upgrade_to_15()`, the warning email and the Stop confirmation have not run on a real site.
+
 ## [1.11.2] - 2026-11-15
 
 More publisher feeds for Business and Technology, after the 10:00 post of 2026-11-15 was skipped with both Business feeds reporting "New 0".

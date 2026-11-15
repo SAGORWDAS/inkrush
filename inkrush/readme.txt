@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.2
+Stable tag: 1.11.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,17 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.3 =
+More chances for every post, a warning before one is skipped, and more feeds for 15 categories.
+
+**More image files are checked, and each post can write one more article.** The new defaults are 5 image searches per article instead of 4, 40 files checked per search instead of 20, 4 articles before giving up on a post instead of 3, and 24 article generations per day instead of 18. Updating raises your settings to these only where yours are lower. A higher value you chose is kept.
+
+**You are warned when a post is at risk.** When a post is 60 minutes away and has no article ready with its image, the log says so, and the site's administration email address gets one message for that post, saying what was tried and what can help. You can turn the email off on the Schedule page.
+
+**Stopping the automation warns you about a post being prepared.** The Stop button's confirmation now names any post whose preparation has started, because stopping then skips it.
+
+**More publisher feeds for 15 categories:** World, Entertainment, Celebrity, Politics, Science, Sports, Medical, War & Conflict, Celebrity News, Coupon Blogs, Referral Programs & Blogs, Gaming, Health & Wellness, Finance & Retirement and Technology & Consumer News. Each was checked on 15 November: its robots.txt allows this plugin, and at least two of its newest three articles could be read in full, with no paywall. Updating adds them after the feeds you already have. Nothing is removed, and a feed you already list is not added twice. No feed passed for Insurance, Crime, Myths & Legends or Fitness, so those are unchanged.
 
 = 1.11.2 =
 More publisher feeds for Business and Technology. Publisher feeds give the story's own link, so they avoid the Google News lookups that failed for five of the eight stories tried for the 10:00 post on 15 November. Both Business feeds had nothing new that morning.

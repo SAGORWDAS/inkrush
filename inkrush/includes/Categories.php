@@ -24,6 +24,36 @@ final class Categories {
 	);
 
 	/**
+	 * Publisher feeds added in 1.11.3 to the other categories, checked on 2026-11-15 the same way
+	 * as ADDED_FEEDS. A feed passed when robots.txt allows it and its articles, and at least two of
+	 * its newest three articles were read with 250 words or more and none showed a paywall.
+	 *
+	 * Refused then: Al Jazeera (robots.txt refuses the articles), ABC World 52278 and two Guardian
+	 * crime feeds (HTTP 404), The Hollywood Reporter, Deadline, Live Science, Men's Health and
+	 * Runner's World (paywall), People (HTTP 402), Just Jared, The Hill, GameSpot, Heritage Daily and
+	 * PropertyCasualty360 (HTTP 403), CBS Entertainment (video pages), CNBC Personal Finance and
+	 * Insurance Business (under 250 words), Self (feed two years old), Ancient Origins and The Krazy
+	 * Coupon Lady (no stories read). Insurance, Crime, Myths & Legends and Fitness gained nothing.
+	 */
+	public const FEEDS_1_11_3 = array(
+		'World'                      => "https://www.cbsnews.com/latest/rss/world\nhttps://www.france24.com/en/rss\nhttps://rss.dw.com/rdf/rss-en-all",
+		'Entertainment'              => 'https://www.theguardian.com/culture/rss',
+		'Celebrity'                  => 'https://www.eonline.com/syndication/feeds/rssfeeds/topstories.xml',
+		'Politics'                   => "https://www.cbsnews.com/latest/rss/politics\nhttps://www.theguardian.com/politics/rss\nhttps://www.theguardian.com/australia-news/australian-politics/rss",
+		'Science'                    => "https://www.theguardian.com/science/rss\nhttps://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+		'Sports'                     => "https://www.theguardian.com/sport/rss\nhttps://www.cbssports.com/rss/headlines/\nhttps://www.abc.net.au/news/feed/45924/rss.xml",
+		'Medical'                    => "https://www.theguardian.com/society/health/rss\nhttps://www.cbsnews.com/latest/rss/health",
+		'War & Conflict'             => "https://www.militarytimes.com/arc/outboundfeeds/rss/\nhttps://breakingdefense.com/feed/",
+		'Celebrity News'             => "https://pagesix.com/feed/\nhttps://www.usmagazine.com/feed/",
+		'Coupon Blogs'               => "https://hip2save.com/feed/\nhttps://www.moneysavingmom.com/feed/",
+		'Referral Programs & Blogs'  => "https://thepointsguy.com/feed/\nhttps://www.nerdwallet.com/blog/feed/",
+		'Gaming'                     => "https://www.pcgamer.com/rss/\nhttps://kotaku.com/rss\nhttps://feeds.feedburner.com/ign/all",
+		'Health & Wellness'          => "https://www.theguardian.com/society/health/rss\nhttps://www.cbsnews.com/latest/rss/health\nhttps://medicalxpress.com/rss-feed/",
+		'Finance & Retirement'       => 'https://www.theguardian.com/money/rss',
+		'Technology & Consumer News' => "https://www.techradar.com/rss\nhttps://9to5mac.com/feed/\nhttps://gizmodo.com/feed",
+	);
+
+	/**
 	 * Adds feeds to every live category with this exact name, after the ones it has. A feed
 	 * already listed, in any case or with or without a trailing slash, is not added twice.
 	 *
@@ -33,33 +63,51 @@ final class Categories {
 		global $wpdb;
 		$table = Db::table( 'categories' );
 		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT id, feed_urls FROM {$table} WHERE name = %s AND deleted_at IS NULL", $name ), ARRAY_A ); // phpcs:ignore WordPress.DB
-		$key   = static function ( string $url ): string {
-			return rtrim( strtolower( trim( $url ) ), '/' );
-		};
 		$added = 0;
 		foreach ( (array) $rows as $row ) {
-			$current = array_values( array_filter( preg_split( '/\s+/', trim( (string) $row['feed_urls'] ) ) ?: array(), 'strlen' ) );
-			$known   = array_map( $key, $current );
-			$new     = array();
-			foreach ( preg_split( '/\s+/', trim( $feeds ) ) ?: array() as $url ) {
-				if ( '' !== $url && ! in_array( $key( $url ), $known, true ) ) {
-					$new[]   = $url;
-					$known[] = $key( $url );
-				}
-			}
-			if ( $new ) {
+			$current = (string) $row['feed_urls'];
+			$merged  = self::merge_feeds( $current, $feeds );
+			$count   = self::count_lines( $merged ) - self::count_lines( $current );
+			if ( $count > 0 ) {
 				$wpdb->update(
 					$table,
 					array(
-						'feed_urls'  => implode( "\n", array_merge( $current, $new ) ),
+						'feed_urls'  => $merged,
 						'updated_at' => Clock::mysql(),
 					),
 					array( 'id' => (int) $row['id'] )
 				);
-				$added += count( $new );
+				$added += $count;
 			}
 		}
 		return $added;
+	}
+
+	/**
+	 * The current feeds, then each new one not already among them. Compared without case or a
+	 * trailing slash.
+	 */
+	public static function merge_feeds( string $current, string $more ): string {
+		$key  = static function ( string $url ): string {
+			return rtrim( strtolower( trim( $url ) ), '/' );
+		};
+		$list = self::lines_of( $current );
+		$seen = array_map( $key, $list );
+		foreach ( self::lines_of( $more ) as $url ) {
+			if ( ! in_array( $key( $url ), $seen, true ) ) {
+				$list[] = $url;
+				$seen[] = $key( $url );
+			}
+		}
+		return implode( "\n", $list );
+	}
+
+	private static function lines_of( string $text ): array {
+		return array_values( array_filter( preg_split( '/\s+/', trim( $text ) ) ?: array(), 'strlen' ) );
+	}
+
+	private static function count_lines( string $text ): int {
+		return count( self::lines_of( $text ) );
 	}
 
 	/**
@@ -73,7 +121,7 @@ final class Categories {
 		'Technology'                 => array(
 			'topic' => 'https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen',
 			'query' => 'technology news',
-			'feeds' => "https://feeds.bbci.co.uk/news/technology/rss.xml\nhttps://techcrunch.com/feed/\n" . self::ADDED_FEEDS['Technology'],
+			'feeds' => "https://feeds.bbci.co.uk/news/technology/rss.xml\nhttps://techcrunch.com/feed/",
 		),
 		'World'                      => array(
 			'query' => 'world news',
@@ -91,7 +139,7 @@ final class Categories {
 		'Business'                   => array(
 			'topic' => 'https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen',
 			'query' => 'business news',
-			'feeds' => "https://feeds.bbci.co.uk/news/business/rss.xml\nhttps://www.cnbc.com/id/10001147/device/rss/rss.html\n" . self::ADDED_FEEDS['Business'],
+			'feeds' => "https://feeds.bbci.co.uk/news/business/rss.xml\nhttps://www.cnbc.com/id/10001147/device/rss/rss.html",
 		),
 		'Politics'                   => array(
 			'query' => 'politics',
@@ -173,7 +221,7 @@ final class Categories {
 			'sort_order'        => $order,
 			'topic_urls'        => (string) ( $seed['topic'] ?? '' ),
 			'search_queries'    => (string) ( $seed['query'] ?? '' ),
-			'feed_urls'         => (string) ( $seed['feeds'] ?? '' ),
+			'feed_urls'         => self::merge_feeds( (string) ( $seed['feeds'] ?? '' ), ( self::ADDED_FEEDS[ $name ] ?? '' ) . "\n" . ( self::FEEDS_1_11_3[ $name ] ?? '' ) ),
 			'recency'           => (string) ( $seed['recency'] ?? '24h' ),
 			'required_keywords' => (string) ( $seed['required'] ?? '' ),
 		);
