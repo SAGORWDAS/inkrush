@@ -122,6 +122,38 @@ final class Categories {
 	);
 
 	/**
+	 * Feeds added in 1.11.5 to the four categories that gained nothing in 1.11.3, checked on
+	 * 2026-11-15 the same way: robots.txt allows the feed and its articles, and at least two of the
+	 * newest three articles were read with 250 words or more and none showed a paywall.
+	 *
+	 * Refused then: Business Insurance and Insurance Business AU (under 250 words), Coverager,
+	 * Courthouse News, The Marshall Project, Law&Crime, World History Encyclopedia, Greek Reporter and
+	 * Men's Journal (HTTP 403), dig-in, Atlas Obscura, Arkeonews and Mythology Planet (no stories
+	 * read), Ancient Origins, T Nation, BarBend and Garage Gym Reviews (HTTP 404), HistoryExtra
+	 * (paywall, and robots.txt refuses its articles), CrimeOnline (pages of 20 words), Oxygen, The
+	 * Vintage News, Breaking Muscle, Nerd Fitness, TrainingPeaks and CoachWeb (no story in weeks, or
+	 * dates years old), iRunFar (robots.txt), ThinkAdvisor, Insurance Journal and Stack (certificate
+	 * errors from the testing machine). NBC News and New York Post Metro passed but are general news,
+	 * so they are not added to Crime.
+	 */
+	public const FEEDS_1_11_5 = array(
+		'Insurance'       => "https://www.artemis.bm/feed/\nhttps://www.carriermanagement.com/feed/\nhttps://www.reinsurancene.ws/feed/",
+		'Crime'           => "https://nypost.com/tag/crime/feed/\nhttps://www.theguardian.com/us-news/us-crime/rss\nhttps://www.thetrace.org/feed/",
+		'Myths & Legends' => "https://www.thecollector.com/feed/\nhttps://www.labrujulaverde.com/en/feed/",
+		'Fitness'         => "https://www.theguardian.com/lifeandstyle/fitness/rss\nhttps://www.mindbodygreen.com/rss/feed.xml",
+	);
+
+	/**
+	 * Feeds removed in 1.11.5. Live Science's articles are all marked as behind a paywall, so every
+	 * story from it fails as paywalled. Defense News's newest items were video pages of 19 and 30
+	 * words. Each category keeps the feeds added in 1.11.3 or 1.11.5.
+	 */
+	public const REMOVED_FEEDS_1_11_5 = array(
+		'Myths & Legends' => 'https://www.livescience.com/feeds.xml',
+		'War & Conflict'  => 'https://www.defensenews.com/arc/outboundfeeds/rss/',
+	);
+
+	/**
 	 * Removes feeds from every live category with this exact name. Compared without case or a
 	 * trailing slash. A feed the owner did not list is left alone, as is every other feed.
 	 *
@@ -216,7 +248,7 @@ final class Categories {
 		),
 		'War & Conflict'             => array(
 			'query' => 'war conflict',
-			'feeds' => "https://www.defensenews.com/arc/outboundfeeds/rss/\nhttps://warontherocks.com/feed/",
+			'feeds' => 'https://warontherocks.com/feed/',
 		),
 		'Crime'                      => array(
 			'query' => 'crime news',
@@ -228,7 +260,7 @@ final class Categories {
 		),
 		'Myths & Legends'            => array(
 			'query'    => 'mythology legends',
-			'feeds'    => 'https://www.livescience.com/feeds.xml',
+			'feeds'    => '',
 			'recency'  => '7d',
 			'required' => "myth\nlegend\nancient\nfolklore",
 		),
@@ -272,7 +304,7 @@ final class Categories {
 			'sort_order'        => $order,
 			'topic_urls'        => (string) ( $seed['topic'] ?? '' ),
 			'search_queries'    => (string) ( $seed['query'] ?? '' ),
-			'feed_urls'         => self::merge_feeds( (string) ( $seed['feeds'] ?? '' ), ( self::ADDED_FEEDS[ $name ] ?? '' ) . "\n" . ( self::FEEDS_1_11_3[ $name ] ?? '' ) ),
+			'feed_urls'         => self::merge_feeds( (string) ( $seed['feeds'] ?? '' ), ( self::ADDED_FEEDS[ $name ] ?? '' ) . "\n" . ( self::FEEDS_1_11_3[ $name ] ?? '' ) . "\n" . ( self::FEEDS_1_11_5[ $name ] ?? '' ) ),
 			'recency'           => (string) ( $seed['recency'] ?? '24h' ),
 			'required_keywords' => (string) ( $seed['required'] ?? '' ),
 		);

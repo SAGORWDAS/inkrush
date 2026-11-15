@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.4
+Stable tag: 1.11.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,21 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.5 =
+Feeds for the four categories that gained none in 1.11.3, and two feeds removed that could never be used.
+
+**Insurance gains 3 feeds:** Artemis, Carrier Management and Reinsurance News.
+
+**Crime gains 3 feeds:** New York Post Crime, The Guardian US Crime and The Trace.
+
+**Myths & Legends gains 2 feeds:** TheCollector and La Brújula Verde. The category's required words (myth, legend, ancient, folklore) still decide which of their stories are used.
+
+**Fitness gains 2 feeds:** The Guardian Fitness and mindbodygreen.
+
+**Removed:** Live Science from Myths & Legends, because its articles are all marked as behind a paywall, and Defense News from War & Conflict, because its newest items were videos with almost no text. Feeds are added before any are removed, so no category is left without one.
+
+Each new feed was checked on 15 November: its robots.txt allows this plugin, and at least two of its newest three articles could be read in full, with no paywall. Updating adds them after the feeds you already have, and your other feeds are kept.
 
 = 1.11.4 =
 **iHeartPublix is removed from Coupon Blogs.** It was in the category's starting list, but its posts are about 120 words, under the 250-word minimum, so no story from it could ever be used. Updating removes it from your Coupon Blogs category and logs that it did. Coupon Blogs keeps Hip2Save and Money Saving Mom, added in 1.11.3. Your other feeds and categories are not changed.

@@ -10,6 +10,29 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.5] - 2026-11-15
+
+Feeds for Insurance, Crime, Myths & Legends and Fitness, which gained none in 1.11.3. Owner's request of 2026-11-15.
+
+### Added
+
+- **`Categories::FEEDS_1_11_5`**: Insurance (Artemis, Carrier Management, Reinsurance News), Crime (New York Post crime tag, The Guardian US Crime, The Trace), Myths & Legends (TheCollector, La Brújula Verde), Fitness (The Guardian Fitness, mindbodygreen). Checked as in 1.11.3. The 33 refused feeds and the reason for each are listed in the code. NBC News and New York Post Metro passed but are general news, so they were not added to Crime.
+- **`Schema::upgrade_to_17()`**, `DB_VERSION` 17: adds `FEEDS_1_11_5`, then removes `REMOVED_FEEDS_1_11_5`, logging each change. `seed_row()` includes `FEEDS_1_11_5` for new installs.
+
+### Removed
+
+- Live Science from Myths & Legends (every article flagged as paywalled, so each story failed as `paywalled`) and Defense News from War & Conflict (newest items were video pages of 19 and 30 words), from the seeds and, through `REMOVED_FEEDS_1_11_5`, from existing sites.
+
+### Not changed
+
+- Insurance Journal stays in Insurance. Its certificate chain failed to verify from the testing machine, so it could be neither confirmed nor ruled out.
+
+### Tested
+
+- 43 candidate feeds checked with the plugin's FeedParser, Robots rules and Extractor. A run of connection failures caused by a brief DNS outage on the testing machine was checked again once it cleared.
+- `upgrade_to_17()`'s add-then-remove order run against a stand-in database: Myths & Legends ended with TheCollector and La Brújula Verde, War & Conflict kept War on the Rocks and Military Times, existing Insurance and Fitness feeds were kept, and a second run added nothing. Every seed built with `seed_row()` has no duplicate and none of the removed feeds.
+- Unit suites pass with 0 failures. The WordPress suite was not run.
+
 ## [1.11.4] - 2026-11-15
 
 ### Removed

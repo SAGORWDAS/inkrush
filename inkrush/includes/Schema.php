@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '16';
+	public const DB_VERSION = '17';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -65,6 +65,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '16', '<' ) ) {
 			self::upgrade_to_16();
+		}
+		if ( '' !== $previous && version_compare( $previous, '17', '<' ) ) {
+			self::upgrade_to_17();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -278,6 +281,26 @@ final class Schema {
 			$removed = Categories::remove_feeds( $name, $feeds );
 			if ( $removed ) {
 				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. Removed %1$s from %2$s: its posts are shorter than the 250-word minimum, so none could ever be used. Your other feeds are kept.', $feeds, $name ) );
+			}
+		}
+	}
+
+	/**
+	 * Version 17: feeds for Insurance, Crime, Myths & Legends and Fitness, which gained none in
+	 * version 15, and the removal of two feeds that cannot give a usable story. Feeds are added
+	 * before any are removed, so no category is left without one.
+	 */
+	private static function upgrade_to_17(): void {
+		foreach ( Categories::FEEDS_1_11_5 as $name => $feeds ) {
+			$added = Categories::add_feeds( $name, $feeds );
+			if ( $added ) {
+				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. %1$d publisher feeds were added to %2$s. Your own feeds are kept. You can change the list on the Categories page.', $added, $name ) );
+			}
+		}
+		foreach ( Categories::REMOVED_FEEDS_1_11_5 as $name => $feeds ) {
+			$removed = Categories::remove_feeds( $name, $feeds );
+			if ( $removed ) {
+				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. Removed %1$s from %2$s: none of its stories could be used. Your other feeds are kept.', $feeds, $name ) );
 			}
 		}
 	}
