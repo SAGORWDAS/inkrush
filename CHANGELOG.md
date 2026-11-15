@@ -10,6 +10,17 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.4] - 2026-11-15
+
+### Removed
+
+- **iHeartPublix from Coupon Blogs.** It was in the starting list, and its newest posts had 111, 121 and 126 words on 2026-11-15, under `min_source_words` (250), so every story from it failed. It is gone from the seed, and `Schema::upgrade_to_16()` (`DB_VERSION` 16) removes it from existing Coupon Blogs categories through the new `Categories::remove_feeds()` and `REMOVED_FEEDS`, logging the removal. Owner's request of 2026-11-15.
+
+### Tested
+
+- `remove_feeds()` against a stand-in database: it removed the feed when written in different case without a trailing slash, kept Hip2Save and Money Saving Mom, left the same URL in another category alone, and removed nothing on a second run. A new install's Coupon Blogs gets Hip2Save and Money Saving Mom only.
+- Unit suites pass with 0 failures. The WordPress suite was not run.
+
 ## [1.11.3] - 2026-11-15
 
 More chances for every post, a warning before one is skipped, and more feeds for 15 categories. Owner's request of 2026-11-15. A backup AI model was considered and left out at the owner's choice.

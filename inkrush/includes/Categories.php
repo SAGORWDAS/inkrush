@@ -111,6 +111,57 @@ final class Categories {
 	}
 
 	/**
+	 * Feeds that can never give a usable story, removed in 1.11.4.
+	 *
+	 * iHeartPublix was in the starting list for Coupon Blogs. On 2026-11-15 its newest posts had
+	 * 111, 121 and 126 words, under min_source_words (250), so every story from it fails. The
+	 * category keeps Hip2Save and Money Saving Mom from 1.11.3.
+	 */
+	public const REMOVED_FEEDS = array(
+		'Coupon Blogs' => 'https://www.iheartpublix.com/feed/',
+	);
+
+	/**
+	 * Removes feeds from every live category with this exact name. Compared without case or a
+	 * trailing slash. A feed the owner did not list is left alone, as is every other feed.
+	 *
+	 * @return int How many feeds were removed in all.
+	 */
+	public static function remove_feeds( string $name, string $feeds ): int {
+		global $wpdb;
+		$table   = Db::table( 'categories' );
+		$rows    = $wpdb->get_results( $wpdb->prepare( "SELECT id, feed_urls FROM {$table} WHERE name = %s AND deleted_at IS NULL", $name ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		$key     = static function ( string $url ): string {
+			return rtrim( strtolower( trim( $url ) ), '/' );
+		};
+		$drop    = array_map( $key, self::lines_of( $feeds ) );
+		$removed = 0;
+		foreach ( (array) $rows as $row ) {
+			$current = self::lines_of( (string) $row['feed_urls'] );
+			$kept    = array_values(
+				array_filter(
+					$current,
+					static function ( $url ) use ( $key, $drop ) {
+						return ! in_array( $key( $url ), $drop, true );
+					}
+				)
+			);
+			if ( count( $kept ) < count( $current ) ) {
+				$wpdb->update(
+					$table,
+					array(
+						'feed_urls'  => implode( "\n", $kept ),
+						'updated_at' => Clock::mysql(),
+					),
+					array( 'id' => (int) $row['id'] )
+				);
+				$removed += count( $current ) - count( $kept );
+			}
+		}
+		return $removed;
+	}
+
+	/**
 	 * The owner's starting list, in the owner's order. All of it can be edited, and more can be added.
 	 *
 	 * Each publisher feed was checked against its robots.txt, and its newest article could be read.
@@ -183,7 +234,7 @@ final class Categories {
 		),
 		'Coupon Blogs'               => array(
 			'query'   => 'coupons deals',
-			'feeds'   => 'https://www.iheartpublix.com/feed/',
+			'feeds'   => '',
 			'recency' => '7d',
 		),
 		'Referral Programs & Blogs'  => array(

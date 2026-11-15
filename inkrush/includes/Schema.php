@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '15';
+	public const DB_VERSION = '16';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -62,6 +62,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '15', '<' ) ) {
 			self::upgrade_to_15();
+		}
+		if ( '' !== $previous && version_compare( $previous, '16', '<' ) ) {
+			self::upgrade_to_16();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -263,6 +266,18 @@ final class Schema {
 			$added = Categories::add_feeds( $name, $feeds );
 			if ( $added ) {
 				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. %1$d publisher feeds were added to %2$s. Your own feeds are kept. You can change the list on the Categories page.', $added, $name ) );
+			}
+		}
+	}
+
+	/**
+	 * Version 16: removes the feeds in Categories::REMOVED_FEEDS, which can never give a usable story.
+	 */
+	private static function upgrade_to_16(): void {
+		foreach ( Categories::REMOVED_FEEDS as $name => $feeds ) {
+			$removed = Categories::remove_feeds( $name, $feeds );
+			if ( $removed ) {
+				Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. Removed %1$s from %2$s: its posts are shorter than the 250-word minimum, so none could ever be used. Your other feeds are kept.', $feeds, $name ) );
 			}
 		}
 	}

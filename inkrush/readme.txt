@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.3
+Stable tag: 1.11.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,9 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.4 =
+**iHeartPublix is removed from Coupon Blogs.** It was in the category's starting list, but its posts are about 120 words, under the 250-word minimum, so no story from it could ever be used. Updating removes it from your Coupon Blogs category and logs that it did. Coupon Blogs keeps Hip2Save and Money Saving Mom, added in 1.11.3. Your other feeds and categories are not changed.
 
 = 1.11.3 =
 More chances for every post, a warning before one is skipped, and more feeds for 15 categories.
