@@ -153,14 +153,67 @@ final class CandidateScorer {
 		$fields = array();
 		foreach ( array( 'ObjectName', 'ImageDescription', 'Categories' ) as $name ) {
 			$value = $meta[ $name ]['value'] ?? '';
-			if ( is_scalar( $value ) ) {
-				$fields[] = str_replace( '|', ' ', (string) $value );
+			if ( ! is_scalar( $value ) ) {
+				continue;
 			}
+			$value = (string) $value;
+			if ( 'Categories' === $name ) {
+				$value = implode( '|', self::subject_categories( explode( '|', $value ) ) );
+			}
+			$fields[] = str_replace( '|', ' ', $value );
 		}
 		$title = (string) preg_replace( '/^File:/i', '', (string) $candidate['title'] );
 		$title = (string) preg_replace( '/\.[a-z0-9]{2,5}$/i', '', $title );
 		$text  = str_replace( array( '_', '-' ), ' ', $title ) . ' ' . implode( ' ', $fields );
 		return mb_strtolower( html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+	}
+
+	/**
+	 * Categories that say how a file was uploaded, licensed or judged, not what it shows. From the
+	 * owner's log of 2026-11-15: a photograph of a solar halo was filed under "Uploaded via
+	 * Campaign:wsc-pl", so it matched the word "campaign" in "Halo: Campaign Evolved".
+	 */
+	private const ADMIN_CATEGORY = '/^\s*(uploaded (via|with|by)|self-published|images from wiki|photos from wiki|general category images|wiki (loves|science|takes)|cc[- ]|gfdl|pd[- ]|public domain|licen[cs]e|files (by|from|with|uploaded)|media (needing|with|missing|contributed)|pages with|images with|images uploaded|photographs by|taken with|created with|supported by wikimedia|quality images|featured pictures|valued images|flickr|exif|unidentified|user:)/iu';
+
+	/**
+	 * A file's categories without the administrative ones.
+	 *
+	 * @param string[] $categories
+	 * @return string[]
+	 */
+	public static function subject_categories( array $categories ): array {
+		return array_values(
+			array_filter(
+				$categories,
+				static function ( $category ) {
+					return '' !== trim( (string) $category ) && ! preg_match( self::ADMIN_CATEGORY, (string) $category );
+				}
+			)
+		);
+	}
+
+	/**
+	 * The distinct article words a file's labels contain, from the headline keywords, the subjects
+	 * and the tags. One word counts once, however many of those lists it is in.
+	 *
+	 * @return string[]
+	 */
+	public static function matched_words( array $candidate, array $analysis ): array {
+		$text  = self::label_text( $candidate );
+		$terms = array_merge(
+			(array) ( $analysis['keywords'] ?? array() ),
+			(array) ( $analysis['entities'] ?? array() ),
+			(array) ( $analysis['concepts'] ?? array() ),
+			array( (string) ( $analysis['main'] ?? '' ) )
+		);
+		$words = array_unique( ArticleAnalyzer::tokens( implode( ' ', array_map( 'strval', $terms ) ) ) );
+		$found = array();
+		foreach ( $words as $word ) {
+			if ( self::has_phrase( $text, (string) $word ) ) {
+				$found[] = (string) $word;
+			}
+		}
+		return array_values( $found );
 	}
 
 	/**
@@ -239,6 +292,17 @@ final class CandidateScorer {
 		}
 		if ( preg_match( self::NOT_A_PHOTO, $text ) ) {
 			return 'The labels suggest a chart, logo, map, scan or similar, not a photograph.';
+		}
+
+		// One shared word is not enough to say a picture is about the story, because many names are
+		// also ordinary words. "Halo" is a video game and a ring of light around the sun, and the
+		// labels cannot say which one a file shows. A second article word in the labels, such as
+		// "Xbox" or "game", confirms the meaning. From the owner's log of 2026-11-15.
+		$matched = self::matched_words( $candidate, $analysis );
+		if ( count( $matched ) < 2 ) {
+			return $matched
+				? sprintf( 'Only one article word, "%s", is in the labels, so the picture may show something else of that name.', $matched[0] )
+				: 'No article word is in the labels.';
 		}
 
 		// A picture whose own title names a person the article never mentions is the wrong picture,

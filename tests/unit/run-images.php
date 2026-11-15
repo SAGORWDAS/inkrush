@@ -550,4 +550,36 @@ u_true( in_array( 'John Strategy Club', $talks['entities'], true ), '1.11.0: bot
 $alone = ArticleAnalyzer::analyze( 'Kuaishou Technology Shares Fall', '', array(), 'Kuaishou Technology Shares Fall', 'Technology' );
 u_true( false !== stripos( implode( ' | ', $alone['queries'] ), 'Kuaishou Technology' ), '1.11.0: a headline alone still gives a search' );
 
+/* =====================================================================
+   1.11.7: the 22:00 post on 2026-11-15
+   "Halo: Campaign Evolved Adds Firefight in a Free Winter Update" was
+   published with a photograph of a solar halo, which scored 68.
+   ===================================================================== */
+
+$halo = ArticleAnalyzer::analyze(
+	'Halo: Campaign Evolved Adds Firefight in a Free Winter Update',
+	'<p>Halo: Campaign Evolved is set to add Firefight in a free winter update, Xbox has confirmed. The cooperative mode puts squads of up to four Spartans against waves of enemies.</p>'
+	. '<p>Firefight debuted in Halo 3: ODST and returned in Halo: Reach. Players at Xbox FanFest in Seattle tried the mode first.</p>',
+	array( 'Halo', 'Halo campaign', 'Firefight', 'Xbox', 'Halo Studios', 'winter update', 'co-op' ),
+	'Halo: Firefight Officially Announced For Winter 2026',
+	'Entertainment',
+	'screenrant.com'
+);
+$sun_halo = candidate(
+	'File:Halo, sun dogs and sun pillar.jpg',
+	'Halo, sun dogs and sun pillar - Sandomierz (Poland)',
+	'Parhelia|Sun pillars|Self-published work|Images from Wiki Science Competition 2019 in Poland|General category images from Wiki Science Competition 2019|Solar halos|Uploaded via Campaign:wsc-pl',
+	array( 'width' => 3264, 'height' => 1836 )
+);
+u_false( false !== strpos( CandidateScorer::label_text( $sun_halo ), 'campaign' ), '1.11.7: an upload-campaign category is not part of the labels' );
+u_is( array( 'halo' ), CandidateScorer::matched_words( $sun_halo, $halo ), '1.11.7: the solar halo shares only the word "halo"' );
+u_true( '' !== CandidateScorer::mandatory_failure( $sun_halo, $halo, 'Entertainment' ), '1.11.7: so the solar halo photograph is refused' );
+
+$halo_event = candidate(
+	'File:Halo 4 launch at the Microsoft Store.jpg',
+	'Halo 4 launch event, Xbox.',
+	'Halo (franchise)|Xbox|Microsoft Store|Uploaded via Campaign:example'
+);
+u_is( '', CandidateScorer::mandatory_failure( $halo_event, $halo, 'Entertainment' ), '1.11.7: a Halo game photograph that also says Xbox is accepted' );
+
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );

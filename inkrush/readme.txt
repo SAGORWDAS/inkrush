@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.6
+Stable tag: 1.11.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,13 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.7 =
+Better matching between a story and its picture.
+
+**A picture needs two words in common with the story, not one.** The 22:00 post on 15 November, about the Halo video game, was published with a photo of a halo around the sun. The only thing they shared was the word "halo". A picture's labels now have to share at least two words with the story (for example "Halo" and "Xbox"), so a word that means something else in the picture is no longer enough.
+
+**Wikimedia's upload labels no longer count.** Commons files are filed under labels such as "Uploaded via Campaign" or "Self-published work". These say how a file was uploaded, not what it shows, and the sun photo earned points for the word "campaign" from one of them. They are now ignored.
 
 = 1.11.6 =
 Fewer skipped posts and fewer wasted articles. No extra AI spending.

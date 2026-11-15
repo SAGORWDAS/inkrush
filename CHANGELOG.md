@@ -10,6 +10,20 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.7] - 2026-11-15
+
+The 22:00 post of 2026-11-15, "Halo: Campaign Evolved Adds Firefight in a Free Winter Update" (Entertainment), was published with `File:Halo, sun dogs and sun pillar.jpg`, a photograph of a solar halo, at score 68. The article text matched the source; only the image was wrong. No schema change, `DB_VERSION` stays 17.
+
+### Fixed
+
+- **`CandidateScorer::label_text()` read administrative Commons categories as subject labels.** The file was filed under `Uploaded via Campaign:wsc-pl`, which matched the headline keyword "campaign". Its score was subject 23 (halo, campaign), entity 10 (Halo), concept 10 (halo, campaign), quality 10, shape 10, context 5. The new `subject_categories()` drops categories matching `ADMIN_CATEGORY` (upload campaigns, self-published work, Wiki Loves / Wiki Science Competition, licence, `Files by/from`, `Media needing`, `Photographs by`, `Taken with`, Flickr, Exif and similar) before labels are scored or checked.
+- **One shared word was enough for a file to pass.** The same word counted as a keyword, an entity and a concept, so a single-word subject that is also an ordinary word ("Halo") carried a wrong-sense file. `mandatory_failure()` now requires at least two distinct article words in the labels, from the new `matched_words()`: tokens of the keywords, entities, concepts (body words and tags) and main subject, each counted once.
+
+### Tested
+
+- `run-images` 77 (4 new: the real Halo file's metadata from the Commons API is refused, its upload-campaign category is gone from the labels, and a Halo game photograph that also says Xbox is accepted), `run-unit` 128 and `run-validator` 17 pass with 0 failures. Earlier accepted cases (Taylor Swift, Oak Street Health, Jensen Huang-style titles) still pass.
+- **Not verified:** not run against live Commons searches or a WordPress site, so how many more files the two-word rule refuses in practice is not measured. It may raise `no_image` rejections for single-word subjects; the last-chance minimum (50) is unchanged. Watch the log for "Only one article word".
+
 ## [1.11.6] - 2026-11-15
 
 Zero-token fixes from the owner's review of 2026-11-15, chosen to cut skipped posts without more OpenRouter spending. No schema change, `DB_VERSION` stays 17.
