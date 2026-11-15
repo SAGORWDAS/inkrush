@@ -379,6 +379,41 @@ final class ArticleAnalyzer {
 		return 2 === count( $pair ) && $full ? implode( ' ', $pair ) : '';
 	}
 	/**
+	 * A one-word subject with a word of context, for searching.
+	 *
+	 * The context is the first tag that is one capitalized word, other than the article's subjects,
+	 * that the article itself uses, such as "Xbox" for "Halo". Without one, a longer tag that contains
+	 * the word, such as "Halo Studios", is used instead.
+	 *
+	 * @param string[] $tags  Generated tags, in their order.
+	 * @param string[] $names The main and second subjects.
+	 * @return string Empty when the article offers no context.
+	 */
+	private static function with_context( string $word, array $tags, array $names, string $article_text, string $publisher ): string {
+		$names_lc = array_map( 'mb_strtolower', $names );
+		foreach ( $tags as $tag ) {
+			$tag = trim( (string) $tag );
+			if ( false !== strpos( $tag, ' ' ) || mb_strlen( $tag ) < 3 || ! preg_match( '/^\p{Lu}/u', $tag ) ) {
+				continue;
+			}
+			if ( in_array( mb_strtolower( $tag ), $names_lc, true ) || self::is_outlet( $tag, $publisher ) || in_array( mb_strtolower( $tag ), self::STOP, true ) ) {
+				continue;
+			}
+			if ( preg_match( self::word_pattern( $tag, 'iu' ), $article_text ) ) {
+				return $word . ' ' . $tag;
+			}
+		}
+		foreach ( $tags as $tag ) {
+			$tag = trim( (string) $tag );
+			if ( false !== strpos( $tag, ' ' ) && preg_match( self::word_pattern( $word, 'iu' ), $tag ) && preg_match( '/^\p{Lu}/u', $tag )
+				&& ! self::is_outlet( $tag, $publisher ) && preg_match( self::word_pattern( $tag, 'iu' ), $article_text ) ) {
+				return $tag;
+			}
+		}
+		return '';
+	}
+
+	/**
 	 * @param string   $title    Generated title.
 	 * @param string   $body     Generated body HTML.
 	 * @param string[] $tags     Generated tags.
@@ -650,6 +685,24 @@ final class ArticleAnalyzer {
 			$others[] = implode( ' ', array_slice( $plain, 0, 2 ) ) . ' ' . $category;
 		}
 
+		// A one-word subject is searched with a word of context, and on its own only last. Many
+		// one-word names are also ordinary words, and Commons searches every sense of them: "Halo"
+		// alone finds 350,000 files, mostly of light around the sun, while "Halo Xbox" finds the
+		// game. "Firefight" alone finds firefighting. From the owner's log of 2026-11-15.
+		$bare = array();
+		foreach ( $queries as $index => $query ) {
+			$query = trim( (string) $query );
+			if ( false !== strpos( $query, ' ' ) || ! in_array( mb_strtolower( $query ), array_map( 'mb_strtolower', $names ), true ) ) {
+				continue;
+			}
+			$longer = self::with_context( $query, $tags, $names, $article_text, $publisher );
+			if ( '' !== $longer ) {
+				$queries[ $index ] = $longer;
+				$bare[]            = $query;
+			}
+		}
+		$queries = array_merge( $queries, $bare );
+
 		$clean  = static function ( string $query ): string {
 			return trim( (string) preg_replace( '/[^\p{L}\p{N}\s\'’&.\-]+/u', ' ', $query ) );
 		};
@@ -657,7 +710,10 @@ final class ArticleAnalyzer {
 		$unique = array();
 		foreach ( $queries as $query ) {
 			$query = $clean( (string) $query );
-			$key   = mb_strtolower( $query );
+			// Commons matches every word in any order, so "Halo Xbox" and "Xbox Halo" are one search.
+			$words = preg_split( '/\s+/u', mb_strtolower( $query ) ) ?: array();
+			sort( $words );
+			$key = implode( ' ', $words );
 			if ( '' !== $query && ! isset( $seen[ $key ] ) ) {
 				$seen[ $key ] = true;
 				$unique[]     = $query;

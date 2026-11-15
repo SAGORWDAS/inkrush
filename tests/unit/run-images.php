@@ -394,7 +394,11 @@ u_true(
 );
 
 // Two bare words are searched one at a time, because Commons wants every word of a search.
-u_is( 'Ghana', $ghana['queries'][0] ?? '', 'Two one-word subjects are not demanded together' );
+// From 1.11.8 a one-word subject carries a word of context from the tags, as "Ghana Accra".
+u_true(
+	0 === stripos( $ghana['queries'][0] ?? '', 'Ghana' ) && false === stripos( $ghana['queries'][0] ?? '', 'China' ),
+	'Two one-word subjects are not demanded together'
+);
 
 // A lower-case tag is a subject, not somebody's name, so it is never half of a pair.
 u_is( 'Customer Service', $ey['queries'][0] ?? '', 'A concept is searched on its own terms' );
@@ -581,5 +585,15 @@ $halo_event = candidate(
 	'Halo (franchise)|Xbox|Microsoft Store|Uploaded via Campaign:example'
 );
 u_is( '', CandidateScorer::mandatory_failure( $halo_event, $halo, 'Entertainment' ), '1.11.7: a Halo game photograph that also says Xbox is accepted' );
+
+// 1.11.8: "Halo" alone found 352,599 Commons files, mostly sun halos; "Halo Xbox" found 135, mostly the game.
+$halo_lc = array_map( 'strtolower', $halo['queries'] );
+u_true( in_array( 'halo xbox', $halo_lc, true ), '1.11.8: the one-word subject "Halo" is searched with "Xbox" from the tags' );
+u_false( in_array( 'halo', $halo_lc, true ), '1.11.8: "Halo" is not searched on its own while other searches are left' );
+u_false( in_array( 'firefight', $halo_lc, true ), '1.11.8: nor is "Firefight", which finds firefighting' );
+
+// With no tag to give context, a one-word subject is still searched, so no post loses its search.
+$plain = ArticleAnalyzer::analyze( 'Nvidia Shares Fall After Earnings', '<p>Nvidia shares fell after earnings. Nvidia said demand stayed strong.</p>', array( 'Nvidia', 'earnings', 'stocks' ), 'Nvidia shares fall', 'Business', 'CNBC' );
+u_true( in_array( 'Nvidia', $plain['queries'], true ), '1.11.8: a one-word subject with no context tag is searched as before' );
 
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );

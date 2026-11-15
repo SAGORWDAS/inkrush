@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.7
+Stable tag: 1.11.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,11 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.8 =
+Picture searches that find the right thing.
+
+**A one-word subject is searched with a word of context.** Many one-word names are also ordinary words. A search for "Halo" on Wikimedia Commons finds over 350,000 files, mostly of light around the sun, while "Halo Xbox" finds the game. "Firefight" alone finds firefighting. A one-word subject is now searched together with another name from the article's tags, such as "Xbox". The word on its own is only searched last, if there is room. When the tags offer no such word, the search is the same as before.
 
 = 1.11.7 =
 Better matching between a story and its picture.

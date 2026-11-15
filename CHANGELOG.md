@@ -10,6 +10,20 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.8] - 2026-11-15
+
+Follow-up to 1.11.7, at the owner's request. No schema change, `DB_VERSION` stays 17.
+
+### Changed
+
+- **`ArticleAnalyzer::analyze()` searched a one-word subject on its own.** Live Commons counts on 2026-11-15 (`list=search`, namespace 6): "Halo" 352,599 hits (solar halos, haloed saints), "Halo Xbox" 135 (the game), "Halo game" 4,593, "Halo Campaign Evolved" 0, "Firefight" 39,881 (firefighting). A query that is just the main or second subject and one word long is now replaced by the new `with_context()`: the word plus the first tag that is one capitalized word, not a subject, not an outlet, not a stop word, and used in the article text ("Halo Xbox"). Failing that, a longer capitalized tag that contains the word ("Halo Studios"). Failing both, the query is left alone. The bare word is appended to the end of the list, so it only runs when `image_query_count` leaves room.
+- Query de-duplication keys on the sorted lower-case words, since Commons matches every word in any order, so "Halo Xbox" and "Xbox Halo" are one search.
+
+### Tested
+
+- `run-images` 81 (4 new: the Halo article searches "Halo Xbox" and neither "Halo" nor "Firefight" alone; a one-word subject with no context tag, "Nvidia", is still searched), `run-unit` 128, `run-validator` 17, all with 0 failures. The Ghana case now searches "Ghana Accra" first, and its assertion was changed to check only that the two countries are not demanded together.
+- **Not verified:** the Halo tags in the test are stand-ins, since the real post's tags are not in the log. A context tag can also narrow a search too far ("Firefight Xbox" had 1 hit); the 1.11.7 two-word rule and later searches cover that, but the effect on `no_image` rejections has not been measured on a site.
+
 ## [1.11.7] - 2026-11-15
 
 The 22:00 post of 2026-11-15, "Halo: Campaign Evolved Adds Firefight in a Free Winter Update" (Entertainment), was published with `File:Halo, sun dogs and sun pillar.jpg`, a photograph of a solar halo, at score 68. The article text matched the source; only the image was wrong. No schema change, `DB_VERSION` stays 17.
