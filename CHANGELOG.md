@@ -10,6 +10,27 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.6] - 2026-11-15
+
+Zero-token fixes from the owner's review of 2026-11-15, chosen to cut skipped posts without more OpenRouter spending. No schema change, `DB_VERSION` stays 17.
+
+### Fixed
+
+- **`Generation::handle_validate()` threw away a paid Past-Hour article on a tag-only failure.** `tag_only_failure` sent it to `HELD`, which is not in `Lifecycle::PIPELINE`, so `PastHour::watch_article()` dropped it and the post started a new story and a new generation. When `PastHour::applies()`, the article now goes on to `VALIDATED` with the tags it has, and a `validation` warning with `error_code` `tag_count` is logged. `handle_tags()` has already retried the count up to `ai_max_retries` by then. Outside Past-Hour, `HELD` is unchanged.
+- **`Retrieval::handle()` retried the same page on `network_error`, HTTP 429 and HTTP 5xx in Past-Hour mode.** Each now calls `move_on()`, as `resolver_unavailable` and `robots_unavailable` did since 1.11.1. On 429 the host cooldown is still set.
+- **`uninstall.php` left the social data behind.** It now drops `social_accounts` and `social_posts` and deletes `zzzc_social_platforms` and `zzzc_social_apps`. The social transients were already removed by the `_transient_zzzc_` pattern.
+
+### Changed
+
+- `PastHour::PUBLISHER_FAILURES` gains `network_error`, `rate_limited`, `http_500`, `http_502`, `http_503` and `http_504`, so for the current post only, that publisher's other stories are passed over. `LASTING_FAILURES` (24 hours) is unchanged.
+- `PastHour::search_scope()` also opens the other categories when the new `planned_is_empty()` is true: the planned category is in `categories_searched`, no `ph:<slot>:` fetch is pending or running, and `eligible_items()` finds no untried story in it. `category_fallback` still applies.
+- `PastHour::search()` fills `fallback_queue` with the other categories as soon as they open, when none of them has been searched for this post, instead of waiting for the next `RETRY_EVERY` (15-minute) round. This also speeds up the `FALLBACK_AFTER_TRIES` and `fallback_within()` triggers.
+
+### Tested
+
+- `php -l` is clean on every changed file. Unit suites: `run-unit` 128, `run-images` 73 and `run-validator` 17 pass with 0 failures.
+- **Not verified:** none of the changed paths has a unit test. The WordPress suite was not run, since no WordPress install was available, so the tag-count path, the new move-on cases, the earlier fallback and uninstall have not run on a real site. Check the log after the next few posts for "Kept for its post with the tags it has", "Another story is tried for this post instead of waiting" and "Category fallback".
+
 ## [1.11.5] - 2026-11-15
 
 Feeds for Insurance, Crime, Myths & Legends and Fitness, which gained none in 1.11.3. Owner's request of 2026-11-15.

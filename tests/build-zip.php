@@ -8,7 +8,7 @@
 
 $root    = dirname( __DIR__ );
 $source  = $root . '/inkrush';
-$version = '1.11.5';
+$version = '1.11.6';
 $dist    = $root . '/dist';
 
 if ( ! is_dir( $dist ) ) {

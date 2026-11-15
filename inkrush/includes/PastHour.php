@@ -697,7 +697,8 @@ final class PastHour {
 		// up the post before the other categories are ever looked at.
 		$open = ! $usable
 			|| Clock::to_timestamp( $slot['due_at'] ) - Clock::now() <= self::fallback_within()
-			|| (int) $slot['stories_tried'] >= self::FALLBACK_AFTER_TRIES;
+			|| (int) $slot['stories_tried'] >= self::FALLBACK_AFTER_TRIES
+			|| self::planned_is_empty( $slot, $planned );
 		if ( $usable && ! Settings::get( 'category_fallback' ) ) {
 			$open = false;
 		}
@@ -706,6 +707,21 @@ final class PastHour {
 			'planned' => $usable ? $planned : 0,
 			'others'  => $open ? $others : array(),
 		);
+	}
+
+	/**
+	 * Whether the planned category has been searched for this post, its searches have finished, and
+	 * it has no untried story in the age window. Waiting for 3 tries or the last 90 minutes would then
+	 * only waste preparation time, because there is nothing in it to try.
+	 */
+	private static function planned_is_empty( array $slot, int $planned ): bool {
+		if ( ! in_array( $planned, self::id_list( (string) $slot['categories_searched'] ), true ) ) {
+			return false;
+		}
+		if ( self::searches_running( (int) $slot['id'] ) ) {
+			return false;
+		}
+		return ! self::eligible_items( $slot, array( $planned ) );
 	}
 
 	/**
@@ -744,7 +760,7 @@ final class PastHour {
 	 * from the same publisher fails the same way. On 2026-11-14 four of the eight stories tried for
 	 * the 22:00 post were from one publisher whose headlines never matched its feed.
 	 */
-	private const PUBLISHER_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled', 'resolver_unavailable', 'robots_unavailable' );
+	private const PUBLISHER_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled', 'resolver_unavailable', 'robots_unavailable', 'network_error', 'rate_limited', 'http_500', 'http_502', 'http_503', 'http_504' );
 
 	/**
 	 * The failures above that do not go away within the hour: no readable feed, headlines that do not
@@ -863,6 +879,12 @@ final class PastHour {
 			if ( ! $queue ) {
 				$queue = $categories['others'];
 			}
+		}
+
+		// Other categories that open between rounds are searched now, not at the next round up to
+		// 15 minutes later, unless one of them has already been searched for this post.
+		if ( ! $queue && $categories['others'] && ! array_intersect( $categories['others'], self::id_list( (string) $slot['categories_searched'] ) ) ) {
+			$queue = $categories['others'];
 		}
 
 		// The next category is searched only after the last one found nothing, so a found story ends this.

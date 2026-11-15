@@ -290,7 +290,15 @@ final class Generation {
 			'source_item_id' => (int) $article['source_item_id'],
 		);
 
-		if ( ! $verdict['pass'] ) {
+		// A Past-Hour article whose only fault is its tag count is finished and paid for. Holding it
+		// would make the post buy a whole new article from another story, or be skipped, so it goes
+		// on with the tags it has. The tag call was already retried for the count in handle_tags().
+		$keep_tags = $verdict['tag_only_failure'] && PastHour::applies( $article );
+		if ( $keep_tags ) {
+			Events::log( 'validation', 'warning', 'Kept for its post with the tags it has: ' . implode( ' ', array_column( $verdict['errors'], 1 ) ), array_merge( $context, array( 'error_code' => 'tag_count' ) ) );
+		}
+
+		if ( ! $verdict['pass'] && ! $keep_tags ) {
 			$messages = implode( ' ', array_column( $verdict['errors'], 1 ) );
 			$codes    = implode( ',', array_column( $verdict['errors'], 0 ) );
 			$fields   = array(

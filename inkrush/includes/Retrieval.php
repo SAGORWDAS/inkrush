@@ -90,6 +90,9 @@ final class Retrieval {
 				self::finish( $article, $item, self::BLOCKED, Lifecycle::BLOCKED, 'unsafe_url', 'The address was refused by the safety check: ' . $response['error'] );
 				return JobResult::done();
 			}
+			if ( PastHour::applies( $article ) ) {
+				return self::move_on( $article, $item, 'network_error', 'The publisher page could not be fetched (' . $response['error'] . ').' );
+			}
 			return JobResult::retry( Jobs::backoff( (int) $job['attempts'] ), 'network_error', $response['error'] );
 		}
 
@@ -98,10 +101,16 @@ final class Retrieval {
 		if ( 429 === $code ) {
 			$delay = max( 60, $response['retry_after'] );
 			Http::host_cooldown( (string) wp_parse_url( $url, PHP_URL_HOST ), $delay );
+			if ( PastHour::applies( $article ) ) {
+				return self::move_on( $article, $item, 'rate_limited', 'The publisher returned HTTP 429.' );
+			}
 			self::update_item( (int) $item['id'], array( 'retrieval_status' => self::RATE_LIMITED ) );
 			return JobResult::retry( $delay, 'rate_limited', 'The publisher returned HTTP 429.' );
 		}
 		if ( $code >= 500 ) {
+			if ( PastHour::applies( $article ) ) {
+				return self::move_on( $article, $item, 'http_' . $code, sprintf( 'The publisher returned HTTP %d.', $code ) );
+			}
 			return JobResult::retry( Jobs::backoff( (int) $job['attempts'] ), 'http_' . $code, sprintf( 'The publisher returned HTTP %d.', $code ) );
 		}
 		if ( 402 === $code ) {
@@ -215,6 +224,7 @@ final class Retrieval {
 	 * A Past-Hour story whose publisher is briefly unreachable is not waited for. The retry is
 	 * 16 minutes, and on 2026-11-14 two of them held the 10:00 post for 35 minutes on one story.
 	 * The post moves on to another story at once, and this publisher is passed over for it.
+	 * Since 1.11.6 a network error, HTTP 429 or HTTP 5xx on the page itself is handled the same way.
 	 */
 	private static function move_on( array $article, array $item, string $code, string $message ): JobResult {
 		self::finish( $article, $item, self::ERROR, Lifecycle::RETRIEVAL_FAILED, $code, $message . ' Another story is tried for this post instead of waiting.' );

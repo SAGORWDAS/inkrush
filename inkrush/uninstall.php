@@ -19,14 +19,14 @@ if ( empty( $zzzc_settings['delete_data_on_uninstall'] ) ) {
 
 global $wpdb;
 
-$zzzc_tables = array( 'categories', 'source_items', 'article_jobs', 'article_content', 'publishing_queue', 'slots', 'generation_usage', 'events', 'post_links', 'prompt_versions', 'jobs', 'locks', 'image_history', 'image_runs', 'authors' );
+$zzzc_tables = array( 'categories', 'source_items', 'article_jobs', 'article_content', 'publishing_queue', 'slots', 'generation_usage', 'events', 'post_links', 'prompt_versions', 'jobs', 'locks', 'image_history', 'image_runs', 'authors', 'social_accounts', 'social_posts' );
 
 foreach ( $zzzc_tables as $zzzc_table ) {
 	// The table name is built from a fixed list above.
 	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}zzzc_{$zzzc_table}" ); // phpcs:ignore WordPress.DB
 }
 
-$zzzc_options = array( 'zzzc_settings', 'zzzc_state', 'zzzc_secret', 'zzzc_db_version', 'zzzc_heartbeat', 'zzzc_cron_token', 'zzzc_active_prompts', 'zzzc_model_check' );
+$zzzc_options = array( 'zzzc_settings', 'zzzc_state', 'zzzc_secret', 'zzzc_db_version', 'zzzc_heartbeat', 'zzzc_cron_token', 'zzzc_active_prompts', 'zzzc_model_check', 'zzzc_social_platforms', 'zzzc_social_apps' );
 
 foreach ( $zzzc_options as $zzzc_option ) {
 	delete_option( $zzzc_option );

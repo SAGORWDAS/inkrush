@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.5
+Stable tag: 1.11.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,17 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.6 =
+Fewer skipped posts and fewer wasted articles. No extra AI spending.
+
+**A finished article is no longer thrown away over its tags.** If the AI kept returning the wrong number of tags, a scheduled post's finished article was held for review. The post then paid for a new article from another story, or was skipped. Now the article goes out with the tags it has, and the log notes it. Articles outside Past-Hour Posting are still held as before.
+
+**A story whose page won't load is dropped at once.** Past-Hour Posting already moved on when a publisher couldn't be looked up. It now does the same when the page times out, the site asks it to slow down (HTTP 429), or the site has a server error (HTTP 5xx), instead of waiting and trying the same page again. That publisher is passed over for the rest of that post.
+
+**Other categories are tried sooner when the planned one is empty.** Once the planned category has been searched and has no untried stories left, the other categories are searched straight away, instead of after three failed stories or in the last 90 minutes. They are also searched within the same minute, not at the next 15-minute search round. The "Category fallback" setting still decides whether this happens at all.
+
+**Uninstall removes social media data too.** With "delete all plugin data" ticked, the social accounts, social post history and social app settings are now deleted along with everything else.
 
 = 1.11.5 =
 Feeds for the four categories that gained none in 1.11.3, and two feeds removed that could never be used.
