@@ -9,6 +9,60 @@ defined( 'ABSPATH' ) || exit;
 final class Categories {
 
 	/**
+	 * Publisher feeds added in 1.11.2, after the 10:00 post of 2026-11-15 was skipped because both
+	 * Business feeds had nothing new and the Google News stories could not be read.
+	 *
+	 * Each was checked on 2026-11-15 with this plugin's own FeedParser, Robots rules and Extractor:
+	 * its robots.txt allows the feed and the articles, and its newest three articles were read with
+	 * 250 words or more and no paywall. Refused then: Fortune, Business Insider and The Verge
+	 * (paywall), Forbes and Sky News (HTTP 403), Ars Technica (HTTP 405), The Register and Fox
+	 * Business (robots.txt), NPR (connection reset) and The Independent (no stories read).
+	 */
+	public const ADDED_FEEDS = array(
+		'Business'   => "https://www.theguardian.com/business/rss\nhttps://www.abc.net.au/news/feed/51892/rss.xml\nhttps://theconversation.com/au/business/articles.atom\nhttps://www.cbsnews.com/latest/rss/moneywatch",
+		'Technology' => "https://www.engadget.com/rss.xml\nhttps://www.techradar.com/rss\nhttps://www.theguardian.com/technology/rss\nhttps://www.cnbc.com/id/19854910/device/rss/rss.html\nhttps://gizmodo.com/feed\nhttps://9to5mac.com/feed/\nhttps://www.wired.com/feed/rss\nhttps://www.zdnet.com/news/rss.xml\nhttps://www.technologyreview.com/feed/\nhttps://www.itnews.com.au/RSS/rss.ashx",
+	);
+
+	/**
+	 * Adds feeds to every live category with this exact name, after the ones it has. A feed
+	 * already listed, in any case or with or without a trailing slash, is not added twice.
+	 *
+	 * @return int How many feeds were added in all.
+	 */
+	public static function add_feeds( string $name, string $feeds ): int {
+		global $wpdb;
+		$table = Db::table( 'categories' );
+		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT id, feed_urls FROM {$table} WHERE name = %s AND deleted_at IS NULL", $name ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		$key   = static function ( string $url ): string {
+			return rtrim( strtolower( trim( $url ) ), '/' );
+		};
+		$added = 0;
+		foreach ( (array) $rows as $row ) {
+			$current = array_values( array_filter( preg_split( '/\s+/', trim( (string) $row['feed_urls'] ) ) ?: array(), 'strlen' ) );
+			$known   = array_map( $key, $current );
+			$new     = array();
+			foreach ( preg_split( '/\s+/', trim( $feeds ) ) ?: array() as $url ) {
+				if ( '' !== $url && ! in_array( $key( $url ), $known, true ) ) {
+					$new[]   = $url;
+					$known[] = $key( $url );
+				}
+			}
+			if ( $new ) {
+				$wpdb->update(
+					$table,
+					array(
+						'feed_urls'  => implode( "\n", array_merge( $current, $new ) ),
+						'updated_at' => Clock::mysql(),
+					),
+					array( 'id' => (int) $row['id'] )
+				);
+				$added += count( $new );
+			}
+		}
+		return $added;
+	}
+
+	/**
 	 * The owner's starting list, in the owner's order. All of it can be edited, and more can be added.
 	 *
 	 * Each publisher feed was checked against its robots.txt, and its newest article could be read.
@@ -19,7 +73,7 @@ final class Categories {
 		'Technology'                 => array(
 			'topic' => 'https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen',
 			'query' => 'technology news',
-			'feeds' => "https://feeds.bbci.co.uk/news/technology/rss.xml\nhttps://techcrunch.com/feed/",
+			'feeds' => "https://feeds.bbci.co.uk/news/technology/rss.xml\nhttps://techcrunch.com/feed/\n" . self::ADDED_FEEDS['Technology'],
 		),
 		'World'                      => array(
 			'query' => 'world news',
@@ -37,7 +91,7 @@ final class Categories {
 		'Business'                   => array(
 			'topic' => 'https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US%3Aen',
 			'query' => 'business news',
-			'feeds' => "https://feeds.bbci.co.uk/news/business/rss.xml\nhttps://www.cnbc.com/id/10001147/device/rss/rss.html",
+			'feeds' => "https://feeds.bbci.co.uk/news/business/rss.xml\nhttps://www.cnbc.com/id/10001147/device/rss/rss.html\n" . self::ADDED_FEEDS['Business'],
 		),
 		'Politics'                   => array(
 			'query' => 'politics',

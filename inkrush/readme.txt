@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.1
+Stable tag: 1.11.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,15 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.2 =
+More publisher feeds for Business and Technology. Publisher feeds give the story's own link, so they avoid the Google News lookups that failed for five of the eight stories tried for the 10:00 post on 15 November. Both Business feeds had nothing new that morning.
+
+**Business gains 4 feeds:** The Guardian Business, ABC News (Australia) Business, The Conversation (Australia) Business and CBS MoneyWatch.
+
+**Technology gains 10 feeds:** Engadget, TechRadar, The Guardian Technology, CNBC Technology, Gizmodo, 9to5Mac, Wired, ZDNet, MIT Technology Review and iTnews.
+
+Each feed was checked on 15 November: its robots.txt allows this plugin, and its newest three articles could be read in full, with no paywall. Updating adds them to your Business and Technology categories, after the feeds you already have. Nothing is removed, a feed you already list is not added twice, and other categories are not changed. You can edit the lists on the Categories page.
 
 = 1.11.1 =
 Fixes the skipped 10:00 post of 15 November. Its search gave up at 07:40 after 8 stories, with more than two hours left and 13 stories still to try. Seven of the eight failed before any article was written, and the one article written found no picture scoring 65.

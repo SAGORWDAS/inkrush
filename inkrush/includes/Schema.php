@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '13';
+	public const DB_VERSION = '14';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -56,6 +56,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '13', '<' ) ) {
 			self::upgrade_to_13();
+		}
+		if ( '' !== $previous && version_compare( $previous, '14', '<' ) ) {
+			self::upgrade_to_14();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -207,6 +210,18 @@ final class Schema {
 		update_option( 'zzzc_settings', $stored, false );
 		Settings::flush_cache();
 		Events::log( 'config', 'info', 'Upgraded plugin data. Past-Hour Posting now uses stories up to 720 minutes (12 hours) old. Posts still go out at their set times, and the preparation time is unchanged. You can lower the story age on the Schedule page.' );
+	}
+
+	/**
+	 * Version 14: the publisher feeds checked on 2026-11-15 are added to the Business and Technology
+	 * categories, after the feeds they already have. Nothing is removed, other categories are not
+	 * touched, and a feed already listed is not added again.
+	 */
+	private static function upgrade_to_14(): void {
+		foreach ( Categories::ADDED_FEEDS as $name => $feeds ) {
+			$added = Categories::add_feeds( $name, $feeds );
+			Events::log( 'config', 'info', sprintf( 'Upgraded plugin data. %1$d publisher feeds were added to %2$s. Your own feeds are kept. You can change the list on the Categories page.', $added, $name ) );
+		}
 	}
 
 	private static function create_tables(): void {

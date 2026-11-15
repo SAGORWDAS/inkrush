@@ -10,6 +10,22 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.2] - 2026-11-15
+
+More publisher feeds for Business and Technology, after the 10:00 post of 2026-11-15 was skipped with both Business feeds reporting "New 0".
+
+### Added
+
+- **`Categories::ADDED_FEEDS`**: 4 Business feeds (The Guardian Business, ABC News Australia Business, The Conversation AU Business, CBS MoneyWatch) and 10 Technology feeds (Engadget, TechRadar, The Guardian Technology, CNBC Technology, Gizmodo, 9to5Mac, Wired, ZDNet, MIT Technology Review, iTnews). They are part of the Business and Technology seeds for new installs.
+- **`Categories::add_feeds()`** appends feeds to every live category with that exact name. A feed already listed, compared without case or a trailing slash, is not added again.
+- **`Schema::upgrade_to_14()`**, `DB_VERSION` 14: adds `ADDED_FEEDS` to the existing Business and Technology categories and logs how many were added to each. Nothing is removed, and no other category is changed.
+
+### Tested
+
+- 28 candidate feeds were checked from a desktop with the plugin's own `FeedParser`, `Robots::parse()`/`path_allowed()` and `Extractor`. A feed passed when its robots.txt allows the feed and its articles, and its newest three articles were read with 250 words or more and no paywall. 14 new ones are added. Refused: Fortune, Business Insider and The Verge (paywall), Forbes and Sky News (HTTP 403), Ars Technica (HTTP 405), The Register and Fox Business (robots.txt), NPR (connection reset), The Independent (no stories read). This was run from a desktop, not the site's server, on a Sunday morning.
+- `add_feeds()` was run against a stand-in database: it kept the existing feeds, skipped one already listed in different case with a trailing slash, and added nothing on a second run.
+- Unit suites pass with 0 failures. The WordPress suite was **not run**, so `upgrade_to_14()` has not run on a real database.
+
 ## [1.11.1] - 2026-11-15
 
 Fixes the skipped 10:00 post of 2026-11-15 (Business). `stories_tried` reached 8 at 07:40 local with 2 h 20 min and 13 eligible stories left: one live blog older than the page said, five Google News stories whose publishers could not be read (Bloomberg 403, WSJ and Reuters unmatched, Politico and Yahoo Finance with no feed), one Washington Post story held 35 minutes by two resolver retries, and one CNBC article whose best image scored 58. Category fallback never opened, because it waited for the last 90 minutes.
