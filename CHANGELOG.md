@@ -10,6 +10,26 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.1] - 2026-11-15
+
+Fixes the skipped 10:00 post of 2026-11-15 (Business). `stories_tried` reached 8 at 07:40 local with 2 h 20 min and 13 eligible stories left: one live blog older than the page said, five Google News stories whose publishers could not be read (Bloomberg 403, WSJ and Reuters unmatched, Politico and Yahoo Finance with no feed), one Washington Post story held 35 minutes by two resolver retries, and one CNBC article whose best image scored 58. Category fallback never opened, because it waited for the last 90 minutes.
+
+### Changed
+
+- `PastHour::MAX_STORIES` is 30, not 8. AI spending is still capped by `past_hour_max_articles` and `daily_ai_limit`.
+- `PastHour::search_scope()` opens the other categories once `stories_tried` reaches `FALLBACK_AFTER_TRIES` (3), as well as in the last `fallback_within()`.
+- `PastHour::failed_publishers()` also returns publishers that failed with a `LASTING_FAILURES` code (`publisher_url_unresolved`, `http_401`, `http_403`, `http_451`, `paywalled`) for any post in the last 24 hours. `resolver_unavailable` and `robots_unavailable` join `PUBLISHER_FAILURES`, for the current post only.
+- `Retrieval::handle()` does not retry `resolver_unavailable` or `robots_unavailable` for a Past-Hour article. The new `move_on()` ends it as `RETRIEVAL_FAILED` so the post tries another story at once.
+
+### Added
+
+- `PastHour::last_chance_min_score()`. When `why_not_selecting()` would refuse another article, or the post is within 45 minutes, `ImagePipeline::prepare()` is given a minimum of 50 (`LAST_CHANCE_MIN_SCORE`) instead of `image_min_score`, and the log says so. A site minimum of 50 or less is kept. `prepare()` and `review()` take an optional minimum; every other rule is unchanged. Owner's decision of 2026-11-15.
+
+### Tested
+
+- Unit suites: 128 social, images and validator suites pass with 0 failures. `php -l` on every changed file.
+- The WordPress suite (`tests/test-6-past-hour.php`) was **not run**: no WordPress install was available. The new behaviour has no test of its own yet.
+
 ## [1.11.0] - 2026-11-14
 
 Fewer skipped posts. The owner's four decisions of 2026-11-14, taken after the site's log for 2026-11-06 to 14 showed 9 posts published and 17 skipped. Includes the 1.10.5 fix, which was built the same day and not released on its own.

@@ -87,7 +87,8 @@ final class ImagePipeline {
 	 *
 	 * @return array{action:string, reason?:string, delay?:int, history_id?:int, attachment_id?:int}
 	 */
-	public static function prepare( array $job, array $item, array $content ): array {
+	public static function prepare( array $job, array $item, array $content, int $min_score = 0 ): array {
+		$min = $min_score > 0 ? $min_score : (int) Settings::get( 'image_min_score' );
 		$article_job_id = (int) $job['id'];
 		$run            = self::get_run( $article_job_id );
 
@@ -144,9 +145,9 @@ final class ImagePipeline {
 		$analysis = ArticleAnalyzer::analyze( (string) $content['title'], (string) $content['body'], $tags, (string) $item['headline'], $name, (string) ( $item['publisher'] ?? '' ) );
 		$queries  = array_values( $analysis['queries'] );
 
-		$strong = max( self::STRONG_MATCH, (int) Settings::get( 'image_min_score' ) );
-		$enough = static function ( array $items ) use ( $analysis, $name, $strong ): bool {
-			foreach ( self::review( $items, $analysis, $name )['eligible'] as $candidate ) {
+		$strong = max( self::STRONG_MATCH, $min );
+		$enough = static function ( array $items ) use ( $analysis, $name, $strong, $min ): bool {
+			foreach ( self::review( $items, $analysis, $name, $min )['eligible'] as $candidate ) {
 				if ( $candidate['score'] >= $strong ) {
 					return true;
 				}
@@ -197,7 +198,7 @@ final class ImagePipeline {
 				return self::retry_later( $job, $attempts, $search_error, $search_wait );
 			}
 
-			$reviewed = self::review( array_values( $items ), $analysis, $name );
+			$reviewed = self::review( array_values( $items ), $analysis, $name, $min );
 			$checked += count( $found['items'] );
 			self::save_run(
 				$article_job_id,
@@ -224,7 +225,7 @@ final class ImagePipeline {
 				if ( $search_temp ) {
 					return self::retry_later( $job, $attempts, $search_error, $search_wait );
 				}
-				return self::give_up( $job, self::no_match_reason( $reviewed['all'], $found['error'] ) );
+				return self::give_up( $job, self::no_match_reason( $reviewed['all'], $found['error'], $min ) );
 			}
 
 			$chosen = self::try_files( $reviewed['eligible'], $job, $content, $temporary, $retry );
@@ -408,10 +409,10 @@ final class ImagePipeline {
 	 *
 	 * @return array{all:array, eligible:array}
 	 */
-	public static function review( array $items, array $analysis, string $category_name ): array {
+	public static function review( array $items, array $analysis, string $category_name, int $min_score = 0 ): array {
 		$all      = array();
 		$eligible = array();
-		$min      = (int) Settings::get( 'image_min_score' );
+		$min      = $min_score > 0 ? $min_score : (int) Settings::get( 'image_min_score' );
 
 		foreach ( $items as $candidate ) {
 			$license                   = LicenseChecker::check( (array) $candidate['extmetadata'] );
@@ -463,7 +464,7 @@ final class ImagePipeline {
 		);
 	}
 
-	private static function no_match_reason( array $all, string $error ): string {
+	private static function no_match_reason( array $all, string $error, int $min ): string {
 		if ( ! $all ) {
 			return '' !== $error ? 'The search failed: ' . $error : 'The searches found no files.';
 		}
@@ -482,7 +483,7 @@ final class ImagePipeline {
 					$best = max( $best, (int) $candidate['score'] );
 				}
 			}
-			$reason = sprintf( 'The relevance score is below the minimum of %1$d. The best score was %2$d.', (int) Settings::get( 'image_min_score' ), $best );
+			$reason = sprintf( 'The relevance score is below the minimum of %1$d. The best score was %2$d.', $min, $best );
 		}
 		return sprintf( '%1$d files checked, none passed. Most common reason: %2$s', count( $all ), $reason );
 	}

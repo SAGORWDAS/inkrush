@@ -44,6 +44,9 @@ final class Retrieval {
 			$resolved = PublisherResolver::resolve( (string) $item['headline'], (string) $item['publisher_url'] );
 			if ( '' === $resolved['url'] ) {
 				if ( ! empty( $resolved['temporary'] ) ) {
+					if ( PastHour::applies( $article ) ) {
+						return self::move_on( $article, $item, 'resolver_unavailable', 'The publisher could not be reached to look up this story.' );
+					}
 					return JobResult::retry( Robots::RETRY_SECONDS, 'resolver_unavailable', 'The publisher could not be reached to look up this story, so it will be tried again.' );
 				}
 				self::finish( $article, $item, self::NOT_FOUND, Lifecycle::BLOCKED, 'publisher_url_unresolved', $resolved['reason'] );
@@ -70,6 +73,9 @@ final class Retrieval {
 
 		$robots = Robots::status( $url );
 		if ( Robots::UNAVAILABLE === $robots ) {
+			if ( PastHour::applies( $article ) ) {
+				return self::move_on( $article, $item, 'robots_unavailable', 'The publisher robots.txt could not be read right now, so the page was not fetched.' );
+			}
 			return JobResult::retry( Robots::RETRY_SECONDS, 'robots_unavailable', 'The publisher robots.txt could not be read right now, so the page was not fetched. It will be tried again.' );
 		}
 		if ( Robots::ALLOWED !== $robots ) {
@@ -202,6 +208,16 @@ final class Retrieval {
 		Lifecycle::transition( $article_job_id, Lifecycle::AI_PENDING );
 		Jobs::enqueue( Jobs::GENERATE, array( 'article_job_id' => $article_job_id ), 'generate:' . $article_job_id, 0, (int) Settings::get( 'ai_max_retries' ) );
 
+		return JobResult::done();
+	}
+
+	/**
+	 * A Past-Hour story whose publisher is briefly unreachable is not waited for. The retry is
+	 * 16 minutes, and on 2026-11-14 two of them held the 10:00 post for 35 minutes on one story.
+	 * The post moves on to another story at once, and this publisher is passed over for it.
+	 */
+	private static function move_on( array $article, array $item, string $code, string $message ): JobResult {
+		self::finish( $article, $item, self::ERROR, Lifecycle::RETRIEVAL_FAILED, $code, $message . ' Another story is tried for this post instead of waiting.' );
 		return JobResult::done();
 	}
 

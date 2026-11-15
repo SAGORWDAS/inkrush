@@ -38,8 +38,21 @@ final class PastHour {
 	 */
 	private const MAX_AI_ARTICLES = 3;
 
-	/** Politeness guard for one post, since each story tried means fetching a publisher page. */
-	private const MAX_STORIES = 8;
+	/**
+	 * Politeness guard for one post, since each story tried means fetching a publisher page.
+	 *
+	 * It was 8 until 1.11.1. On 2026-11-14 the 10:00 post used all 8 by 07:40, with two hours and
+	 * twenty minutes still to go and 13 eligible stories left, so it was skipped. Most stories
+	 * fail before any AI is spent, and a publisher that fails is passed over, so each try reaches a
+	 * different site. AI spending is still capped by the articles per post and the daily limit.
+	 */
+	private const MAX_STORIES = 30;
+
+	/** After this many stories fail, other categories are searched too, whatever the time. */
+	private const FALLBACK_AFTER_TRIES = 3;
+
+	/** How long a publisher that failed in a lasting way is passed over for later posts as well. */
+	private const PUBLISHER_MEMORY = DAY_IN_SECONDS;
 
 	public const SEARCHING = 'SEARCHING';
 	public const PREPARING = 'PREPARING';
@@ -428,7 +441,19 @@ final class PastHour {
 			return;
 		}
 
-		$image = Images\ImagePipeline::prepare( $article, $item, $content );
+		$floor = self::last_chance_min_score( $slot );
+		if ( $floor ) {
+			self::log(
+				'info',
+				sprintf( 'This is the last article the %1$s post can get, so its image may score %2$d or more instead of %3$d. Every other image rule still applies.', self::post_time( $slot ), $floor, (int) Settings::get( 'image_min_score' ) ),
+				array(
+					'article_job_id' => (int) $article['id'],
+					'category_id'    => (int) $article['category_id'],
+					'source_item_id' => (int) $article['source_item_id'],
+				)
+			);
+		}
+		$image = Images\ImagePipeline::prepare( $article, $item, $content, $floor );
 		if ( Images\ImagePipeline::RETRY === $image['action'] ) {
 			self::update_slot( (int) $slot['id'], array( 'image_retry_at' => Clock::mysql( Clock::now() + (int) $image['delay'] ) ) );
 			return;
@@ -457,6 +482,31 @@ final class PastHour {
 				'source_item_id' => (int) $article['source_item_id'],
 			)
 		);
+	}
+
+	/** The image minimum for a post's last chance, owner's decision of 2026-11-15. */
+	private const LAST_CHANCE_MIN_SCORE = 50;
+
+	/** Within this long of the post time, the article in hand counts as the last chance. */
+	private const LAST_CHANCE_WINDOW = 45 * 60;
+
+	/**
+	 * The lower image minimum to use for this article, or 0 for the normal one.
+	 *
+	 * On 2026-11-14 the 10:00 post was skipped after its only written article found a picture
+	 * scoring 58 against a minimum of 65. So when dropping this article would leave the post with
+	 * nothing, because no other article could be started or there is too little time left, a
+	 * picture scoring 50 or more is accepted. Licenses, the wrong-person, child and shape refusals,
+	 * and every other rule are unchanged. A site whose own minimum is lower keeps its own.
+	 */
+	private static function last_chance_min_score( array $slot ): int {
+		$normal = (int) Settings::get( 'image_min_score' );
+		if ( $normal <= self::LAST_CHANCE_MIN_SCORE ) {
+			return 0;
+		}
+		$late = Clock::to_timestamp( $slot['due_at'] ) - Clock::now() <= self::LAST_CHANCE_WINDOW;
+		// Asked while this article still holds the slot, so it counts towards the post's tries.
+		return $late || '' !== self::why_not_selecting( $slot ) ? self::LAST_CHANCE_MIN_SCORE : 0;
 	}
 
 	/**
@@ -560,7 +610,11 @@ final class PastHour {
 		$position = array_search( $planned, $ids, true );
 		$others   = false === $position ? $ids : array_merge( array_slice( $ids, $position + 1 ), array_slice( $ids, 0, $position ) );
 
-		$open = ! $usable || Clock::to_timestamp( $slot['due_at'] ) - Clock::now() <= self::fallback_within();
+		// Also open once the planned category has failed a few times, so a bad run there cannot use
+		// up the post before the other categories are ever looked at.
+		$open = ! $usable
+			|| Clock::to_timestamp( $slot['due_at'] ) - Clock::now() <= self::fallback_within()
+			|| (int) $slot['stories_tried'] >= self::FALLBACK_AFTER_TRIES;
 		if ( $usable && ! Settings::get( 'category_fallback' ) ) {
 			$open = false;
 		}
@@ -607,20 +661,30 @@ final class PastHour {
 	 * from the same publisher fails the same way. On 2026-11-14 four of the eight stories tried for
 	 * the 22:00 post were from one publisher whose headlines never matched its feed.
 	 */
-	private const PUBLISHER_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled' );
+	private const PUBLISHER_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled', 'resolver_unavailable', 'robots_unavailable' );
 
 	/**
-	 * Publishers that already failed in one of those ways for this post. Their other stories are
-	 * passed over for this post only, so its tries are not all spent on one site.
+	 * The failures above that do not go away within the hour: no readable feed, headlines that do not
+	 * match it, a refusal or a paywall. On 2026-11-14 Bloomberg, WSJ, Politico, Yahoo Finance and
+	 * Reuters each failed this way, as they had for earlier posts. These are passed over for every
+	 * post for a day, not only the one they failed for. A brief outage is not remembered.
+	 */
+	private const LASTING_FAILURES = array( 'publisher_url_unresolved', 'http_401', 'http_403', 'http_451', 'paywalled' );
+
+	/**
+	 * Publishers that already failed in one of those ways for this post, or in a lasting way for any
+	 * post in the last day. Their other stories are passed over, so the tries are spent on sites that
+	 * can be read.
 	 *
 	 * @return string[]
 	 */
 	private static function failed_publishers( array $slot ): array {
 		global $wpdb;
-		$jobs  = Db::table( 'article_jobs' );
-		$items = Db::table( 'source_items' );
-		$codes = "'" . implode( "','", self::PUBLISHER_FAILURES ) . "'";
-		$found = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT i.publisher FROM {$jobs} j INNER JOIN {$items} i ON i.id = j.source_item_id WHERE j.slot_id = %d AND i.publisher <> '' AND j.error_code IN ({$codes})", (int) $slot['id'] ) ); // phpcs:ignore WordPress.DB
+		$jobs    = Db::table( 'article_jobs' );
+		$items   = Db::table( 'source_items' );
+		$codes   = "'" . implode( "','", self::PUBLISHER_FAILURES ) . "'";
+		$lasting = "'" . implode( "','", self::LASTING_FAILURES ) . "'";
+		$found   = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT i.publisher FROM {$jobs} j INNER JOIN {$items} i ON i.id = j.source_item_id WHERE i.publisher <> '' AND ( ( j.slot_id = %d AND j.error_code IN ({$codes}) ) OR ( j.slot_id > 0 AND j.error_code IN ({$lasting}) AND j.updated_at >= %s ) )", (int) $slot['id'], Clock::mysql( Clock::now() - self::PUBLISHER_MEMORY ) ) ); // phpcs:ignore WordPress.DB
 		return array_values( array_filter( array_map( 'strval', (array) $found ), 'strlen' ) );
 	}
 

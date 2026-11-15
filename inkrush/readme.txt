@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.0
+Stable tag: 1.11.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,6 +112,19 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.1 =
+Fixes the skipped 10:00 post of 15 November. Its search gave up at 07:40 after 8 stories, with more than two hours left and 13 stories still to try. Seven of the eight failed before any article was written, and the one article written found no picture scoring 65.
+
+**A post keeps trying until its time.** Up to 30 stories can be tried for one post instead of 8. Most fail before any AI is used, and each comes from a different publisher. Articles to write before giving up on a post, and the daily generation limit, still cap the spending.
+
+**Other categories are tried after 3 failed stories**, as well as in the last 90 minutes, so one bad category cannot use up the post.
+
+**A publisher that cannot be read is passed over for a day.** A publisher with no readable feed, whose headlines do not match its feed, that refuses access or has a paywall, is passed over for every post for 24 hours, not only the post it failed for.
+
+**A publisher that is briefly unreachable is not waited for.** The post moves on to another story at once, instead of waiting 16 minutes, up to three times, on one story.
+
+**The last article a post can get may use a picture scoring 50 or more.** When dropping it would leave the post with nothing, or the post is less than 45 minutes away, the image minimum is 50 instead of 65. Licenses, the wrong-person, child and shape refusals, and every other rule still apply. All other articles keep the normal minimum.
 
 = 1.11.0 =
 Fewer skipped posts. The owner asked for these four changes on 14 November, after the site's log showed 17 of 26 posts skipped.
