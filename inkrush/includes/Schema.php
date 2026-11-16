@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '18';
+	public const DB_VERSION = '19';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -71,6 +71,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '18', '<' ) ) {
 			self::upgrade_to_18();
+		}
+		if ( '' !== $previous && version_compare( $previous, '19', '<' ) ) {
+			self::upgrade_to_19();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -317,6 +320,14 @@ final class Schema {
 		Events::log( 'config', 'info', 'Upgraded plugin data for the Walter Writes humanizer. Connect Walter on the AI Settings page to humanize each article before it is published. Until then nothing changes.' );
 	}
 
+	/**
+	 * Version 19: the whole article is humanized, the title too. create_tables() adds
+	 * article_content.original_title, where the AI's title is kept when Walter's replaces it.
+	 */
+	private static function upgrade_to_19(): void {
+		Events::log( 'config', 'info', 'Upgraded plugin data: Walter now humanizes the whole article chosen for each post, title, headings and lists included, and the site\'s AI model puts back any fact Walter changed.' );
+	}
+
 	private static function create_tables(): void {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -434,6 +445,7 @@ final class Schema {
   generated_at datetime NULL,
   validated_at datetime NULL,
   original_body longtext NULL,
+  original_title text NULL,
   humanize_status varchar(20) NOT NULL DEFAULT '',
   humanize_note varchar(255) NOT NULL DEFAULT '',
   humanized_words int(11) NOT NULL DEFAULT 0,

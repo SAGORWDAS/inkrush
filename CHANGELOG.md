@@ -10,6 +10,26 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.12.2] - 2026-11-16
+
+Owner's request: humanize every word of the article chosen for each post, headings included. `DB_VERSION` 19.
+
+### Changed
+
+- **Whole article to Walter.** `HumanizeText::blocks()` now splits `<p>`, `<h1>`–`<h6>` and `<li>` blocks (losslessly, with each block's opening tag kept). Sent: the title and every block not inside `blockquote`/`table`/`figure`/`aside`/`details`/`pre`/`code`, whose only markup is `a`/`strong`/`em`/`b`/`i` (`inline()`), without a web address in its text and not a source/credit line. Quotes and links are sent. `units()` lists them; `items()` joins them into Markdown pieces (`#` title, `##` headings, `-` items) of 55 to 700 words, cut at a heading after 350. Pieces are chosen in order within the post's word share, then batched as before.
+- **Fact repair by the site's AI model.** After Walter, one OpenRouter request (`Settings::model_id`, `max_output_tokens`, purpose `humanize` in `generation_usage`) with the original parts as JSON and Walter's text (`repair_messages()`): keep Walter's wording, correct numbers, dates, times, names, titles, attribution, hedges and negations, remove anything added, keep quotes word for word and the `keep` phrases (link and emphasis text), one text per part id. `parse_repair()` reads the JSON even with fences around it. Walter's answer is kept in transient `zzzc_walter_answer_<job>` (two hours) so a retry after a failed repair does not spend Walter's words again.
+- **Per-part check** (`check_part()` → `fact_check( ..., $with_quotes = true, $names )`): quotes compared word for word after normalising curly quotes (none lost or added); length 50 to 200 percent for parts of 12 words or fewer; `keep` phrases present; a title or heading must not become sentences; in title case only names the article uses in its sentences (`prose_names()`) must stay, and the invented-name check is skipped. `render_inner()` escapes the text and puts each link or emphasis element back around its first match; `rebuild()` writes each accepted block in its own tag.
+- `Humanizer::humanize()` updates `title` too, and the validation comparison uses the new title. Unchanged parts count as "came back the same". `set_time_limit` adds `ai_timeout`.
+- Removed: `sections()`, `pieces()`, `piece_text()`, `piece_words()`, `split_answer()`, `group_text()`, `clean()`, `fit_paragraphs()` and the "## Part" markers.
+- **`Schema::upgrade_to_19()`**: `article_content.original_title` (through `create_tables()`).
+- AI Settings help text, readme, PRIVACY.md (OpenRouter now receives Walter's rewrite) and docs/API-INTEGRATIONS.md updated.
+
+### Tested
+
+- `run-humanizer` 67 (blocks with headings, quotes, links, list items; units, items cut at headings; repair request and JSON parsing; quotes word for word; reworded headings and title-case names; link words; render and rebuild), `run-unit` 128, `run-images` 81, `run-validator` 17, all 0 failures. `php -l` clean.
+- Local WordPress 7.1.4 (SQLite) with Walter and OpenRouter faked through `pre_http_request`: upgrade 18 → 19 adds `original_title`; a stand-in article sends one Walter piece and one repair request; the new title, a reworded heading and a paragraph with its link put back are kept, while a part with "46 residents" changed and one with "now" dropped keep the AI's wording; `original_title`/`original_body` saved, usage row `humanize`, a second run does nothing. With the first repair request failing (503), the article goes to `retry` and the last try reuses Walter's answer: Walter called once, the AI twice.
+- **Not verified:** not run against the real Walter or a real AI model, so how much of each article passes is unknown, and the repair model's accuracy is untested. The guard, token renewal and a full posting cycle have not run live.
+
 ## [1.12.1] - 2026-11-16
 
 Fixes from running 1.12.0 on a local WordPress 7.1.4 site (SQLite) connected to the owner's Walter account, plus the owner's "strict, save words" decision. No schema change, `DB_VERSION` stays 18.

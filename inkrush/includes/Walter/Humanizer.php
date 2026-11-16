@@ -6,8 +6,10 @@ use ZZZCopy\Db;
 use ZZZCopy\Events;
 use ZZZCopy\Lifecycle;
 use ZZZCopy\Locks;
+use ZZZCopy\OpenRouter;
 use ZZZCopy\Schedule;
 use ZZZCopy\Settings;
+use ZZZCopy\Usage;
 use ZZZCopy\Validator;
 
 defined( 'ABSPATH' ) || exit;
@@ -21,9 +23,13 @@ defined( 'ABSPATH' ) || exit;
  *  - Just before the post is created (Publisher::run_publish), if it has not run yet or Walter
  *    was busy the first time. That is also when it runs outside Past-Hour Posting.
  *
+ * Since 1.12.2 the whole article goes to Walter (title, headings, list items, paragraphs), then the
+ * site's AI model puts back every fact Walter changed, keeping Walter's wording, and each part is
+ * checked on its own (HumanizeText::check_part()). A part that still differs keeps the AI's wording.
+ *
  * A post is never held back for Walter. If Walter is not connected, is out of words, is down, or
- * every group fails the fact check, the post goes out with the AI's wording, and the log says so.
- * The AI's version is kept in original_body.
+ * nothing passes the fact check, the post goes out with the AI's wording, and the log says so.
+ * The AI's version is kept in original_title and original_body.
  */
 final class Humanizer {
 
@@ -94,9 +100,9 @@ final class Humanizer {
 		if ( ! $lock ) {
 			return;
 		}
-		// Walter can take up to the timeout for each call; the worker's own run budget is shorter.
+		// Walter can take up to its timeout for each call, then the AI's fact repair up to its own.
 		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( (int) Settings::get( 'walter_timeout' ) * 3 + 60 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			@set_time_limit( (int) Settings::get( 'walter_timeout' ) * 3 + (int) Settings::get( 'ai_timeout' ) + 60 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
 		}
 		try {
 			self::humanize( $job_id, $content, $last_chance, $ctx );
@@ -113,78 +119,214 @@ final class Humanizer {
 	}
 
 	private static function humanize( int $job_id, array $content, bool $last_chance, array $ctx ): void {
+		$title  = (string) $content['title'];
 		$body   = (string) $content['body'];
 		$blocks = HumanizeText::blocks( $body );
-		$pieces = HumanizeText::pieces( $blocks );
-		if ( ! $pieces ) {
-			self::record( $job_id, self::UNCHANGED, 'Not enough plain paragraphs without quotes (55 words in all) to send to Walter.', 0, $ctx );
+		$units  = HumanizeText::units( $title, $blocks );
+		$items  = HumanizeText::items( $units );
+		if ( ! $items ) {
+			self::record( $job_id, self::UNCHANGED, 'The article has too little text (55 words in all) to send to Walter.', 0, $ctx );
 			return;
 		}
-		$total = 0;
-		foreach ( $pieces as $piece ) {
-			$total += count( $piece );
-		}
+		$total = count( $units );
 
 		$guard = self::guard();
 		if ( self::paused( $guard, Schedule::today() ) ) {
-			self::record( $job_id, self::SKIPPED, sprintf( 'Not sent to Walter today: its versions of the last %d articles all failed the fact check, so sending is paused until tomorrow to save words.', (int) $guard['misses'] ), 0, $ctx );
+			self::record( $job_id, self::SKIPPED, sprintf( 'Not sent to Walter today: nothing of the last %d articles passed the fact check, so sending is paused until tomorrow to save words.', (int) $guard['misses'] ), 0, $ctx );
 			return;
 		}
 
+		// Walter's answer from an earlier try whose fact repair did not finish: its words are already spent.
+		$saved_key = 'zzzc_walter_answer_' . $job_id;
+		$hash      = md5( $title . "\n" . $body );
+		$saved     = get_transient( $saved_key );
+		if ( is_array( $saved ) && ( $saved['hash'] ?? '' ) === $hash && ! empty( $saved['answers'] ) ) {
+			$answers = (array) $saved['answers'];
+			$spent   = (int) ( $saved['spent'] ?? 0 );
+		} else {
+			$walter = self::ask_walter( $job_id, $units, $items, $last_chance, $ctx );
+			if ( null === $walter ) {
+				return;
+			}
+			list( $answers, $spent ) = $walter;
+			set_transient(
+				$saved_key,
+				array(
+					'hash'    => $hash,
+					'answers' => $answers,
+					'spent'   => $spent,
+				),
+				2 * HOUR_IN_SECONDS
+			);
+		}
+
+		// The units Walter answered for, in article order, and its text for them.
+		$sent   = array();
+		$texts  = array();
+		foreach ( $answers as $number => $text ) {
+			foreach ( $items[ $number ] ?? array() as $position ) {
+				$sent[] = $units[ $position ];
+			}
+			$texts[] = $text;
+		}
+		if ( ! $sent ) {
+			delete_transient( $saved_key );
+			self::record( $job_id, self::FAILED, 'Walter\'s answer did not match the article any more. The post goes out with the AI\'s wording.', 0, $ctx, 'warning' );
+			return;
+		}
+
+		// The site's AI model puts every fact back as the original had it, keeping Walter's wording.
+		$result = OpenRouter::chat( HumanizeText::repair_messages( $sent, implode( "\n\n", $texts ) ), (string) Settings::get( 'model_id' ), (int) Settings::get( 'max_output_tokens' ) );
+		Usage::record( 'humanize', $job_id, $result );
+		$parts = $result['ok'] ? HumanizeText::parse_repair( (string) $result['content'] ) : array();
+		if ( ! $parts ) {
+			$why = $result['ok'] ? 'The AI\'s fact check of Walter\'s text could not be read.' : 'The AI could not check Walter\'s text: ' . rtrim( (string) $result['message'], '. ' ) . '.';
+			if ( ! $last_chance ) {
+				self::record( $job_id, self::RETRY, $why . ' Tried again just before the post goes out, with the same Walter text.', 0, $ctx, 'warning' );
+			} else {
+				delete_transient( $saved_key );
+				self::record( $job_id, self::FAILED, $why . ' The post goes out with the AI\'s wording.', 0, $ctx, 'warning' );
+			}
+			return;
+		}
+		delete_transient( $saved_key );
+
+		// Each part is checked on its own against its own original.
+		$article   = HumanizeText::article_text( $title, $blocks );
+		$inner    = array();
+		$new_title = $title;
+		$accepted = 0;
+		$same     = 0;
+		$refused  = array();
+		foreach ( $sent as $unit ) {
+			$new = HumanizeText::clean_part( (string) ( $parts[ $unit['id'] ] ?? '' ) );
+			if ( '' === $new ) {
+				$refused[] = 'the fact check left a part out';
+				continue;
+			}
+			if ( $new === $unit['text'] ) {
+				++$same;
+				continue;
+			}
+			$why = HumanizeText::check_part( $unit, $new, $article );
+			if ( '' !== $why ) {
+				$refused[] = $why;
+				continue;
+			}
+			if ( 'title' === $unit['kind'] ) {
+				$new_title = $new;
+			} else {
+				$html = HumanizeText::render_inner( $new, $blocks[ $unit['block'] ]['inline'] );
+				if ( null === $html ) {
+					$refused[] = 'a link could not be put back';
+					continue;
+				}
+				$inner[ $unit['block'] ] = $html;
+			}
+			++$accepted;
+		}
+
+		// Words were spent: remember whether anything came of them.
+		$guard = self::next_guard( $guard, Schedule::today(), $accepted > 0 );
+		update_option( self::GUARD_OPTION, $guard, false );
+
+		if ( ! $accepted ) {
+			$message = sprintf( 'Nothing of Walter\'s version (%d words) passed the fact check, so the AI\'s wording is kept', $spent ) . ( $refused ? ': ' . self::summary( $refused ) : '.' );
+			if ( self::paused( $guard, Schedule::today() ) ) {
+				$message = sprintf( 'Sending to Walter is paused until tomorrow: %d articles in a row came back with nothing that passed. ', (int) $guard['misses'] ) . $message;
+			}
+			self::record( $job_id, self::UNCHANGED, $message, 0, $ctx, 'warning' );
+			return;
+		}
+
+		$new_body = HumanizeText::rebuild( $blocks, $inner );
+		$problem  = self::new_validation_errors( $content, $new_title, $new_body );
+		if ( '' !== $problem ) {
+			self::record( $job_id, self::UNCHANGED, 'The humanized article failed a check the original passes (' . $problem . '), so the AI\'s wording is kept.', 0, $ctx, 'warning' );
+			return;
+		}
+
+		global $wpdb;
+		$wpdb->update(
+			Db::table( 'article_content' ),
+			array(
+				'title'          => $new_title,
+				'body'           => $new_body,
+				'original_title' => $title,
+				'original_body'  => $body,
+				'word_count'     => HumanizeText::count_words( HumanizeText::plain( $new_body ) ),
+			),
+			array( 'article_job_id' => $job_id )
+		);
+
+		$status  = $accepted === $total ? self::DONE : self::PARTIAL;
+		$message = sprintf( 'Humanized with Walter: %1$d of %2$d parts (title, headings, list items, paragraphs), %3$d Walter words.', $accepted, $total, $spent );
+		if ( count( $sent ) < $total ) {
+			$message .= sprintf( ' %d were not sent, to spread the plan\'s words over the month.', $total - count( $sent ) );
+		}
+		if ( $same ) {
+			$message .= sprintf( ' %d came back the same.', $same );
+		}
+		if ( $refused ) {
+			$message .= ' Kept the AI\'s wording where a fact still differed: ' . self::summary( $refused );
+		}
+		self::record( $job_id, $status, $message, $spent, $ctx );
+	}
+
+	/**
+	 * Sends the pieces this post's share of the words allows to Walter.
+	 *
+	 * @return array|null [ piece number => Walter's cleaned text, words spent ], or null when nothing
+	 *                    came back (already recorded).
+	 */
+	private static function ask_walter( int $job_id, array $units, array $items, bool $last_chance, array $ctx ): ?array {
 		$allowance = self::allowance();
 		if ( is_string( $allowance ) ) {
 			self::record( $job_id, self::SKIPPED, $allowance, 0, $ctx, 'warning' );
-			return;
+			return null;
 		}
-
 		// The first pieces, as many as this post's share of the words allows.
 		$chosen = array();
 		$words  = 0;
-		foreach ( $pieces as $piece ) {
-			$size = HumanizeText::piece_words( $blocks, $piece );
+		foreach ( $items as $number => $item ) {
+			$size = HumanizeText::item_words( $units, $item );
 			if ( $words + $size > $allowance ) {
 				break;
 			}
-			$chosen[] = $piece;
-			$words   += $size;
+			$chosen[ $number ] = $item;
+			$words            += $size;
 		}
 		if ( ! $chosen ) {
-			self::record( $job_id, self::SKIPPED, sprintf( 'This post\'s share of the Walter words (%d) is smaller than one piece Walter accepts.', $allowance ), 0, $ctx, 'warning' );
-			return;
-		}
-		$sent = 0;
-		foreach ( $chosen as $piece ) {
-			$sent += count( $piece );
+			self::record( $job_id, self::SKIPPED, sprintf( 'This post\'s share of the Walter words (%d) is smaller than the first piece of the article.', $allowance ), 0, $ctx, 'warning' );
+			return null;
 		}
 
-		$article  = HumanizeText::plain( $body );
-		$accepted = array();
-		$refused  = array();
-		$used     = 0;
-		$failure  = null;
-
-		foreach ( self::batches( $blocks, $chosen ) as $batch ) {
-			$items = array();
-			foreach ( $batch as $number => $piece ) {
-				$text  = HumanizeText::piece_text( $blocks, $piece );
+		$answers = array();
+		$spent   = 0;
+		$failure = null;
+		$problem = array();
+		foreach ( self::batches( $units, $chosen ) as $batch ) {
+			$payload = array();
+			foreach ( $batch as $number => $item ) {
+				$text  = HumanizeText::item_text( $units, $item );
 				$names = array_slice( HumanizeText::names( $text ), 0, 100 );
-				$item  = array(
+				$entry = array(
 					'id'   => 'g' . $number,
 					'text' => $text,
 				);
 				if ( $names ) {
-					$item['preserve'] = array(
+					$entry['preserve'] = array(
 						'entities' => $names,
 						'numbers'  => true,
 						'urls'     => true,
 					);
 				}
-				$items[] = $item;
+				$payload[] = $entry;
 			}
 			$result = WalterClient::call(
 				'walter_batch_humanize',
 				array(
-					'items'    => $items,
+					'items'    => $payload,
 					'defaults' => array(
 						'mode'          => (string) Settings::get( 'walter_mode' ),
 						'reading_level' => (string) Settings::get( 'walter_reading_level' ),
@@ -209,110 +351,53 @@ final class Humanizer {
 				break;
 			}
 			WalterClient::note_balance( $result['words_left'] );
-
 			foreach ( (array) ( $result['data']['results'] ?? array() ) as $answer ) {
 				$number = (int) substr( (string) ( $answer['id'] ?? '' ), 1 );
 				if ( ! isset( $batch[ $number ] ) ) {
 					continue;
 				}
-				$piece = $batch[ $number ];
-				if ( 'success' !== ( $answer['status'] ?? '' ) ) {
-					$refused[] = 'Walter: ' . (string) ( $answer['error']['message'] ?? 'no text came back' );
+				$text = HumanizeText::clean_answer( (string) ( $answer['humanized_text'] ?? '' ) );
+				if ( 'success' !== ( $answer['status'] ?? '' ) || '' === $text ) {
+					$problem[] = 'Walter: ' . (string) ( $answer['error']['message'] ?? 'no text came back' );
 					continue;
 				}
-				// Back to one text per section, each checked on its own against its own original.
-				$parts = HumanizeText::split_answer( (string) ( $answer['humanized_text'] ?? '' ), count( $piece ) );
-				if ( null === $parts ) {
-					$refused[] = 'Walter dropped, merged or added a section, so its text could not be put back in place';
-					continue;
-				}
-				foreach ( $piece as $i => $section ) {
-					$original   = HumanizeText::group_text( $blocks, $section );
-					$paragraphs = HumanizeText::clean( $parts[ $i ] );
-					$why        = HumanizeText::fact_check( $original, implode( "\n\n", $paragraphs ), $article );
-					if ( '' !== $why ) {
-						$refused[] = $why;
-						continue;
-					}
-					$accepted[ $section[0] ] = array( $section, HumanizeText::fit_paragraphs( $paragraphs, count( $section ) ) );
-					$used                   += HumanizeText::count_words( $original );
-				}
+				$answers[ $number ] = $text;
+				$spent             += HumanizeText::item_words( $units, $batch[ $number ] );
 			}
 		}
+		ksort( $answers );
 
-		if ( null !== $failure && ! $accepted ) {
-			if ( $failure['temporary'] && ! $last_chance ) {
+		if ( ! $answers ) {
+			if ( null !== $failure && $failure['temporary'] && ! $last_chance ) {
 				self::record( $job_id, self::RETRY, $failure['message'] . ' Tried again just before the post goes out.', 0, $ctx, 'warning' );
 			} else {
-				self::record( $job_id, self::FAILED, $failure['message'] . ' The post goes out with the AI\'s wording.', 0, $ctx, 'warning' );
+				$why = null !== $failure ? $failure['message'] : self::summary( $problem );
+				self::record( $job_id, self::FAILED, $why . ' The post goes out with the AI\'s wording.', 0, $ctx, 'warning' );
 			}
-			return;
+			return null;
 		}
-
-		// Words were spent: remember whether anything came of them.
-		$guard = self::next_guard( $guard, Schedule::today(), (bool) $accepted );
-		update_option( self::GUARD_OPTION, $guard, false );
-
-		if ( ! $accepted ) {
-			$message = 'Walter\'s versions did not pass the fact check, so the AI\'s wording is kept: ' . self::summary( $refused );
-			if ( self::paused( $guard, Schedule::today() ) ) {
-				$message = sprintf( 'Sending to Walter is paused until tomorrow: %d articles in a row came back with nothing that passed the fact check. ', (int) $guard['misses'] ) . $message;
-			}
-			self::record( $job_id, self::UNCHANGED, $message, 0, $ctx, 'warning' );
-			return;
-		}
-
-		$new_body = HumanizeText::rebuild( $blocks, $accepted );
-		$problem  = self::new_validation_errors( $content, $new_body );
-		if ( '' !== $problem ) {
-			self::record( $job_id, self::UNCHANGED, 'The humanized article failed a check the original passes (' . $problem . '), so the AI\'s wording is kept.', 0, $ctx, 'warning' );
-			return;
-		}
-
-		global $wpdb;
-		$wpdb->update(
-			Db::table( 'article_content' ),
-			array(
-				'body'          => $new_body,
-				'original_body' => $body,
-				'word_count'    => HumanizeText::count_words( HumanizeText::plain( $new_body ) ),
-			),
-			array( 'article_job_id' => $job_id )
-		);
-
-		$status  = count( $accepted ) === $total ? self::DONE : self::PARTIAL;
-		$message = sprintf( 'Humanized with Walter: %1$d of %2$d sections that could be sent, %3$d words.', count( $accepted ), $total, $used );
-		if ( $sent < $total ) {
-			$message .= sprintf( ' %d were not sent, to spread the plan\'s words over the month.', $total - $sent );
-		}
-		if ( $refused ) {
-			$message .= ' Kept the AI\'s wording where Walter\'s failed the fact check: ' . self::summary( $refused );
-		}
-		if ( null !== $failure ) {
-			$message .= ' Walter stopped part way: ' . $failure['message'];
-		}
-		self::record( $job_id, $status, $message, $used, $ctx );
+		return array( $answers, $spent );
 	}
 
 	/**
 	 * Splits the chosen pieces into calls that stay inside Walter's limits.
 	 *
-	 * @return array<int, array<int, array>> Each call's pieces, keyed by a number unique to the article.
+	 * @return array<int, array<int, int[]>> Each call's pieces, keyed by piece number.
 	 */
-	private static function batches( array $blocks, array $groups ): array {
+	private static function batches( array $units, array $items ): array {
 		$limit   = (int) ( WalterClient::data()['max_words'] ?? 0 );
 		$limit   = (int) floor( ( $limit > 0 ? $limit : self::DEFAULT_REQUEST_WORDS ) * 0.9 );
 		$batches = array();
 		$current = array();
 		$words   = 0;
-		foreach ( $groups as $number => $group ) {
-			$size = HumanizeText::count_words( HumanizeText::piece_text( $blocks, $group ) );
+		foreach ( $items as $number => $item ) {
+			$size = HumanizeText::item_words( $units, $item );
 			if ( $current && ( $words + $size > $limit || count( $current ) >= self::BATCH_ITEMS ) ) {
 				$batches[] = $current;
 				$current   = array();
 				$words     = 0;
 			}
-			$current[ $number ] = $group;
+			$current[ $number ] = $item;
 			$words             += $size;
 		}
 		if ( $current ) {
@@ -338,7 +423,7 @@ final class Humanizer {
 		}
 		$credits = (int) ( $data['credits'] ?? 0 );
 		$allow   = self::allowance_for( $credits, Schedule::today(), (int) Settings::get( 'walter_renewal_day' ), (int) Settings::get( 'daily_target' ), (int) Settings::get( 'walter_max_words' ) );
-		if ( $allow < HumanizeText::MIN_GROUP_WORDS ) {
+		if ( $allow < HumanizeText::MIN_ITEM_WORDS ) {
 			return sprintf( 'The Walter plan has %d words left, too few to share with the posts before it renews.', $credits );
 		}
 		return $allow;
@@ -405,11 +490,11 @@ final class Humanizer {
 	/**
 	 * Validation errors the humanized body has and the original does not. Empty when there are none.
 	 */
-	private static function new_validation_errors( array $content, string $new_body ): string {
+	private static function new_validation_errors( array $content, string $new_title, string $new_body ): string {
 		$meta   = json_decode( (string) $content['validation_result'], true ) ?: array();
 		$tags   = json_decode( (string) $content['tags_json'], true ) ?: array();
 		$before = Validator::validate( (string) $content['title'], (string) $content['body'], (string) $content['finish_reason'], (string) ( $meta['preamble'] ?? '' ), $tags );
-		$after  = Validator::validate( (string) $content['title'], $new_body, (string) $content['finish_reason'], (string) ( $meta['preamble'] ?? '' ), $tags );
+		$after  = Validator::validate( $new_title, $new_body, (string) $content['finish_reason'], (string) ( $meta['preamble'] ?? '' ), $tags );
 		$new    = array_diff( array_column( $after['errors'], 0 ), array_column( $before['errors'], 0 ) );
 		return implode( ', ', $new );
 	}

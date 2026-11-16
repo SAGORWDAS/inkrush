@@ -774,7 +774,7 @@ final class Pages {
 	private static function walter_card(): void {
 		$data = WalterClient::data();
 		echo '<section class="zzzc-card" id="zzzc-walter"><h3>Walter Writes humanizer</h3>';
-		echo '<p class="zzzc-help">The article chosen for each post is sent to your Walter Writes plan after the AI writes it and before it is published. Only plain paragraphs without quotes are sent. Each one comes back only if every number, name, date and "said" survives; otherwise the AI\'s wording stays. If Walter is not connected, out of words or down, the post still goes out on time with the AI\'s wording.</p>';
+		echo '<p class="zzzc-help">The article chosen for each post is sent to your Walter Writes plan after the AI writes it and before it is published. The whole article is sent: title, headings, list items and paragraphs (tables, block quotes and source lines stay as written). Your AI model then puts back any fact Walter changed, keeping Walter\'s wording, and each part is kept only if every number, name, date, quote and "said" matches the original; otherwise that part keeps the AI\'s wording. This uses one extra AI request per post. If Walter is not connected, out of words or down, the post still goes out on time with the AI\'s wording.</p>';
 
 		if ( WalterClient::connected() ) {
 			echo '<p>Status: <strong>Connected</strong>';

@@ -41,21 +41,25 @@ Optional, from 1.12.0. The article chosen for each post is rewritten by your own
 
 **Connecting.** On the AI Settings page, click **Connect Walter**, sign in to Walter Writes and click **Allow**. The plugin talks to Walter's official MCP server (`https://mcp-server.walterwrites.ai/mcp`) with standard OAuth: it registers itself as a client, signs you in with a PKCE challenge, and stores the tokens encrypted. The access token lasts an hour and is renewed automatically. If Walter stops accepting the sign-in, the log and an email (at most one a day) ask you to connect again. Walter's web app itself cannot be used from a server, because Cloudflare refuses requests that do not come from a browser.
 
-**What is sent.** Only plain paragraphs. Never headings, lists, tables, block quotes, links, quotes, source lines, or paragraphs under 15 words. Paragraphs next to each other are sent together in pieces of 60 to 300 words, because Walter refuses anything under 50 words. Names in each piece are sent as entities to keep, and numbers and links are marked to keep too.
+**What is sent.** Since 1.12.2, the whole article: the title, every heading, list item and paragraph, including paragraphs with quotes and links (the link text is sent, not the address). Tables, block quotes, source and credit lines, and blocks with other markup stay as written. The article is sent as Markdown in pieces of 55 to 700 words cut at headings, because Walter refuses anything under 50 words. Names in each piece are sent as entities to keep, and numbers and links are marked to keep too.
 
-**The fact check.** In tests on 16 November 2026, Walter changed dates and figures, dropped a whole paragraph and invented a quote, even when asked to keep them. So a piece is used only if all of these hold:
+**The fact repair.** In tests on 16 November 2026, Walter changed facts in every section, even when asked to keep them: "46 residents" became "over 40 citizens", details and a quote were made up. So Walter's text, with the original parts, goes to your AI model on OpenRouter (the model set on AI Settings, one extra request per post, logged under the purpose `humanize`). It is asked to keep Walter's wording and style and change only what is needed to make every fact match the original, returning one text per part. If that request fails, the post's last try uses the same Walter text again, so Walter's words are not spent twice.
 
-- Its length is within 75 to 140 percent of the original.
+**The fact check.** Each repaired part is then used only if all of these hold:
+
+- Its length is within 75 to 140 percent of the original (50 to 200 percent for titles, headings and other parts of 12 words or fewer).
+- Every quote is word for word the same, and none is added.
 - Every figure is the same, and none is added.
 - Every time word (Monday, next, March, spring) and number word stays, and none is added.
 - No "not" or "no" is added or lost.
 - It has at least as many "said"-type words, and every hedge ("about", "may", "expected") stays.
-- Every name stays, and none is invented.
-- It has no quote marks, links or the forbidden dash.
+- Every name stays, and none is invented (in a title or heading, the names the article uses in its sentences).
+- The words of each link and bold or italic phrase are still there, so the link goes back around them.
+- A title or heading did not become sentences, and there is no web address or forbidden dash.
 
-A piece that fails keeps the AI's wording. Then the whole article must pass the same validation as before.
+A part that fails keeps the AI's wording. Then the whole article, with its new title, must pass the same validation as before. The AI's title and body are kept in `original_title` and `original_body`.
 
-**Words.** Walter's Pro plan has 70,000 words a month, and three 1,500-word articles a day need about 135,000. So the words left are shared evenly over the posts until your plan renews (the renewal day is a setting), and each post has its first part humanized. Words left are shown on the AI Settings page, and the words used for each article are in the log.
+**Words.** Walter's Pro plan has 70,000 words a month, and three 1,500-word articles a day need about 135,000. So the words left are shared evenly over the posts until your plan renews (the renewal day is a setting), and each post has as much of the article humanized as its share allows, from the title down. If three articles in a row get nothing through, sending pauses for the rest of the day. Words left are shown on the AI Settings page, and the words used for each article are in the log.
 
 **When.** In Past-Hour Posting, as soon as the post's article has its image, while the post waits for its time. Otherwise, or if Walter was busy then, just before the post is created. A post is never held back for Walter. If Walter is not connected, out of words or down, the post goes out on time with the AI's wording.
 

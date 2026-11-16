@@ -1,6 +1,6 @@
 <?php
 /**
- * Tests for the Walter Writes humanizer's text rules (1.12.0).
+ * Tests for the Walter Writes humanizer's text rules (1.12.0, whole article since 1.12.2).
  *
  * Run: php tests/unit/run-humanizer.php
  *
@@ -28,7 +28,7 @@ $web = 'City leaders stated yesterday they plan to officially open the riverfron
 u_true( '' !== HumanizeText::fact_check( $p1, $web ), 'Web app answer: "Monday" became "yesterday", "$12 million" became words, refused' );
 
 $batch = 'Beginning with the announcement by city authorities on Monday; the parks along the river are scheduled to open this spring. The project cost approximately $12 million. A portion of this money was spent on creating walkways through the area; another part of it was used to create an area where children can play. And yet, another portion of that money was allocated toward building a small outdoor stage for use during community functions.';
-$why   = HumanizeText::fact_check( $both, implode( "\n\n", HumanizeText::clean( $batch ) ) );
+$why   = HumanizeText::fact_check( $both, HumanizeText::clean_answer( $batch ) );
 u_true( '' !== $why, 'Batch answer that dropped the whole Riverton paragraph is refused' );
 
 $mayor_in  = 'Mayor Jane Holloway said local business owners expect the park to bring more visitors to nearby shops and cafes, and that the city will review parking around the site before it opens to the public next year.';
@@ -53,60 +53,85 @@ $good2 = 'Residents have spent years asking for it, saying the eastern side of R
 u_is( '', HumanizeText::fact_check( $p2, $good2 ), 'Reordered sentences with the same facts pass' );
 u_is( '', HumanizeText::fact_check( 'Sales rose to 1,500 units, or 3.5 percent more than the 2025 total, the company said in a statement on its quarterly results and outlook for buyers.', 'The company said in a statement that sales rose to 1500 units, 3.5 percent more than the 2025 total, as it shared quarterly results and its outlook for buyers.' ), '"1,500" and "1500" are the same number' );
 
-/* ---- Cleaning Walter's answer ---- */
+/* ---- Cleaning Walter's answer and the repaired parts ---- */
 
-u_is( array( 'Park Opening', 'Monday city leaders spoke.' ), HumanizeText::clean( "Beginning of Text \nPark Opening\n\nMonday city leaders spoke." ), '"Beginning of Text" is removed and paragraphs are kept' );
-u_is( array( 'Bold words here.' ), HumanizeText::clean( '<p>**Bold** words here.</p>' ), 'HTML and Markdown emphasis are removed' );
-u_is( array(), HumanizeText::clean( "  \n\n " ), 'An empty answer gives no paragraphs' );
+u_is( "Park Opening\n\nMonday city leaders spoke.", HumanizeText::clean_answer( "Beginning of Text \nPark Opening\n\nMonday city leaders spoke." ), '"Beginning of Text" is removed and paragraphs are kept' );
+u_is( 'Bold words here.', HumanizeText::clean_answer( '<p>**Bold** words here.</p>' ), 'HTML and Markdown emphasis are removed' );
+u_is( 'The council met.', HumanizeText::clean_part( "– The council\n met." ), 'Seen 2026-11-16: a leading "– " is removed, lines joined' );
+u_is( 'How the vote went', HumanizeText::clean_part( '## How the vote went' ), 'A heading mark is removed' );
 
-/* ---- Which paragraphs are sent ---- */
+/* ---- Which parts are sent: everything but tables, block quotes and source lines ---- */
 
 $long  = str_repeat( 'The council met for several hours to discuss the budget and its effect on local schools. ', 3 );
-$body  = "<h2>Budget</h2>\n<p>$long</p>\n<p>$long</p>\n<blockquote><p>$long</p></blockquote>\n<p>\"We are ready,\" the mayor said after the council met for several hours to discuss the budget and schools.</p>\n<p>See <a href=\"https://example.com\">the report</a> for the council budget details and its effect on schools in the district.</p>\n<p>Source: Example News</p>\n<ul><li>One</li></ul>\n<p>$long</p>";
+$body  = "<h2>Budget</h2>\n<p>$long</p>\n<blockquote><p>$long</p></blockquote>\n<p>\"We are ready,\" the mayor said after the council met.</p>\n<p>See <a href=\"https://example.com\">the report</a> for details.</p>\n<p>Source: Example News</p>\n<ul><li>One item in the list</li></ul>\n<table><tr><td>Cell</td></tr></table>\n<p>Read <span class=\"x\">this</span> part.</p>\n<p>$long</p>";
 $blocks = HumanizeText::blocks( $body );
 u_is( $body, implode( '', array_column( $blocks, 'html' ) ), 'Joining the blocks gives the body back exactly' );
 $why = array();
 foreach ( $blocks as $block ) {
-	if ( '' !== $block['text'] ) {
+	if ( '' !== $block['tag'] ) {
 		$why[] = $block['why'];
 	}
 }
-u_is( array( '', '', 'inside a blockquote', 'has a quote', 'has links or formatting', 'a label or source line', '' ), $why, 'Quotes, links, block quotes and source lines are never sent' );
+u_is( array( '', '', 'inside a blockquote', '', '', 'a label or source line', '', 'has markup other than links and bold or italic words', '' ), $why, 'Headings, quotes, links and list items are sent; block quotes, source lines and other markup are not' );
+u_is( array( array( 'html' => '<a href="https://example.com">the report</a>', 'text' => 'the report' ) ), $blocks[8]['inline'], 'A link is kept with its words' );
 
-$sections = HumanizeText::sections( $blocks );
-u_is( 2, count( $sections ), 'Two sections: the two touching paragraphs, and the last paragraph after the list' );
-u_is( 2, count( $sections[0] ), 'The first holds both touching paragraphs' );
-$pieces = HumanizeText::pieces( $blocks );
-u_is( 1, count( $pieces ), 'They are sent together as one piece (144 words)' );
-u_is( 2, count( $pieces[0] ), 'With both sections in it' );
-$text = HumanizeText::piece_text( $blocks, $pieces[0] );
-u_is( 1, substr_count( $text, '## Part' ), 'One marker line between the two sections' );
-u_is( 144, HumanizeText::piece_words( $blocks, $pieces[0] ), 'Marker lines do not count against the words' );
+$units = HumanizeText::units( 'Council Approves the School Budget', $blocks );
+u_is( array( 'title', 'heading', 'paragraph', 'paragraph', 'paragraph', 'item', 'paragraph' ), array_column( $units, 'kind' ), 'Title, heading, paragraphs and the list item, in order' );
+u_is( array( 'the report' ), $units[4]['keep'], 'The link\'s words must survive' );
 
-// The sample article's shape: one short paragraph under each heading, as on 2026-11-16.
-$para  = 'Officials said the plan was approved after a long meeting at which residents asked questions about cost, timing and the effect on traffic in the area.';
-$short = HumanizeText::blocks( "<p>$para</p><h2>A</h2><p>$para</p><h2>B</h2><p>$para</p><h2>C</h2><p>$para</p>" );
-$p     = HumanizeText::pieces( $short );
-u_is( 1, count( $p ), 'Four one-paragraph sections of 28 words become one piece' );
-u_is( 4, count( $p[0] ), 'Holding all four, each to go back under its own heading' );
-u_is( array(), HumanizeText::pieces( HumanizeText::blocks( "<p>$para</p>" ) ), 'A single 28-word section is too short for Walter and is not sent' );
+$items = HumanizeText::items( $units );
+u_is( 1, count( $items ), 'A short article is one piece' );
+$text = HumanizeText::item_text( $units, $items[0] );
+u_true( 0 === strpos( $text, "# Council Approves the School Budget\n\n## Budget\n\n" ), 'The title and headings are sent as Markdown headings' );
+u_true( false !== strpos( $text, "\n\n- One item in the list\n\n" ), 'A list item is sent as one' );
 
-/* ---- Splitting Walter's answer back into sections ---- */
+// A long article is cut at headings into pieces Walter accepts.
+$para  = str_repeat( 'Officials said the plan was approved after a long meeting with residents. ', 8 ); // 96 words
+$long_body = '';
+for ( $s = 1; $s <= 6; $s++ ) {
+	$long_body .= "<h2>Section number $s</h2><p>$para</p><p>$para</p>";
+}
+$u2 = HumanizeText::units( '', HumanizeText::blocks( $long_body ) );
+$i2 = HumanizeText::items( $u2 );
+u_true( count( $i2 ) >= 2, 'A 1,170-word article becomes several pieces' );
+$ok = true;
+foreach ( $i2 as $item ) {
+	$ok = $ok && 'heading' === $u2[ $item[0] ]['kind'] && HumanizeText::item_words( $u2, $item ) <= HumanizeText::MAX_ITEM_WORDS;
+}
+u_true( $ok, 'Each piece starts at a heading and stays under the maximum' );
+u_is( array(), HumanizeText::items( HumanizeText::units( '', HumanizeText::blocks( '<p>Too short to send at all.</p>' ) ) ), 'Under 55 words in all: nothing is sent' );
 
-u_is( array( 'One.', 'Two two.', 'Three.' ), HumanizeText::split_answer( "One.\n\n## Whatever Walter wrote\n\nTwo two.\n\n## Part 3\n\nThree.", 3 ), 'Split at heading lines, whatever their words' );
-u_is( null, HumanizeText::split_answer( "One.\n\n## Part 2\n\nTwo.", 3 ), 'Seen 2026-11-16: Walter dropped a section, so nothing in the piece is used' );
-u_is( null, HumanizeText::split_answer( "## Intro\n\nOne.\n\n## Part 2\n\nTwo.\n\n## Extra\n\nThree.", 2 ), 'An added section is refused too' );
+/* ---- The AI's fact repair ---- */
 
-/* ---- Putting the answer back ---- */
+$messages = HumanizeText::repair_messages( array_slice( $units, 0, 2 ), 'Walter text' );
+u_is( 2, count( $messages ), 'A system and a user message' );
+u_true( false !== strpos( $messages[1]['content'], '"id": "t"' ) && false !== strpos( $messages[1]['content'], "rewritten:\nWalter text" ), 'The parts and Walter\'s text are both in the request' );
+u_is( array( 't' => 'New title', 'b1' => 'Text' ), HumanizeText::parse_repair( "Sure:\n```json\n{\"parts\":[{\"id\":\"t\",\"text\":\"New title\"},{\"id\":\"b1\",\"text\":\"Text\"}]}\n```" ), 'The JSON is read even with words and fences around it' );
+u_is( array(), HumanizeText::parse_repair( 'no json here' ), 'An unreadable answer gives nothing' );
 
-$accepted = array( $sections[0][0] => array( $sections[0], array( 'First new paragraph.', 'Second new paragraph & more.' ) ) );
-$rebuilt  = HumanizeText::rebuild( $blocks, $accepted );
-u_true( false !== strpos( $rebuilt, "<h2>Budget</h2>\n<p>First new paragraph.</p>\n<p>Second new paragraph &amp; more.</p>" ), 'Accepted paragraphs replace the originals in place, escaped' );
-u_true( false !== strpos( $rebuilt, '<blockquote>' ) && false !== strpos( $rebuilt, 'Source: Example News' ), 'Everything else stays as it was' );
-u_is( 1, substr_count( $rebuilt, 'First new paragraph' ), 'The new text appears once' );
+/* ---- Checking each repaired part ---- */
 
-u_is( array( 'A one. A two.', 'B one. B two.' ), HumanizeText::fit_paragraphs( array( 'A one. A two. B one. B two.' ), 2 ), 'A merged answer is split back by sentences' );
-u_is( array( 'Only one sentence here.' ), HumanizeText::fit_paragraphs( array( 'Only one sentence here.' ), 2 ), 'Too few sentences: one paragraph' );
+$quote_unit = array( 'kind' => 'paragraph', 'text' => '"This is the biggest investment in public space this city has made in a generation," Mayor Jane Holloway said after the vote.', 'keep' => array() );
+u_is( '', HumanizeText::check_part( $quote_unit, 'After the vote, Mayor Jane Holloway said: “This is the biggest investment in public space this city has made in a generation.”', $quote_unit['text'] ), 'A quote kept word for word passes, curly or straight' );
+u_true( false !== strpos( HumanizeText::check_part( $quote_unit, '"This is the largest investment in public space this city has made in decades," Mayor Jane Holloway said after the vote.', $quote_unit['text'] ), 'quote' ), 'Seen 2026-11-16: a quote reworded by Walter is refused' );
+$heading = array( 'kind' => 'heading', 'text' => 'Paying for the park', 'keep' => array() );
+u_is( '', HumanizeText::check_part( $heading, 'How the park will be paid for', 'Paying for the park' ), 'A reworded heading passes' );
+u_true( '' !== HumanizeText::check_part( $heading, 'Paying for the park. It costs a lot.', 'Paying for the park' ), 'A heading turned into sentences is refused' );
+$title_unit = array( 'kind' => 'title', 'text' => 'Riverton Approves $12.4 Million Riverside Park', 'keep' => array() );
+$story      = "Riverton Approves \$12.4 Million Riverside Park\n\nThe council in Riverton voted to build the park.";
+u_is( '', HumanizeText::check_part( $title_unit, 'Riverton Backs $12.4 Million Riverside Park', $story ), 'A title-case word that is not a name may change' );
+u_true( false !== strpos( HumanizeText::check_part( $title_unit, 'City Backs $12.4 Million Riverside Park', $story ), 'Riverton' ), 'A real name in a title must stay' );
+$link_unit = array( 'kind' => 'paragraph', 'text' => 'Residents can see the full plans at the city\'s website or at City Hall.', 'keep' => array( 'the city\'s website' ) );
+u_true( false !== strpos( HumanizeText::check_part( $link_unit, 'The full plans are on the city website and at City Hall for residents to see.', $link_unit['text'] ), 'link' ), 'A part that lost its link words is refused' );
+u_is( '', HumanizeText::check_part( $link_unit, 'The full plans are on the city\'s website and at City Hall for residents to see.', $link_unit['text'] ), 'Kept link words pass' );
+
+/* ---- Putting the article back together ---- */
+
+u_is( 'The full plans are on <a href="https://example.com/plans">the city\'s website</a> &amp; at City Hall.', HumanizeText::render_inner( 'The full plans are on the city\'s website & at City Hall.', array( array( 'html' => '<a href="https://example.com/plans">the city\'s website</a>', 'text' => 'the city\'s website' ) ) ), 'The link goes back around the same words, the rest is escaped' );
+u_is( null, HumanizeText::render_inner( 'No link words here.', array( array( 'html' => '<a href="x">gone</a>', 'text' => 'gone' ) ) ), 'Missing link words: not put back' );
+$rebuilt = HumanizeText::rebuild( $blocks, array( 0 => 'The budget', 2 => 'New &amp; better.' ) );
+u_true( 0 === strpos( $rebuilt, "<h2>The budget</h2>\n<p>New &amp; better.</p>\n<blockquote>" ), 'Accepted parts go back in their own tags' );
+u_true( false !== strpos( $rebuilt, 'Source: Example News' ) && false !== strpos( $rebuilt, '<table>' ), 'Everything else stays as it was' );
 
 /* ---- Numbers and names ---- */
 
