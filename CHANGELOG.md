@@ -10,6 +10,21 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.12.3] - 2026-11-16
+
+Owner's request: humanize tables too, and humanize every article fully with no skipping (word use to be reviewed later). No schema change, `DB_VERSION` stays 19.
+
+### Changed
+
+- **Table cells.** `HumanizeText::blocks()` also splits `<td>`/`<th>` (kind `cell`, sent to Walter as `- ` lines, repair rule "a table cell stays one short cell"), and `table` is no longer a container that blocks sending. A block whose text has no letters ("2027", "12.4%") is not sent; it replaces the old three-word minimum for paragraphs. The title is sent whenever it has letters.
+- **Always in full.** Removed the monthly word sharing (`allowance()`, `allowance_for()`, `days_until_renewal()`, settings `walter_renewal_day` and `walter_max_words` and their fields) and the daily waste guard from 1.12.1 (`guard()`, `paused()`, `next_guard()`, `MISSES_TO_PAUSE`, the AI Settings notice). `words_left()` reads the balance (cached 30 minutes); every piece is sent unless the plan has fewer words left than the article, when only the pieces that fit are sent. An unreadable balance no longer skips: the article is sent and Walter decides. `uninstall.php` still deletes the old `zzzc_walter_guard` option.
+
+### Tested
+
+- `run-humanizer` 59 (allowance and guard checks removed; table cells sent, a reworded cell passes, a changed year in a cell is refused, a cell goes back in its tag with the table's shape kept), `run-unit` 128, `run-images` 81, `run-validator` 17, all 0 failures. `php -l` clean.
+- Local WordPress 7.1.4 with Walter and OpenRouter faked: a stand-in article with a table sends one Walter piece and one repair request; the header cell and a body cell are humanized, figure cells are untouched, the table keeps its markup; 8 of 17 parts kept, the parts with "46" changed and "now" dropped keep the AI's wording.
+- **Not verified:** no run against the real Walter or a real AI model. On the Pro plan (70,000 words a month) three full articles a day use the plan up part way through the month.
+
 ## [1.12.2] - 2026-11-16
 
 Owner's request: humanize every word of the article chosen for each post, headings included. `DB_VERSION` 19.

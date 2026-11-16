@@ -101,8 +101,6 @@ final class Settings {
 			'walter_enabled'             => 1,
 			'walter_mode'                => 'safe',
 			'walter_reading_level'       => 'general',
-			'walter_renewal_day'         => 29,
-			'walter_max_words'           => 1500,
 			'walter_timeout'             => 120,
 			// Worker.
 			'run_budget_seconds'         => 50,
@@ -205,8 +203,6 @@ final class Settings {
 			'catchup_gap_minutes'        => array( 0, 720 ),
 			'discovery_interval_minutes' => array( 5, 1440 ),
 			'category_buffer'            => array( 1, 20 ),
-			'walter_renewal_day'         => array( 1, 31 ),
-			'walter_max_words'           => array( 100, 5000 ),
 			'walter_timeout'             => array( 30, 300 ),
 			'research_lead_hours'        => array( 1, 48 ),
 			'daily_ai_limit'             => array( 1, 500 ),

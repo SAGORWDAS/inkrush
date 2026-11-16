@@ -339,7 +339,7 @@ final class Actions {
 
 	private static function do_save_walter(): void {
 		$values = array( 'walter_enabled' => self::post( 'walter_enabled', 0 ) );
-		foreach ( array( 'walter_mode', 'walter_reading_level', 'walter_renewal_day', 'walter_max_words', 'walter_timeout' ) as $key ) {
+		foreach ( array( 'walter_mode', 'walter_reading_level', 'walter_timeout' ) as $key ) {
 			$values[ $key ] = self::post( $key );
 		}
 		self::save_settings( $values, 'zzzc-ai' );

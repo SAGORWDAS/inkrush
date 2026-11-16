@@ -774,7 +774,7 @@ final class Pages {
 	private static function walter_card(): void {
 		$data = WalterClient::data();
 		echo '<section class="zzzc-card" id="zzzc-walter"><h3>Walter Writes humanizer</h3>';
-		echo '<p class="zzzc-help">The article chosen for each post is sent to your Walter Writes plan after the AI writes it and before it is published. The whole article is sent: title, headings, list items and paragraphs (tables, block quotes and source lines stay as written). Your AI model then puts back any fact Walter changed, keeping Walter\'s wording, and each part is kept only if every number, name, date, quote and "said" matches the original; otherwise that part keeps the AI\'s wording. This uses one extra AI request per post. If Walter is not connected, out of words or down, the post still goes out on time with the AI\'s wording.</p>';
+		echo '<p class="zzzc-help">The article chosen for each post is sent to your Walter Writes plan after the AI writes it and before it is published. The whole article is sent: title, headings, list items, tables and paragraphs (only block quotes and source lines stay as written), every time, in full. Your AI model then puts back any fact Walter changed, keeping Walter\'s wording, and each part is kept only if every number, name, date, quote and "said" matches the original; otherwise that part keeps the AI\'s wording. This uses one extra AI request per post. If Walter is not connected, out of words or down, the post still goes out on time with the AI\'s wording.</p>';
 
 		if ( WalterClient::connected() ) {
 			echo '<p>Status: <strong>Connected</strong>';
@@ -788,12 +788,6 @@ final class Pages {
 				echo ' <span class="zzzc-help">(checked ' . esc_html( Schedule::format_local( (string) $data['checked_at'], true ) ) . ')</span>';
 			}
 			echo '</p>';
-			$guard = \ZZZCopy\Walter\Humanizer::guard();
-			if ( \ZZZCopy\Walter\Humanizer::paused( $guard, Schedule::today() ) ) {
-				echo '<p class="zzzc-field-error">' . esc_html( sprintf( 'Paused until tomorrow: Walter\'s versions of the last %d articles all failed the fact check, so no more words are spent today. Posts go out with the AI\'s wording.', (int) $guard['misses'] ) ) . '</p>';
-			} elseif ( $guard['misses'] >= \ZZZCopy\Walter\Humanizer::MISSES_TO_PAUSE ) {
-				echo '<p class="zzzc-help">' . esc_html( sprintf( 'Walter\'s versions of the last %d articles failed the fact check. Today one article is tried; if it fails too, sending pauses again until tomorrow.', (int) $guard['misses'] ) ) . '</p>';
-			}
 			echo '<div class="zzzc-buttons">';
 			self::action_button( 'walter_check', 'Check now' );
 			self::action_button( 'walter_disconnect', 'Disconnect', array(), '', 'Disconnect Walter? Posts will go out with the AI\'s wording until you connect it again.' );
@@ -830,8 +824,6 @@ final class Pages {
 				'technical'    => 'Technical',
 			)
 		);
-		self::number_row( 'walter_renewal_day', 'Plan renews on day of the month', 'The words left are shared evenly over the posts until this day, so the plan does not run out mid-month. Each post then has its first part humanized.' );
-		self::number_row( 'walter_max_words', 'Most words humanized per article' );
 		self::number_row( 'walter_timeout', 'Walter request timeout (seconds)' );
 		echo '</div>';
 		self::save_bar( 'Save Walter settings' );

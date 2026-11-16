@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
  * Needs no database and no HTTP, so every rule here has a unit test.
  *
  * Since 1.12.2 (owner's request: "every words, heading, all will be humanized") the whole article
- * goes to Walter: the title, headings, list items and paragraphs, quotes and links included. In tests
+ * goes to Walter: the title, headings, list items, table cells (since 1.12.3) and paragraphs, quotes and links included. In tests
  * on 2026-11-16 Walter changed facts in every section ("46 residents" became "over 40 citizens",
  * details and a quote were made up), so its answer then goes to the site's own AI model, which is
  * asked to keep Walter's wording and put every fact back as the original had it. Each part is then
@@ -84,7 +84,7 @@ final class HumanizeText {
 	public static function blocks( string $body ): array {
 		$blocks = array();
 		$offset = 0;
-		if ( ! preg_match_all( '/(<(p|h[1-6]|li)\b[^>]*>)(.*?)<\/\2\s*>/is', $body, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER ) ) {
+		if ( ! preg_match_all( '/(<(p|h[1-6]|li|td|th)\b[^>]*>)(.*?)<\/\2\s*>/is', $body, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER ) ) {
 			return array( self::other( $body ) );
 		}
 		foreach ( $matches as $match ) {
@@ -101,9 +101,9 @@ final class HumanizeText {
 			$inline = self::inline( $inner );
 			$text   = self::plain( $inner );
 			$why    = self::not_eligible( $inner, substr( $body, 0, $start ), $inline );
-			$kind   = 'p' === $tag ? 'paragraph' : ( 'li' === $tag ? 'item' : 'heading' );
-			if ( '' === $why && 'paragraph' === $kind && self::count_words( $text ) < 3 ) {
-				$why = 'too short';
+			$kind   = 'p' === $tag ? 'paragraph' : ( 'li' === $tag ? 'item' : ( in_array( $tag, array( 'td', 'th' ), true ) ? 'cell' : 'heading' ) );
+			if ( '' === $why && ! preg_match( '/\p{L}/u', $text ) ) {
+				$why = 'no words, only figures'; // "$8 million" can be rewritten; "2027" or "12.4%" cannot.
 			}
 			$blocks[] = array(
 				'html'     => $html,
@@ -176,7 +176,8 @@ final class HumanizeText {
 	 * @param array|null $inline From inline().
 	 */
 	public static function not_eligible( string $inner, string $before, ?array $inline ): string {
-		foreach ( array( 'blockquote', 'table', 'figure', 'aside', 'details', 'pre', 'code' ) as $tag ) {
+		// Tables are humanized cell by cell (owner's request, 1.12.3). A block quote is someone's own words.
+		foreach ( array( 'blockquote', 'figure', 'aside', 'details', 'pre', 'code' ) as $tag ) {
 			$open  = preg_match_all( '/<' . $tag . '\b/i', $before );
 			$close = preg_match_all( '/<\/' . $tag . '\s*>/i', $before );
 			if ( $open > $close ) {
@@ -207,7 +208,7 @@ final class HumanizeText {
 	public static function units( string $title, array $blocks ): array {
 		$units = array();
 		$title = trim( $title );
-		if ( '' !== $title && self::count_words( $title ) >= 2 ) {
+		if ( '' !== $title && preg_match( '/\p{L}/u', $title ) ) {
 			$units[] = array(
 				'id'    => 't',
 				'kind'  => 'title',
@@ -289,6 +290,7 @@ final class HumanizeText {
 					$parts[] = '## ' . $unit['text'];
 					break;
 				case 'item':
+				case 'cell':
 					$parts[] = '- ' . $unit['text'];
 					break;
 				default:
@@ -329,7 +331,7 @@ final class HumanizeText {
 				'3. Remove any detail, claim, name, number or quote that the original part does not have.',
 				'4. Words inside quotation marks must be exactly as in the original, word for word, and attributed to the same person.',
 				'5. Every phrase listed under "keep" must appear in that part exactly as written.',
-				'6. A title or heading stays a short title or heading; a list item stays one item. Give each part its own text and never move a sentence to another part.',
+				'6. A title or heading stays a short title or heading; a list item stays one item; a table cell stays one short cell. Give each part its own text and never move a sentence to another part.',
 				'7. If the rewrite has nothing for a part, return that part\'s original text unchanged.',
 				'8. Plain text only: no Markdown, no HTML, no "#" or "-" in front, and never the "—" dash.',
 				'Answer with only this JSON and nothing else: {"parts":[{"id":"<id>","text":"<corrected text>"}]} with every id exactly once.',

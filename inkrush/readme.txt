@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.12.2
+Stable tag: 1.12.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -23,7 +23,7 @@ After setup, press Start Automation. The plugin keeps working in the background 
 4. Sends the source and your exact saved prompt to your OpenRouter model.
 5. Generates 20 tags with your exact saved tag prompt.
 6. Validates the result and holds anything that fails.
-7. Optionally, when you connect your own Walter Writes plan, humanizes the whole article chosen for each post before it goes out (title, headings, lists and paragraphs), with your AI model putting back any fact Walter changed. A post never waits for Walter.
+7. Optionally, when you connect your own Walter Writes plan, humanizes the whole article chosen for each post before it goes out (title, headings, lists, tables and paragraphs), with your AI model putting back any fact Walter changed. A post never waits for Walter.
 8. At each publishing slot, finds a featured image on Wikimedia Commons with rules only, then creates a draft or published WordPress post.
 9. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
 10. Optionally stops by itself after a number of days or published posts, whichever comes first.
@@ -44,7 +44,7 @@ InkRush is a tool, and you are responsible for what it publishes. A story or ima
 This plugin connects to these outside services. It sends nothing to the developer.
 
 * **OpenRouter** (https://openrouter.ai/), to write articles and tags. It receives your API key, the publisher text, your prompts, the model identifier and your site address, each time an article or its tags are written, and when you test the connection. Terms: https://openrouter.ai/terms. Privacy: https://openrouter.ai/privacy.
-* **Walter Writes** (https://walterwrites.ai/), only if you connect it on the AI Settings page, to humanize the article chosen for each post. Through Walter's MCP server (https://mcp-server.walterwrites.ai/mcp) it receives the article's title, headings, list items and paragraphs (never link addresses, tables or block quotes), the names in them and your Walter sign-in token, once for each post, and your site address when the site registers itself as a Walter client. It uses your Walter plan's words. Terms: https://walterwrites.ai/terms-of-service/. Privacy: https://walterwrites.ai/privacy-policy/.
+* **Walter Writes** (https://walterwrites.ai/), only if you connect it on the AI Settings page, to humanize the article chosen for each post. Through Walter's MCP server (https://mcp-server.walterwrites.ai/mcp) it receives the article's title, headings, list items, table cells and paragraphs (never link addresses or block quotes), the names in them and your Walter sign-in token, once for each post, and your site address when the site registers itself as a Walter client. It uses your Walter plan's words. Terms: https://walterwrites.ai/terms-of-service/. Privacy: https://walterwrites.ai/privacy-policy/.
 * **Wikimedia Commons** (https://commons.wikimedia.org/), to find and download featured images. It receives search terms made from each article. Terms: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use. Privacy: https://foundation.wikimedia.org/wiki/Policy:Privacy_policy.
 * **Google News RSS** (https://news.google.com/), to find stories, when "Use Google News RSS" is on. It receives your topic addresses, search queries, language and region. Terms: https://policies.google.com/terms. Privacy: https://policies.google.com/privacy.
 * **Publisher websites** you add or that Google News links to, to read feeds, robots.txt and article pages.
@@ -114,6 +114,13 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.12.3 =
+Tables humanized too, and every article sent in full, every time.
+
+**Tables.** Every table cell with words in it now goes to Walter and through the same fact repair and check. The table keeps its rows, columns and figures. Only block quotes (someone's own words), source lines and cells that are just a figure stay as written.
+
+**No skipping.** Each article is sent to Walter whole. The words are no longer shared out over the month, and the daily pause after three failed articles is gone, so the "Plan renews on day" and "Most words humanized per article" settings are removed. If your Walter plan runs out, the post still goes out on time with the AI's wording and the log says to add words.
 
 = 1.12.2 =
 Walter humanizes the whole article, and your AI model fixes what Walter gets wrong.

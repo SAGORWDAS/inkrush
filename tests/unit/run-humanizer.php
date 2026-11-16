@@ -60,10 +60,10 @@ u_is( 'Bold words here.', HumanizeText::clean_answer( '<p>**Bold** words here.</
 u_is( 'The council met.', HumanizeText::clean_part( "– The council\n met." ), 'Seen 2026-11-16: a leading "– " is removed, lines joined' );
 u_is( 'How the vote went', HumanizeText::clean_part( '## How the vote went' ), 'A heading mark is removed' );
 
-/* ---- Which parts are sent: everything but tables, block quotes and source lines ---- */
+/* ---- Which parts are sent: everything but block quotes, source lines and figures alone ---- */
 
 $long  = str_repeat( 'The council met for several hours to discuss the budget and its effect on local schools. ', 3 );
-$body  = "<h2>Budget</h2>\n<p>$long</p>\n<blockquote><p>$long</p></blockquote>\n<p>\"We are ready,\" the mayor said after the council met.</p>\n<p>See <a href=\"https://example.com\">the report</a> for details.</p>\n<p>Source: Example News</p>\n<ul><li>One item in the list</li></ul>\n<table><tr><td>Cell</td></tr></table>\n<p>Read <span class=\"x\">this</span> part.</p>\n<p>$long</p>";
+$body  = "<h2>Budget</h2>\n<p>$long</p>\n<blockquote><p>$long</p></blockquote>\n<p>\"We are ready,\" the mayor said after the council met.</p>\n<p>See <a href=\"https://example.com\">the report</a> for details.</p>\n<p>Source: Example News</p>\n<ul><li>One item in the list</li></ul>\n<table><tr><td>Cell text</td><td>2027</td></tr></table>\n<p>Read <span class=\"x\">this</span> part.</p>\n<p>$long</p>";
 $blocks = HumanizeText::blocks( $body );
 u_is( $body, implode( '', array_column( $blocks, 'html' ) ), 'Joining the blocks gives the body back exactly' );
 $why = array();
@@ -72,11 +72,11 @@ foreach ( $blocks as $block ) {
 		$why[] = $block['why'];
 	}
 }
-u_is( array( '', '', 'inside a blockquote', '', '', 'a label or source line', '', 'has markup other than links and bold or italic words', '' ), $why, 'Headings, quotes, links and list items are sent; block quotes, source lines and other markup are not' );
+u_is( array( '', '', 'inside a blockquote', '', '', 'a label or source line', '', '', 'no words, only figures', 'has markup other than links and bold or italic words', '' ), $why, 'Headings, quotes, links, list items and table cells are sent; block quotes, source lines, bare figures and other markup are not' );
 u_is( array( array( 'html' => '<a href="https://example.com">the report</a>', 'text' => 'the report' ) ), $blocks[8]['inline'], 'A link is kept with its words' );
 
 $units = HumanizeText::units( 'Council Approves the School Budget', $blocks );
-u_is( array( 'title', 'heading', 'paragraph', 'paragraph', 'paragraph', 'item', 'paragraph' ), array_column( $units, 'kind' ), 'Title, heading, paragraphs and the list item, in order' );
+u_is( array( 'title', 'heading', 'paragraph', 'paragraph', 'paragraph', 'item', 'cell', 'paragraph' ), array_column( $units, 'kind' ), 'Title, heading, paragraphs, the list item and the table cell, in order' );
 u_is( array( 'the report' ), $units[4]['keep'], 'The link\'s words must survive' );
 
 $items = HumanizeText::items( $units );
@@ -125,13 +125,20 @@ $link_unit = array( 'kind' => 'paragraph', 'text' => 'Residents can see the full
 u_true( false !== strpos( HumanizeText::check_part( $link_unit, 'The full plans are on the city website and at City Hall for residents to see.', $link_unit['text'] ), 'link' ), 'A part that lost its link words is refused' );
 u_is( '', HumanizeText::check_part( $link_unit, 'The full plans are on the city\'s website and at City Hall for residents to see.', $link_unit['text'] ), 'Kept link words pass' );
 
+$cell = array( 'kind' => 'cell', 'text' => 'State grant awarded in 2025', 'keep' => array() );
+u_is( '', HumanizeText::check_part( $cell, 'Grant from the state, awarded in 2025', 'State grant awarded in 2025' ), 'A reworded table cell with the same facts passes' );
+u_true( false !== strpos( HumanizeText::check_part( $cell, 'State grant awarded in 2024', 'State grant awarded in 2025' ), 'number' ), 'A table cell with a changed year is refused' );
+$table = HumanizeText::blocks( '<table><tr><th>Source</th><th>Amount</th></tr><tr><td>State grant</td><td>$8 million</td></tr></table>' );
+u_is( array( 'cell', 'cell', 'cell', 'cell' ), array_column( array_filter( $table, static function ( $b ) { return $b['eligible']; } ), 'kind' ), 'Every table cell with words is sent, headers too' );
+u_is( '<table><tr><th>Where from</th><th>Amount</th></tr><tr><td>State grant</td><td>$8 million</td></tr></table>', HumanizeText::rebuild( $table, array( 1 => 'Where from' ) ), 'A cell goes back in its own tag; the table keeps its shape' );
+
 /* ---- Putting the article back together ---- */
 
 u_is( 'The full plans are on <a href="https://example.com/plans">the city\'s website</a> &amp; at City Hall.', HumanizeText::render_inner( 'The full plans are on the city\'s website & at City Hall.', array( array( 'html' => '<a href="https://example.com/plans">the city\'s website</a>', 'text' => 'the city\'s website' ) ) ), 'The link goes back around the same words, the rest is escaped' );
 u_is( null, HumanizeText::render_inner( 'No link words here.', array( array( 'html' => '<a href="x">gone</a>', 'text' => 'gone' ) ) ), 'Missing link words: not put back' );
 $rebuilt = HumanizeText::rebuild( $blocks, array( 0 => 'The budget', 2 => 'New &amp; better.' ) );
 u_true( 0 === strpos( $rebuilt, "<h2>The budget</h2>\n<p>New &amp; better.</p>\n<blockquote>" ), 'Accepted parts go back in their own tags' );
-u_true( false !== strpos( $rebuilt, 'Source: Example News' ) && false !== strpos( $rebuilt, '<table>' ), 'Everything else stays as it was' );
+u_true( false !== strpos( $rebuilt, 'Source: Example News' ) && false !== strpos( $rebuilt, '<td>2027</td>' ), 'Everything else stays as it was' );
 
 /* ---- Numbers and names ---- */
 
@@ -142,31 +149,6 @@ u_true( false !== strpos( HumanizeText::fact_check( $wetland, str_replace( 'abou
 u_true( false !== strpos( HumanizeText::fact_check( $wetland, str_replace( 'could hold', 'holds', $wetland ) ), 'certain' ), '"could hold" as "holds" is refused' );
 u_true( in_array( 'Riverton', HumanizeText::names( $p2 ), true ), 'A place name mid-sentence is a name' );
 u_false( in_array( 'The', HumanizeText::names( $p2 ), true ), 'A sentence\'s first word is not' );
-
-/* ---- Sharing the plan's words over the month ---- */
-
-u_is( 13, Humanizer::days_until_renewal( '2026-11-16', 29 ), '16 November to the 29th is 13 days' );
-u_is( 30, Humanizer::days_until_renewal( '2026-11-29', 29 ), 'On the renewal day the next one is a month away' );
-u_is( 27, Humanizer::days_until_renewal( '2027-02-01', 31 ), 'Day 31 in February is its last day, the 28th' );
-u_is( 1377, Humanizer::allowance_for( 53711, '2026-11-16', 29, 3, 1500 ), 'The owner\'s 53,711 words over 39 posts: 1,377 each' );
-u_is( 1500, Humanizer::allowance_for( 70000, '2026-11-29', 29, 1, 1500 ), 'Never more than the per-article maximum' );
-u_is( 0, Humanizer::allowance_for( 0, '2026-11-16', 29, 3, 1500 ), 'No words left: nothing' );
-
-/* ---- Pausing after articles with nothing accepted ---- */
-
-$g = array( 'misses' => 0, 'paused_on' => '' );
-$g = Humanizer::next_guard( $g, '2026-11-16', false );
-$g = Humanizer::next_guard( $g, '2026-11-16', false );
-u_false( Humanizer::paused( $g, '2026-11-16' ), 'Two articles with nothing accepted: still sending' );
-$g = Humanizer::next_guard( $g, '2026-11-16', false );
-u_true( Humanizer::paused( $g, '2026-11-16' ), 'The third in a row pauses the rest of the day' );
-u_false( Humanizer::paused( $g, '2026-11-17' ), 'The next day one article is tried' );
-$g = Humanizer::next_guard( $g, '2026-11-17', false );
-u_true( Humanizer::paused( $g, '2026-11-17' ), 'If that one fails too, the rest of that day is paused' );
-$g = Humanizer::next_guard( $g, '2026-11-18', true );
-u_is( array( 'misses' => 0, 'paused_on' => '' ), $g, 'One accepted section ends the pause' );
-update_option( Humanizer::GUARD_OPTION, 'junk' );
-u_is( array( 'misses' => 0, 'paused_on' => '' ), Humanizer::guard(), 'A broken saved value reads as no misses' );
 
 /* ---- Reading Walter's answers ---- */
 

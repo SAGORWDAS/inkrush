@@ -49,16 +49,6 @@ final class Humanizer {
 	/** The balance is read again when the saved one is older than this. */
 	private const BALANCE_MAX_AGE = 1800;
 
-	/**
-	 * Owner's decision of 2026-11-16 ("strict, save words"): Walter charges for text the fact check
-	 * refuses, so after this many articles in a row with nothing accepted, sending stops for the rest
-	 * of the local day. The next day one article is tried; if it fails too, the rest of that day is
-	 * paused again. One accepted section ends the pause.
-	 */
-	public const MISSES_TO_PAUSE = 3;
-
-	public const GUARD_OPTION = 'zzzc_walter_guard';
-
 	public static function enabled(): bool {
 		return (bool) Settings::get( 'walter_enabled' ) && WalterClient::connected();
 	}
@@ -129,12 +119,6 @@ final class Humanizer {
 			return;
 		}
 		$total = count( $units );
-
-		$guard = self::guard();
-		if ( self::paused( $guard, Schedule::today() ) ) {
-			self::record( $job_id, self::SKIPPED, sprintf( 'Not sent to Walter today: nothing of the last %d articles passed the fact check, so sending is paused until tomorrow to save words.', (int) $guard['misses'] ), 0, $ctx );
-			return;
-		}
 
 		// Walter's answer from an earlier try whose fact repair did not finish: its words are already spent.
 		$saved_key = 'zzzc_walter_answer_' . $job_id;
@@ -226,15 +210,8 @@ final class Humanizer {
 			++$accepted;
 		}
 
-		// Words were spent: remember whether anything came of them.
-		$guard = self::next_guard( $guard, Schedule::today(), $accepted > 0 );
-		update_option( self::GUARD_OPTION, $guard, false );
-
 		if ( ! $accepted ) {
 			$message = sprintf( 'Nothing of Walter\'s version (%d words) passed the fact check, so the AI\'s wording is kept', $spent ) . ( $refused ? ': ' . self::summary( $refused ) : '.' );
-			if ( self::paused( $guard, Schedule::today() ) ) {
-				$message = sprintf( 'Sending to Walter is paused until tomorrow: %d articles in a row came back with nothing that passed. ', (int) $guard['misses'] ) . $message;
-			}
 			self::record( $job_id, self::UNCHANGED, $message, 0, $ctx, 'warning' );
 			return;
 		}
@@ -260,9 +237,9 @@ final class Humanizer {
 		);
 
 		$status  = $accepted === $total ? self::DONE : self::PARTIAL;
-		$message = sprintf( 'Humanized with Walter: %1$d of %2$d parts (title, headings, list items, paragraphs), %3$d Walter words.', $accepted, $total, $spent );
+		$message = sprintf( 'Humanized with Walter: %1$d of %2$d parts (title, headings, lists, tables, paragraphs), %3$d Walter words.', $accepted, $total, $spent );
 		if ( count( $sent ) < $total ) {
-			$message .= sprintf( ' %d were not sent, to spread the plan\'s words over the month.', $total - count( $sent ) );
+			$message .= sprintf( ' %d were not sent: the Walter plan ran low on words.', $total - count( $sent ) );
 		}
 		if ( $same ) {
 			$message .= sprintf( ' %d came back the same.', $same );
@@ -280,24 +257,20 @@ final class Humanizer {
 	 *                    came back (already recorded).
 	 */
 	private static function ask_walter( int $job_id, array $units, array $items, bool $last_chance, array $ctx ): ?array {
-		$allowance = self::allowance();
-		if ( is_string( $allowance ) ) {
-			self::record( $job_id, self::SKIPPED, $allowance, 0, $ctx, 'warning' );
-			return null;
-		}
-		// The first pieces, as many as this post's share of the words allows.
+		// The whole article. Only when the plan has fewer words left than that, the pieces that fit.
+		$left   = self::words_left();
 		$chosen = array();
 		$words  = 0;
 		foreach ( $items as $number => $item ) {
 			$size = HumanizeText::item_words( $units, $item );
-			if ( $words + $size > $allowance ) {
+			if ( null !== $left && $words + $size > $left ) {
 				break;
 			}
 			$chosen[ $number ] = $item;
 			$words            += $size;
 		}
 		if ( ! $chosen ) {
-			self::record( $job_id, self::SKIPPED, sprintf( 'This post\'s share of the Walter words (%d) is smaller than the first piece of the article.', $allowance ), 0, $ctx, 'warning' );
+			self::record( $job_id, self::SKIPPED, sprintf( 'The Walter plan has %d words left, too few for this article. Add words to the plan; the post goes out with the AI\'s wording.', (int) $left ), 0, $ctx, 'warning' );
 			return null;
 		}
 
@@ -407,84 +380,21 @@ final class Humanizer {
 	}
 
 	/**
-	 * How many words this post may use: the words left in the Walter plan, shared evenly over the
-	 * posts left before it renews, and never more than the per-article maximum.
+	 * Words left in the Walter plan, read again when the saved figure is old. Null when unknown:
+	 * then the whole article is sent and Walter itself says if the plan has run out.
 	 *
-	 * @return int|string The allowance, or why there is none.
+	 * Owner's decision of 2026-11-16 (1.12.3): every article is humanized in full, so the words are
+	 * no longer shared out over the month and there is no daily pause.
 	 */
-	private static function allowance() {
+	private static function words_left(): ?int {
 		$data = WalterClient::data();
 		if ( ! isset( $data['credits'] ) || null === $data['credits'] || Clock::now() - Clock::to_timestamp( $data['checked_at'] ?? null ) > self::BALANCE_MAX_AGE ) {
-			$account = WalterClient::account();
-			if ( is_wp_error( $account ) ) {
-				return 'Walter\'s word balance could not be read: ' . $account->get_error_message();
+			if ( is_wp_error( WalterClient::account() ) ) {
+				return null;
 			}
 			$data = WalterClient::data();
 		}
-		$credits = (int) ( $data['credits'] ?? 0 );
-		$allow   = self::allowance_for( $credits, Schedule::today(), (int) Settings::get( 'walter_renewal_day' ), (int) Settings::get( 'daily_target' ), (int) Settings::get( 'walter_max_words' ) );
-		if ( $allow < HumanizeText::MIN_ITEM_WORDS ) {
-			return sprintf( 'The Walter plan has %d words left, too few to share with the posts before it renews.', $credits );
-		}
-		return $allow;
-	}
-
-	/**
-	 * The share of the words for one post. Pure, so it has a unit test.
-	 *
-	 * @param int    $credits     Words left in the plan.
-	 * @param string $today       Local date, Y-m-d.
-	 * @param int    $renewal_day Day of the month the plan renews, 1 to 31.
-	 * @param int    $per_day     Posts a day.
-	 * @param int    $cap         Most words for one article.
-	 */
-	public static function allowance_for( int $credits, string $today, int $renewal_day, int $per_day, int $cap ): int {
-		$days = self::days_until_renewal( $today, $renewal_day );
-		$left = max( 1, $days * max( 1, $per_day ) );
-		return max( 0, min( $cap, intdiv( max( 0, $credits ), $left ) ) );
-	}
-
-	/** The saved count of articles in a row with nothing accepted, and the day sending was paused. */
-	public static function guard(): array {
-		$guard = get_option( self::GUARD_OPTION, array() );
-		$guard = is_array( $guard ) ? $guard : array();
-		return array(
-			'misses'    => max( 0, (int) ( $guard['misses'] ?? 0 ) ),
-			'paused_on' => (string) ( $guard['paused_on'] ?? '' ),
-		);
-	}
-
-	/** True when nothing should be sent to Walter today. Pure, so it has a unit test. */
-	public static function paused( array $guard, string $today ): bool {
-		return (int) ( $guard['misses'] ?? 0 ) >= self::MISSES_TO_PAUSE && $today === (string) ( $guard['paused_on'] ?? '' );
-	}
-
-	/** The guard after an article that spent words. Pure, so it has a unit test. */
-	public static function next_guard( array $guard, string $today, bool $accepted ): array {
-		if ( $accepted ) {
-			return array(
-				'misses'    => 0,
-				'paused_on' => '',
-			);
-		}
-		$misses = (int) ( $guard['misses'] ?? 0 ) + 1;
-		return array(
-			'misses'    => $misses,
-			'paused_on' => $misses >= self::MISSES_TO_PAUSE ? $today : '',
-		);
-	}
-
-	/** Days from today until the plan renews, at least 1. On the renewal day itself, a whole month. */
-	public static function days_until_renewal( string $today, int $renewal_day ): int {
-		$now  = new \DateTimeImmutable( $today . ' 00:00:00', new \DateTimeZone( 'UTC' ) );
-		$day  = max( 1, min( 31, $renewal_day ) );
-		$this_month = $now->modify( 'first day of this month' );
-		$date = $this_month->setDate( (int) $this_month->format( 'Y' ), (int) $this_month->format( 'm' ), min( $day, (int) $this_month->format( 't' ) ) );
-		if ( $date <= $now ) {
-			$next = $now->modify( 'first day of next month' );
-			$date = $next->setDate( (int) $next->format( 'Y' ), (int) $next->format( 'm' ), min( $day, (int) $next->format( 't' ) ) );
-		}
-		return max( 1, (int) $now->diff( $date )->days );
+		return isset( $data['credits'] ) && null !== $data['credits'] ? max( 0, (int) $data['credits'] ) : null;
 	}
 
 	/**
