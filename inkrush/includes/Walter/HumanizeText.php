@@ -19,13 +19,20 @@ defined( 'ABSPATH' ) || exit;
 final class HumanizeText {
 
 	/** Walter refuses a piece under 50 words. A little margin, since it counts words its own way. */
-	public const MIN_GROUP_WORDS = 60;
+	public const MIN_GROUP_WORDS = 55;
 
-	/** Paragraphs are joined until a group has this many words. */
-	public const TARGET_GROUP_WORDS = 130;
+	/** Sections are joined until a piece has this many words. */
+	public const TARGET_GROUP_WORDS = 150;
 
-	/** A group never grows past this, so one bad answer costs little of the article. */
-	public const MAX_GROUP_WORDS = 300;
+	/** A piece never grows past this, so one bad answer costs little of the article. */
+	public const MAX_GROUP_WORDS = 350;
+
+	/**
+	 * Put between sections in one piece. Walter keeps a "##" line even when it rewrites the words
+	 * after it (seen 2026-11-16), so the answer can be split back at these lines. Walter's own
+	 * heading text is never used.
+	 */
+	private const MARKER = '## Part';
 
 	/** A paragraph shorter than this is a label, a source line or a short answer, and is left alone. */
 	public const MIN_PARAGRAPH_WORDS = 15;
@@ -37,9 +44,15 @@ final class HumanizeText {
 		'spring', 'summer', 'autumn', 'fall', 'winter', 'morning', 'afternoon', 'evening', 'night', 'week', 'month', 'year', 'decade',
 	);
 
+	/** Small numbers written as words count as their figures: Walter wrote "2 million" as "two million". */
+	private const DIGIT_WORDS = array(
+		'zero' => '0', 'one' => '1', 'two' => '2', 'three' => '3', 'four' => '4', 'five' => '5', 'six' => '6', 'seven' => '7', 'eight' => '8', 'nine' => '9',
+		'ten' => '10', 'eleven' => '11', 'twelve' => '12', 'thirteen' => '13', 'fourteen' => '14', 'fifteen' => '15', 'sixteen' => '16', 'seventeen' => '17',
+		'eighteen' => '18', 'nineteen' => '19', 'twenty' => '20', 'thirty' => '30', 'forty' => '40', 'fifty' => '50', 'sixty' => '60', 'seventy' => '70',
+		'eighty' => '80', 'ninety' => '90',
+	);
+
 	private const NUMBER_WORDS = array(
-		'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-		'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety',
 		'hundred', 'hundreds', 'thousand', 'thousands', 'million', 'millions', 'billion', 'billions', 'trillion', 'dozen', 'dozens', 'half', 'quarter',
 		'first', 'second', 'third', 'fourth', 'fifth', 'once', 'twice', 'double', 'triple', 'percent', 'per',
 	);
@@ -49,8 +62,19 @@ final class HumanizeText {
 	/** Who said it matters in news: a claim must stay attributed. One of these may replace another. */
 	private const ATTRIBUTION = array( 'said', 'says', 'according', 'told', 'reported', 'reports', 'reportedly', 'announced', 'announces', 'stated', 'states', 'confirmed', 'confirms', 'added', 'explained', 'noted', 'wrote' );
 
-	/** How certain a claim is. Each of these must stay. */
-	private const HEDGES = array( 'alleged', 'allegedly', 'claimed', 'claims', 'denied', 'denies', 'estimated', 'expected', 'expects', 'plans', 'planned', 'may', 'might', 'could', 'would', 'will', 'should', 'likely', 'unlikely', 'possible', 'possibly', 'about', 'nearly', 'almost', 'around', 'approximately', 'roughly', 'least', 'more', 'less', 'fewer', 'over', 'under', 'up' );
+	/**
+	 * How certain a claim is. Each kind must stay; a word may give way to another of the same kind
+	 * ("about" to "approximately").
+	 */
+	private const HEDGES = array(
+		'alleged' => 'alleged', 'allegedly' => 'alleged', 'claimed' => 'claimed', 'claims' => 'claimed', 'denied' => 'denied', 'denies' => 'denied',
+		'estimated' => 'estimated', 'estimate' => 'estimated', 'estimates' => 'estimated', 'expected' => 'expected', 'expects' => 'expected', 'expect' => 'expected',
+		'plans' => 'plan', 'planned' => 'plan', 'plan' => 'plan', 'scheduled' => 'plan',
+		'may' => 'may', 'might' => 'may', 'could' => 'may', 'possible' => 'may', 'possibly' => 'may',
+		'would' => 'would', 'will' => 'will', 'should' => 'should', 'likely' => 'likely', 'unlikely' => 'unlikely',
+		'about' => 'about', 'around' => 'about', 'approximately' => 'about', 'roughly' => 'about',
+		'nearly' => 'nearly', 'almost' => 'nearly', 'least' => 'least', 'more' => 'more', 'over' => 'more', 'less' => 'less', 'fewer' => 'less', 'under' => 'less',
+	);
 
 	/** Words that start a sentence often enough that a capital there says nothing about a name. */
 	private const LEAD_WORDS = array( 'the', 'a', 'an', 'this', 'that', 'these', 'those', 'it', 'its', 'in', 'on', 'at', 'for', 'and', 'but', 'or', 'as', 'with', 'by', 'from', 'after', 'before', 'while', 'when', 'if', 'he', 'she', 'they', 'we', 'i', 'you', 'there', 'their', 'his', 'her', 'our', 'some', 'many', 'most', 'more', 'other', 'others', 'one', 'both', 'each', 'still', 'also', 'however', 'meanwhile', 'officials', 'experts', 'critics', 'analysts', 'residents', 'people' );
@@ -135,52 +159,105 @@ final class HumanizeText {
 	}
 
 	/**
-	 * Groups paragraphs that sit next to each other, so each piece sent has at least 60 words.
+	 * Runs of paragraphs that can be sent and sit next to each other, with only whitespace between.
+	 * Each one goes back in its own place, so text never moves under another heading.
 	 *
-	 * @return array<int, int[]> Lists of block indexes. A paragraph that cannot reach 60 words with
-	 *                           its neighbours is in no group and stays as written.
+	 * @return array<int, int[]> Lists of block indexes.
 	 */
-	public static function groups( array $blocks ): array {
-		$groups = array();
+	public static function sections( array $blocks ): array {
+		$sections = array();
+		$cur      = array();
+		foreach ( $blocks as $index => $block ) {
+			if ( $block['eligible'] ) {
+				$cur[] = $index;
+			} elseif ( '' !== trim( (string) $block['html'] ) && $cur ) {
+				$sections[] = $cur;
+				$cur        = array();
+			}
+		}
+		if ( $cur ) {
+			$sections[] = $cur;
+		}
+		return $sections;
+	}
+
+	/**
+	 * Sections joined into pieces Walter accepts (55 to 350 words), in article order.
+	 *
+	 * In tests a news section usually held one 35 to 55 word paragraph, under Walter's 50-word
+	 * minimum. So sections from different parts of the article share a piece, with a marker line
+	 * between them, and each comes back to its own place. A section too long for one piece is sent
+	 * on its own.
+	 *
+	 * @return array<int, array<int, int[]>> Pieces, each a list of sections.
+	 */
+	public static function pieces( array $blocks ): array {
+		$pieces = array();
 		$sizes  = array();
 		$cur    = array();
 		$words  = 0;
-		$touch  = false; // Whether the group being built follows straight on from the last one.
-
-		$flush = static function ( bool $next_touches ) use ( &$groups, &$sizes, &$cur, &$words, &$touch ): void {
-			if ( $cur ) {
-				$last = count( $groups ) - 1;
-				if ( $words >= self::MIN_GROUP_WORDS ) {
-					$groups[] = $cur;
-					$sizes[]  = $words;
-				} elseif ( $touch && $last >= 0 && $sizes[ $last ] + $words <= self::MAX_GROUP_WORDS ) {
-					$groups[ $last ] = array_merge( $groups[ $last ], $cur );
-					$sizes[ $last ] += $words;
-				}
+		foreach ( self::sections( $blocks ) as $section ) {
+			$size = self::count_words( self::group_text( $blocks, $section ) );
+			if ( $cur && ( $words + $size > self::MAX_GROUP_WORDS || $words >= self::TARGET_GROUP_WORDS ) ) {
+				$pieces[] = $cur;
+				$sizes[]  = $words;
+				$cur      = array();
+				$words    = 0;
 			}
-			$cur   = array();
-			$words = 0;
-			$touch = $next_touches;
-		};
-
-		foreach ( $blocks as $index => $block ) {
-			if ( ! $block['eligible'] ) {
-				if ( '' !== trim( (string) $block['html'] ) ) {
-					$flush( false );
-				}
-				continue; // Whitespace between paragraphs does not separate them.
-			}
-			if ( $cur && ( $words + (int) $block['words'] > self::MAX_GROUP_WORDS || $words >= self::TARGET_GROUP_WORDS ) ) {
-				$flush( true );
-			}
-			$cur[]  = $index;
-			$words += (int) $block['words'];
+			$cur[]  = $section;
+			$words += $size;
 		}
-		$flush( false );
-		return $groups;
+		if ( $cur ) {
+			$last = count( $pieces ) - 1;
+			if ( $words >= self::MIN_GROUP_WORDS ) {
+				$pieces[] = $cur;
+			} elseif ( $last >= 0 && $sizes[ $last ] + $words <= self::MAX_GROUP_WORDS + self::MIN_GROUP_WORDS ) {
+				// A short tail joins the piece before it.
+				$pieces[ $last ] = array_merge( $pieces[ $last ], $cur );
+			}
+		}
+		return $pieces;
 	}
 
-	/** The plain text of a group, paragraphs separated by a blank line. */
+	/** The text sent for a piece: its sections with a marker line between them. */
+	public static function piece_text( array $blocks, array $piece ): string {
+		$parts = array();
+		foreach ( $piece as $number => $section ) {
+			$parts[] = ( $number > 0 ? self::MARKER . ' ' . ( $number + 1 ) . "\n\n" : '' ) . self::group_text( $blocks, $section );
+		}
+		return implode( "\n\n", $parts );
+	}
+
+	/** Words of a piece's own text, without the marker lines. */
+	public static function piece_words( array $blocks, array $piece ): int {
+		$sum = 0;
+		foreach ( $piece as $section ) {
+			$sum += self::count_words( self::group_text( $blocks, $section ) );
+		}
+		return $sum;
+	}
+
+	/**
+	 * Walter's answer split back into one text per section, at its heading lines.
+	 *
+	 * @return string[]|null Null when the number of sections does not match, which happens when
+	 *                       Walter drops or adds one; then nothing in the piece can be placed safely.
+	 */
+	public static function split_answer( string $output, int $sections ): ?array {
+		$text  = str_replace( array( "\r\n", "\r" ), "\n", $output );
+		$parts = preg_split( '/^\s{0,3}#{1,6}[^\n]*$/mu', $text );
+		$parts = array_values(
+			array_filter(
+				array_map( 'trim', (array) $parts ),
+				static function ( $part ) {
+					return '' !== $part;
+				}
+			)
+		);
+		return count( $parts ) === $sections ? $parts : null;
+	}
+
+	/** The plain text of a section, paragraphs separated by a blank line. */
 	public static function group_text( array $blocks, array $group ): string {
 		$parts = array();
 		foreach ( $group as $index ) {
@@ -207,6 +284,8 @@ final class HumanizeText {
 		$out = array();
 		foreach ( preg_split( '/\n\s*\n/u', $text ) as $paragraph ) {
 			$paragraph = trim( (string) preg_replace( '/\s+/u', ' ', $paragraph ) );
+			// Seen on 2026-11-16: a paragraph that came back starting with "– ".
+			$paragraph = trim( (string) preg_replace( '/^[\-–—•*]\s+/u', '', $paragraph ) );
 			if ( '' !== $paragraph ) {
 				$out[] = $paragraph;
 			}
@@ -271,9 +350,15 @@ final class HumanizeText {
 		if ( count( self::words_from( $rewritten, self::ATTRIBUTION ) ) < count( self::words_from( $original, self::ATTRIBUTION ) ) ) {
 			return 'a "said" went missing, so a claim may now read as fact';
 		}
-		$hedges = array_values( array_diff( array_unique( self::words_from( $original, self::HEDGES ) ), self::words_from( $rewritten, self::HEDGES ) ) );
+		$kept   = array_unique( self::hedge_kinds( $rewritten ) );
+		$hedges = array();
+		foreach ( self::words_from( $original, array_keys( self::HEDGES ) ) as $word ) {
+			if ( ! in_array( self::HEDGES[ $word ], $kept, true ) ) {
+				$hedges[] = $word;
+			}
+		}
 		if ( $hedges ) {
-			return 'how certain it is changed: "' . implode( '", "', array_slice( $hedges, 0, 3 ) ) . '" went missing';
+			return 'how certain it is changed: "' . implode( '", "', array_slice( array_unique( $hedges ), 0, 3 ) ) . '" went missing';
 		}
 
 		$names = self::missing_names( $original, $rewritten );
@@ -297,7 +382,10 @@ final class HumanizeText {
 		return '';
 	}
 
-	/** Figures, normalised: "$12 million" gives "12", "1,500" gives "1500", "3.5%" gives "3.5". */
+	/**
+	 * Figures, normalised: "$12 million" gives "12", "1,500" gives "1500", "3.5%" gives "3.5", and
+	 * "two" gives "2".
+	 */
 	public static function numbers( string $text ): array {
 		preg_match_all( '/\d+(?:[.,]\d+)*/u', $text, $m );
 		$out = array();
@@ -305,6 +393,18 @@ final class HumanizeText {
 			// A comma or point followed by exactly three digits groups thousands; any other point is a decimal.
 			$number = (string) preg_replace( '/[.,](?=\d{3}(?!\d))/', '', $number );
 			$out[]  = str_replace( ',', '.', $number );
+		}
+		foreach ( self::words_from( $text, array_keys( self::DIGIT_WORDS ) ) as $word ) {
+			$out[] = self::DIGIT_WORDS[ $word ];
+		}
+		return $out;
+	}
+
+	/** The kinds of hedge in a text, each time one appears. */
+	private static function hedge_kinds( string $text ): array {
+		$out = array();
+		foreach ( self::words_from( $text, array_keys( self::HEDGES ) ) as $word ) {
+			$out[] = self::HEDGES[ $word ];
 		}
 		return $out;
 	}

@@ -10,6 +10,28 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.12.1] - 2026-11-16
+
+Fixes from running 1.12.0 on a local WordPress 7.1.4 site (SQLite) connected to the owner's Walter account, plus the owner's "strict, save words" decision. No schema change, `DB_VERSION` stays 18.
+
+### Changed
+
+- **`HumanizeText::groups()` replaced by `sections()` / `pieces()`.** A section is a run of touching eligible paragraphs. Pieces join sections across headings (55 to 350 words) with a `## Part N` marker line between them, which Walter keeps; `split_answer()` splits the answer back at heading lines and returns null if the count differs, which refuses the whole piece. Each section is fact-checked against its own original. Before, a typical article (one 35 to 55 word paragraph per section) sent 1 of 11 paragraphs.
+- Requests use `output_format: markdown` so the markers survive.
+- `fact_check()`: digit words (zero to ninety) count as figures, so "2 million" and "two million" match; hedges are compared by kind (about/around/approximately/roughly, may/might/could...), not by word. `clean()` strips a leading `–`, `-` or `•`.
+- `Humanizer::run()` re-reads the balance with `walter_account_info` after each article: batch answers carry no `X-Walter-Words-Remaining`.
+- Connect help text: after Allow, Walter shows a "Walter Connected!" page with a Back to InkRush button instead of redirecting.
+
+### Added
+
+- **Waste guard** (owner's decision, 2026-11-16): option `zzzc_walter_guard` (`misses`, `paused_on`). An article that spent words with no section accepted adds a miss; one accepted section resets it. At `Humanizer::MISSES_TO_PAUSE` (3) misses, sending is paused for the rest of the local day (`skipped`, logged). The next day one article is tried, and another miss pauses that day again. Pure helpers `paused()` / `next_guard()`. Temporary Walter errors do not count. The AI Settings card shows the pause. `uninstall.php` deletes the option.
+
+### Tested
+
+- `run-humanizer` 58 (sections, pieces, `split_answer`, digit words, hedge kinds, the guard), `run-unit` 128, `run-images` 81, `run-validator` 17, all 0 failures. `php -l` clean.
+- On the local WordPress site with 1.12.0 code plus these fixes: upgrade 17 → 18, the Walter card, Connect → Walter sign-in → Allow → Back to InkRush → "Connected · Pro", and `Humanizer::run()` on a test article (2 to 5 s, logged, second run does nothing). Walter's answers changed facts in every section ("46 residents" → "over 40 citizens", invented details), and the fact check refused all of them, so the body stayed the AI's. 961 words were spent in testing.
+- **Not verified:** the guard has only unit tests, not a live run. Token renewal after an hour and the two call sites in a real posting cycle have not run. Walter's accept rate on real articles is expected to be low.
+
 ## [1.12.0] - 2026-11-16
 
 Walter Writes humanizer, at the owner's request: use the owner's existing Walter subscription (no Walter API plan), run entirely on the WordPress site (nothing on a PC or VPS), and humanize only the article chosen for each post. `DB_VERSION` 18.

@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.12.0
+Stable tag: 1.12.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -114,6 +114,17 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.12.1 =
+Walter fixes from a test on a real WordPress site, and no more words spent on nothing.
+
+**More of each article is sent.** Most sections have one short paragraph, below the 50 words Walter accepts, so only one paragraph of a typical article was being sent. Short sections are now sent together with a marker between them, and each comes back to its own place and is checked on its own.
+
+**Fewer good rewrites refused.** "2 million" written as "two million" and "about" as "approximately" now pass, and a dash Walter puts at the start of a paragraph is removed.
+
+**Words are not wasted.** Walter charges for text the fact check refuses. If three articles in a row get nothing through, sending stops for the rest of the day and the AI Settings page says so. The next day one article is tried, and one passing section starts everything again.
+
+**Smaller things.** The words left are read again after each article, and the AI Settings page says to click Back to InkRush on Walter's "Walter Connected!" page.
 
 = 1.12.0 =
 Articles humanized with your Walter Writes plan.

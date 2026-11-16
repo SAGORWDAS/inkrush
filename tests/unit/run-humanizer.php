@@ -73,17 +73,33 @@ foreach ( $blocks as $block ) {
 }
 u_is( array( '', '', 'inside a blockquote', 'has a quote', 'has links or formatting', 'a label or source line', '' ), $why, 'Quotes, links, block quotes and source lines are never sent' );
 
-$groups = HumanizeText::groups( $blocks );
-u_is( 1, count( $groups ), 'The two touching paragraphs (96 words) form one group' );
-u_is( 2, count( $groups[0] ), 'It holds both of them' );
-u_false( in_array( count( $blocks ) - 1, array_merge( ...$groups ), true ), 'The last paragraph (48 words) has no neighbour to join and is not sent' );
+$sections = HumanizeText::sections( $blocks );
+u_is( 2, count( $sections ), 'Two sections: the two touching paragraphs, and the last paragraph after the list' );
+u_is( 2, count( $sections[0] ), 'The first holds both touching paragraphs' );
+$pieces = HumanizeText::pieces( $blocks );
+u_is( 1, count( $pieces ), 'They are sent together as one piece (144 words)' );
+u_is( 2, count( $pieces[0] ), 'With both sections in it' );
+$text = HumanizeText::piece_text( $blocks, $pieces[0] );
+u_is( 1, substr_count( $text, '## Part' ), 'One marker line between the two sections' );
+u_is( 144, HumanizeText::piece_words( $blocks, $pieces[0] ), 'Marker lines do not count against the words' );
 
-$short = HumanizeText::blocks( '<p>Twenty words or so are in this paragraph, which is too short to send to Walter on its own at all.</p><h2>X</h2><p>Another short paragraph sits here alone after a heading, with too few words to be sent.</p>' );
-u_is( array(), HumanizeText::groups( $short ), 'Paragraphs that cannot reach 60 words with a neighbour are not sent' );
+// The sample article's shape: one short paragraph under each heading, as on 2026-11-16.
+$para  = 'Officials said the plan was approved after a long meeting at which residents asked questions about cost, timing and the effect on traffic in the area.';
+$short = HumanizeText::blocks( "<p>$para</p><h2>A</h2><p>$para</p><h2>B</h2><p>$para</p><h2>C</h2><p>$para</p>" );
+$p     = HumanizeText::pieces( $short );
+u_is( 1, count( $p ), 'Four one-paragraph sections of 28 words become one piece' );
+u_is( 4, count( $p[0] ), 'Holding all four, each to go back under its own heading' );
+u_is( array(), HumanizeText::pieces( HumanizeText::blocks( "<p>$para</p>" ) ), 'A single 28-word section is too short for Walter and is not sent' );
+
+/* ---- Splitting Walter's answer back into sections ---- */
+
+u_is( array( 'One.', 'Two two.', 'Three.' ), HumanizeText::split_answer( "One.\n\n## Whatever Walter wrote\n\nTwo two.\n\n## Part 3\n\nThree.", 3 ), 'Split at heading lines, whatever their words' );
+u_is( null, HumanizeText::split_answer( "One.\n\n## Part 2\n\nTwo.", 3 ), 'Seen 2026-11-16: Walter dropped a section, so nothing in the piece is used' );
+u_is( null, HumanizeText::split_answer( "## Intro\n\nOne.\n\n## Part 2\n\nTwo.\n\n## Extra\n\nThree.", 2 ), 'An added section is refused too' );
 
 /* ---- Putting the answer back ---- */
 
-$accepted = array( $groups[0][0] => array( $groups[0], array( 'First new paragraph.', 'Second new paragraph & more.' ) ) );
+$accepted = array( $sections[0][0] => array( $sections[0], array( 'First new paragraph.', 'Second new paragraph & more.' ) ) );
 $rebuilt  = HumanizeText::rebuild( $blocks, $accepted );
 u_true( false !== strpos( $rebuilt, "<h2>Budget</h2>\n<p>First new paragraph.</p>\n<p>Second new paragraph &amp; more.</p>" ), 'Accepted paragraphs replace the originals in place, escaped' );
 u_true( false !== strpos( $rebuilt, '<blockquote>' ) && false !== strpos( $rebuilt, 'Source: Example News' ), 'Everything else stays as it was' );
@@ -95,6 +111,10 @@ u_is( array( 'Only one sentence here.' ), HumanizeText::fit_paragraphs( array( '
 /* ---- Numbers and names ---- */
 
 u_is( array( '12', '1500', '3.5', '2026' ), HumanizeText::numbers( '$12 million, 1,500 people, 3.5% and 2026' ), 'Figures are read without their separators' );
+$wetland = 'City engineers estimated the wetland could hold about 2 million gallons of stormwater during heavy rain, which officials said would help Harbor Street businesses.';
+u_is( '', HumanizeText::fact_check( $wetland, 'City engineers estimated the wetland could hold approximately two million gallons of stormwater in heavy rain, which officials said would help Harbor Street businesses.' ), 'Seen 2026-11-16: "2 million" as "two million", and "about" as "approximately", pass' );
+u_true( false !== strpos( HumanizeText::fact_check( $wetland, str_replace( 'about 2', 'about three', $wetland ) ), 'number' ), '"2" as "three" is refused' );
+u_true( false !== strpos( HumanizeText::fact_check( $wetland, str_replace( 'could hold', 'holds', $wetland ) ), 'certain' ), '"could hold" as "holds" is refused' );
 u_true( in_array( 'Riverton', HumanizeText::names( $p2 ), true ), 'A place name mid-sentence is a name' );
 u_false( in_array( 'The', HumanizeText::names( $p2 ), true ), 'A sentence\'s first word is not' );
 
@@ -106,6 +126,22 @@ u_is( 27, Humanizer::days_until_renewal( '2027-02-01', 31 ), 'Day 31 in February
 u_is( 1377, Humanizer::allowance_for( 53711, '2026-11-16', 29, 3, 1500 ), 'The owner\'s 53,711 words over 39 posts: 1,377 each' );
 u_is( 1500, Humanizer::allowance_for( 70000, '2026-11-29', 29, 1, 1500 ), 'Never more than the per-article maximum' );
 u_is( 0, Humanizer::allowance_for( 0, '2026-11-16', 29, 3, 1500 ), 'No words left: nothing' );
+
+/* ---- Pausing after articles with nothing accepted ---- */
+
+$g = array( 'misses' => 0, 'paused_on' => '' );
+$g = Humanizer::next_guard( $g, '2026-11-16', false );
+$g = Humanizer::next_guard( $g, '2026-11-16', false );
+u_false( Humanizer::paused( $g, '2026-11-16' ), 'Two articles with nothing accepted: still sending' );
+$g = Humanizer::next_guard( $g, '2026-11-16', false );
+u_true( Humanizer::paused( $g, '2026-11-16' ), 'The third in a row pauses the rest of the day' );
+u_false( Humanizer::paused( $g, '2026-11-17' ), 'The next day one article is tried' );
+$g = Humanizer::next_guard( $g, '2026-11-17', false );
+u_true( Humanizer::paused( $g, '2026-11-17' ), 'If that one fails too, the rest of that day is paused' );
+$g = Humanizer::next_guard( $g, '2026-11-18', true );
+u_is( array( 'misses' => 0, 'paused_on' => '' ), $g, 'One accepted section ends the pause' );
+update_option( Humanizer::GUARD_OPTION, 'junk' );
+u_is( array( 'misses' => 0, 'paused_on' => '' ), Humanizer::guard(), 'A broken saved value reads as no misses' );
 
 /* ---- Reading Walter's answers ---- */
 

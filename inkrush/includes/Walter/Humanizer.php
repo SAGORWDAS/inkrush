@@ -43,6 +43,16 @@ final class Humanizer {
 	/** The balance is read again when the saved one is older than this. */
 	private const BALANCE_MAX_AGE = 1800;
 
+	/**
+	 * Owner's decision of 2026-11-16 ("strict, save words"): Walter charges for text the fact check
+	 * refuses, so after this many articles in a row with nothing accepted, sending stops for the rest
+	 * of the local day. The next day one article is tried; if it fails too, the rest of that day is
+	 * paused again. One accepted section ends the pause.
+	 */
+	public const MISSES_TO_PAUSE = 3;
+
+	public const GUARD_OPTION = 'zzzc_walter_guard';
+
 	public static function enabled(): bool {
 		return (bool) Settings::get( 'walter_enabled' ) && WalterClient::connected();
 	}
@@ -90,6 +100,10 @@ final class Humanizer {
 		}
 		try {
 			self::humanize( $job_id, $content, $last_chance, $ctx );
+			// Walter does not send the balance with its answers, so it is read again (this uses no words).
+			if ( WalterClient::connected() ) {
+				WalterClient::account();
+			}
 		} catch ( \Throwable $e ) {
 			// Humanizing is optional. Nothing here may stop the post from going out.
 			self::record( $job_id, self::FAILED, 'Humanizing stopped on an unexpected error: ' . $e->getMessage() . ' The post goes out with the AI\'s wording.', 0, $ctx, 'error' );
@@ -101,9 +115,19 @@ final class Humanizer {
 	private static function humanize( int $job_id, array $content, bool $last_chance, array $ctx ): void {
 		$body   = (string) $content['body'];
 		$blocks = HumanizeText::blocks( $body );
-		$groups = HumanizeText::groups( $blocks );
-		if ( ! $groups ) {
-			self::record( $job_id, self::UNCHANGED, 'No plain paragraph of 60 words or more without a quote, so nothing was sent to Walter.', 0, $ctx );
+		$pieces = HumanizeText::pieces( $blocks );
+		if ( ! $pieces ) {
+			self::record( $job_id, self::UNCHANGED, 'Not enough plain paragraphs without quotes (55 words in all) to send to Walter.', 0, $ctx );
+			return;
+		}
+		$total = 0;
+		foreach ( $pieces as $piece ) {
+			$total += count( $piece );
+		}
+
+		$guard = self::guard();
+		if ( self::paused( $guard, Schedule::today() ) ) {
+			self::record( $job_id, self::SKIPPED, sprintf( 'Not sent to Walter today: its versions of the last %d articles all failed the fact check, so sending is paused until tomorrow to save words.', (int) $guard['misses'] ), 0, $ctx );
 			return;
 		}
 
@@ -113,20 +137,24 @@ final class Humanizer {
 			return;
 		}
 
-		// The first groups, as many as this post's share of the words allows.
+		// The first pieces, as many as this post's share of the words allows.
 		$chosen = array();
 		$words  = 0;
-		foreach ( $groups as $group ) {
-			$size = HumanizeText::count_words( HumanizeText::group_text( $blocks, $group ) );
+		foreach ( $pieces as $piece ) {
+			$size = HumanizeText::piece_words( $blocks, $piece );
 			if ( $words + $size > $allowance ) {
 				break;
 			}
-			$chosen[] = $group;
+			$chosen[] = $piece;
 			$words   += $size;
 		}
 		if ( ! $chosen ) {
 			self::record( $job_id, self::SKIPPED, sprintf( 'This post\'s share of the Walter words (%d) is smaller than one piece Walter accepts.', $allowance ), 0, $ctx, 'warning' );
 			return;
+		}
+		$sent = 0;
+		foreach ( $chosen as $piece ) {
+			$sent += count( $piece );
 		}
 
 		$article  = HumanizeText::plain( $body );
@@ -137,8 +165,8 @@ final class Humanizer {
 
 		foreach ( self::batches( $blocks, $chosen ) as $batch ) {
 			$items = array();
-			foreach ( $batch as $number => $group ) {
-				$text  = HumanizeText::group_text( $blocks, $group );
+			foreach ( $batch as $number => $piece ) {
+				$text  = HumanizeText::piece_text( $blocks, $piece );
 				$names = array_slice( HumanizeText::names( $text ), 0, 100 );
 				$item  = array(
 					'id'   => 'g' . $number,
@@ -166,7 +194,11 @@ final class Humanizer {
 							'numbers' => true,
 							'urls'    => true,
 						),
-						'output_format' => 'plain',
+						'structure'     => array(
+							'keep_headings' => true,
+							'keep_lists'    => true,
+						),
+						'output_format' => 'markdown',
 						'disallowed'    => array( '—' ),
 					),
 				),
@@ -183,20 +215,28 @@ final class Humanizer {
 				if ( ! isset( $batch[ $number ] ) ) {
 					continue;
 				}
-				$group    = $batch[ $number ];
-				$original = HumanizeText::group_text( $blocks, $group );
+				$piece = $batch[ $number ];
 				if ( 'success' !== ( $answer['status'] ?? '' ) ) {
 					$refused[] = 'Walter: ' . (string) ( $answer['error']['message'] ?? 'no text came back' );
 					continue;
 				}
-				$paragraphs = HumanizeText::clean( (string) ( $answer['humanized_text'] ?? '' ) );
-				$why        = HumanizeText::fact_check( $original, implode( "\n\n", $paragraphs ), $article );
-				if ( '' !== $why ) {
-					$refused[] = $why;
+				// Back to one text per section, each checked on its own against its own original.
+				$parts = HumanizeText::split_answer( (string) ( $answer['humanized_text'] ?? '' ), count( $piece ) );
+				if ( null === $parts ) {
+					$refused[] = 'Walter dropped, merged or added a section, so its text could not be put back in place';
 					continue;
 				}
-				$accepted[ $group[0] ] = array( $group, HumanizeText::fit_paragraphs( $paragraphs, count( $group ) ) );
-				$used                 += HumanizeText::count_words( $original );
+				foreach ( $piece as $i => $section ) {
+					$original   = HumanizeText::group_text( $blocks, $section );
+					$paragraphs = HumanizeText::clean( $parts[ $i ] );
+					$why        = HumanizeText::fact_check( $original, implode( "\n\n", $paragraphs ), $article );
+					if ( '' !== $why ) {
+						$refused[] = $why;
+						continue;
+					}
+					$accepted[ $section[0] ] = array( $section, HumanizeText::fit_paragraphs( $paragraphs, count( $section ) ) );
+					$used                   += HumanizeText::count_words( $original );
+				}
 			}
 		}
 
@@ -209,8 +249,16 @@ final class Humanizer {
 			return;
 		}
 
+		// Words were spent: remember whether anything came of them.
+		$guard = self::next_guard( $guard, Schedule::today(), (bool) $accepted );
+		update_option( self::GUARD_OPTION, $guard, false );
+
 		if ( ! $accepted ) {
-			self::record( $job_id, self::UNCHANGED, 'Walter\'s versions did not pass the fact check, so the AI\'s wording is kept: ' . self::summary( $refused ), 0, $ctx, 'warning' );
+			$message = 'Walter\'s versions did not pass the fact check, so the AI\'s wording is kept: ' . self::summary( $refused );
+			if ( self::paused( $guard, Schedule::today() ) ) {
+				$message = sprintf( 'Sending to Walter is paused until tomorrow: %d articles in a row came back with nothing that passed the fact check. ', (int) $guard['misses'] ) . $message;
+			}
+			self::record( $job_id, self::UNCHANGED, $message, 0, $ctx, 'warning' );
 			return;
 		}
 
@@ -232,11 +280,10 @@ final class Humanizer {
 			array( 'article_job_id' => $job_id )
 		);
 
-		$total   = count( $groups );
 		$status  = count( $accepted ) === $total ? self::DONE : self::PARTIAL;
-		$message = sprintf( 'Humanized with Walter: %1$d of %2$d paragraph groups, %3$d words.', count( $accepted ), $total, $used );
-		if ( count( $chosen ) < $total ) {
-			$message .= sprintf( ' %d groups were not sent, to spread the plan\'s words over the month.', $total - count( $chosen ) );
+		$message = sprintf( 'Humanized with Walter: %1$d of %2$d sections that could be sent, %3$d words.', count( $accepted ), $total, $used );
+		if ( $sent < $total ) {
+			$message .= sprintf( ' %d were not sent, to spread the plan\'s words over the month.', $total - $sent );
 		}
 		if ( $refused ) {
 			$message .= ' Kept the AI\'s wording where Walter\'s failed the fact check: ' . self::summary( $refused );
@@ -248,9 +295,9 @@ final class Humanizer {
 	}
 
 	/**
-	 * Splits the chosen groups into calls that stay inside Walter's limits.
+	 * Splits the chosen pieces into calls that stay inside Walter's limits.
 	 *
-	 * @return array<int, array<int, int[]>> Each call's groups, keyed by a number unique to the article.
+	 * @return array<int, array<int, array>> Each call's pieces, keyed by a number unique to the article.
 	 */
 	private static function batches( array $blocks, array $groups ): array {
 		$limit   = (int) ( WalterClient::data()['max_words'] ?? 0 );
@@ -259,7 +306,7 @@ final class Humanizer {
 		$current = array();
 		$words   = 0;
 		foreach ( $groups as $number => $group ) {
-			$size = HumanizeText::count_words( HumanizeText::group_text( $blocks, $group ) );
+			$size = HumanizeText::count_words( HumanizeText::piece_text( $blocks, $group ) );
 			if ( $current && ( $words + $size > $limit || count( $current ) >= self::BATCH_ITEMS ) ) {
 				$batches[] = $current;
 				$current   = array();
@@ -310,6 +357,36 @@ final class Humanizer {
 		$days = self::days_until_renewal( $today, $renewal_day );
 		$left = max( 1, $days * max( 1, $per_day ) );
 		return max( 0, min( $cap, intdiv( max( 0, $credits ), $left ) ) );
+	}
+
+	/** The saved count of articles in a row with nothing accepted, and the day sending was paused. */
+	public static function guard(): array {
+		$guard = get_option( self::GUARD_OPTION, array() );
+		$guard = is_array( $guard ) ? $guard : array();
+		return array(
+			'misses'    => max( 0, (int) ( $guard['misses'] ?? 0 ) ),
+			'paused_on' => (string) ( $guard['paused_on'] ?? '' ),
+		);
+	}
+
+	/** True when nothing should be sent to Walter today. Pure, so it has a unit test. */
+	public static function paused( array $guard, string $today ): bool {
+		return (int) ( $guard['misses'] ?? 0 ) >= self::MISSES_TO_PAUSE && $today === (string) ( $guard['paused_on'] ?? '' );
+	}
+
+	/** The guard after an article that spent words. Pure, so it has a unit test. */
+	public static function next_guard( array $guard, string $today, bool $accepted ): array {
+		if ( $accepted ) {
+			return array(
+				'misses'    => 0,
+				'paused_on' => '',
+			);
+		}
+		$misses = (int) ( $guard['misses'] ?? 0 ) + 1;
+		return array(
+			'misses'    => $misses,
+			'paused_on' => $misses >= self::MISSES_TO_PAUSE ? $today : '',
+		);
 	}
 
 	/** Days from today until the plan renews, at least 1. On the renewal day itself, a whole month. */

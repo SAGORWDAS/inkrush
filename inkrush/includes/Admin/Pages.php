@@ -787,7 +787,14 @@ final class Pages {
 			if ( ! empty( $data['checked_at'] ) ) {
 				echo ' <span class="zzzc-help">(checked ' . esc_html( Schedule::format_local( (string) $data['checked_at'], true ) ) . ')</span>';
 			}
-			echo '</p><div class="zzzc-buttons">';
+			echo '</p>';
+			$guard = \ZZZCopy\Walter\Humanizer::guard();
+			if ( \ZZZCopy\Walter\Humanizer::paused( $guard, Schedule::today() ) ) {
+				echo '<p class="zzzc-field-error">' . esc_html( sprintf( 'Paused until tomorrow: Walter\'s versions of the last %d articles all failed the fact check, so no more words are spent today. Posts go out with the AI\'s wording.', (int) $guard['misses'] ) ) . '</p>';
+			} elseif ( $guard['misses'] >= \ZZZCopy\Walter\Humanizer::MISSES_TO_PAUSE ) {
+				echo '<p class="zzzc-help">' . esc_html( sprintf( 'Walter\'s versions of the last %d articles failed the fact check. Today one article is tried; if it fails too, sending pauses again until tomorrow.', (int) $guard['misses'] ) ) . '</p>';
+			}
+			echo '<div class="zzzc-buttons">';
 			self::action_button( 'walter_check', 'Check now' );
 			self::action_button( 'walter_disconnect', 'Disconnect', array(), '', 'Disconnect Walter? Posts will go out with the AI\'s wording until you connect it again.' );
 			echo '</div>';
@@ -797,7 +804,7 @@ final class Pages {
 			} else {
 				echo '<p>Status: <strong>Not connected</strong></p>';
 			}
-			echo '<p class="zzzc-help">Click Connect Walter, sign in to Walter Writes with your own account and click Allow. Your password is never seen or kept by this site.</p><div class="zzzc-buttons">';
+			echo '<p class="zzzc-help">Click Connect Walter, sign in to Walter Writes with your own account, click Allow, then click Back to InkRush on the "Walter Connected!" page. Your password is never seen or kept by this site.</p><div class="zzzc-buttons">';
 			self::action_button( 'walter_connect', WalterClient::needs_reconnect() ? 'Connect Walter again' : 'Connect Walter', array(), 'is-primary' );
 			echo '</div>';
 		}
