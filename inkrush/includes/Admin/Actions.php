@@ -17,6 +17,7 @@ use ZZZCopy\RestTick;
 use ZZZCopy\Schedule;
 use ZZZCopy\Secrets;
 use ZZZCopy\Settings;
+use ZZZCopy\Walter\WalterClient;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -33,12 +34,16 @@ final class Actions {
 		'save_publishing', 'author_access', 'save_author_mode', 'save_author_schedule', 'save_images', 'release_image', 'retry_image',
 		'retry_article', 'skip_article',
 		'export_logs',
+		'walter_connect', 'walter_disconnect', 'walter_check', 'save_walter',
 	);
 
 	public static function register(): void {
 		foreach ( self::HANDLERS as $action ) {
 			add_action( 'admin_post_zzzc_' . $action, array( __CLASS__, 'dispatch' ) );
 		}
+		// Where Walter sends the administrator back after signing in. It cannot carry this site's
+		// nonce; the one-time state value takes its place, as for the social media callback.
+		add_action( 'admin_post_zzzc_walter_callback', array( __CLASS__, 'walter_callback' ) );
 	}
 
 	public static function url_field( string $action ): void {
@@ -274,6 +279,70 @@ final class Actions {
 			self::flash( 'success', 'AI settings saved.' );
 		}
 		self::redirect( 'zzzc-ai' );
+	}
+
+	/* ---- Walter Writes humanizer ---- */
+
+	private static function do_walter_connect(): void {
+		$url = WalterClient::start_url();
+		if ( is_wp_error( $url ) ) {
+			self::flash( 'error', $url->get_error_message() );
+			self::redirect( 'zzzc-ai' );
+		}
+		Events::log( 'humanizer', 'info', 'An administrator started connecting Walter Writes.' );
+		wp_redirect( $url ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- Deliberately leaving the site for Walter's sign-in page.
+		exit;
+	}
+
+	public static function walter_callback(): void {
+		if ( ! current_user_can( Plugin::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'zzz-copy-das-sobur' ), 403 );
+		}
+		// phpcs:disable WordPress.Security.NonceVerification -- Walter cannot send a nonce. WalterClient::finish() checks the one-time state value instead.
+		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['state'] ) ) : '';
+		$code  = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['code'] ) ) : '';
+		$error = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['error'] ) ) : '';
+		// phpcs:enable
+		if ( '' !== $error || '' === $code ) {
+			Events::log( 'humanizer', 'info', 'Connecting Walter was not completed' . ( '' !== $error ? ': ' . $error : '.' ), array( 'error_code' => 'walter_declined' ) );
+			self::flash( 'error', 'Walter was not connected' . ( '' !== $error ? ' (' . $error . ')' : '' ) . '. Click Connect Walter to try again.' );
+			self::redirect( 'zzzc-ai' );
+		}
+		$done = WalterClient::finish( $code, $state );
+		if ( is_wp_error( $done ) ) {
+			Events::log( 'humanizer', 'error', 'Connecting Walter failed: ' . $done->get_error_message(), array( 'error_code' => 'walter_connect_failed' ) );
+			self::flash( 'error', 'Walter was not connected: ' . $done->get_error_message() );
+			self::redirect( 'zzzc-ai' );
+		}
+		$data = WalterClient::data();
+		Events::log( 'humanizer', 'info', sprintf( 'Walter Writes connected. Plan: %1$s, words left: %2$s.', (string) ( $data['plan'] ?? 'unknown' ), isset( $data['credits'] ) ? number_format_i18n( (int) $data['credits'] ) : 'unknown' ) );
+		self::flash( 'success', 'Walter connected. From now on each article is humanized before it is published.' );
+		self::redirect( 'zzzc-ai' );
+	}
+
+	private static function do_walter_disconnect(): void {
+		WalterClient::disconnect();
+		Events::log( 'humanizer', 'info', 'Walter Writes was disconnected. Posts go out with the AI\'s wording.' );
+		self::flash( 'success', 'Walter disconnected. Posts now go out with the AI\'s wording.' );
+		self::redirect( 'zzzc-ai' );
+	}
+
+	private static function do_walter_check(): void {
+		$account = WalterClient::account();
+		if ( is_wp_error( $account ) ) {
+			self::flash( 'error', 'Walter could not be checked: ' . $account->get_error_message() );
+		} else {
+			self::flash( 'success', sprintf( 'Walter is working. Plan: %1$s. Words left: %2$s.', (string) ( $account['plan'] ?? 'unknown' ), number_format_i18n( (int) ( $account['credits_remaining'] ?? 0 ) ) ) );
+		}
+		self::redirect( 'zzzc-ai' );
+	}
+
+	private static function do_save_walter(): void {
+		$values = array( 'walter_enabled' => self::post( 'walter_enabled', 0 ) );
+		foreach ( array( 'walter_mode', 'walter_reading_level', 'walter_renewal_day', 'walter_max_words', 'walter_timeout' ) as $key ) {
+			$values[ $key ] = self::post( $key );
+		}
+		self::save_settings( $values, 'zzzc-ai' );
 	}
 
 	private static function do_restore_prompt(): void {

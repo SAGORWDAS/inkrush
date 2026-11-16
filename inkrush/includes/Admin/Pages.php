@@ -24,6 +24,8 @@ use ZZZCopy\Schedule;
 use ZZZCopy\Secrets;
 use ZZZCopy\Settings;
 use ZZZCopy\Usage;
+use ZZZCopy\Walter\Humanizer;
+use ZZZCopy\Walter\WalterClient;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -695,6 +697,8 @@ final class Pages {
 		}
 		echo '</div><p class="zzzc-result" id="zzzc-connection-result" role="status"></p></section>';
 
+		self::walter_card();
+
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-form" data-track-changes="1"><section class="zzzc-card"><h3>Model and limits</h3>';
 		Actions::url_field( 'save_ai' );
 		echo '<div class="zzzc-grid"><div class="zzzc-field"><label for="model_id">Model identifier</label><input type="text" id="model_id" name="model_id" value="' . esc_attr( (string) Settings::get( 'model_id' ) ) . '" spellcheck="false"><p class="zzzc-help">Used exactly as entered. It is never swapped for another model.</p>';
@@ -762,6 +766,69 @@ final class Pages {
 		echo '<div class="zzzc-buttons"><button type="button" class="zzzc-btn is-primary" id="zzzc-test-generation">Run test generation</button><button type="button" class="zzzc-btn" id="zzzc-test-draft" hidden>Create test draft</button></div><div class="zzzc-result" id="zzzc-generation-result" role="status"></div></section>';
 
 		self::close();
+	}
+
+	/**
+	 * Walter Writes: connect once, then each article chosen for a post is humanized before it goes out.
+	 */
+	private static function walter_card(): void {
+		$data = WalterClient::data();
+		echo '<section class="zzzc-card" id="zzzc-walter"><h3>Walter Writes humanizer</h3>';
+		echo '<p class="zzzc-help">The article chosen for each post is sent to your Walter Writes plan after the AI writes it and before it is published. Only plain paragraphs without quotes are sent. Each one comes back only if every number, name, date and "said" survives; otherwise the AI\'s wording stays. If Walter is not connected, out of words or down, the post still goes out on time with the AI\'s wording.</p>';
+
+		if ( WalterClient::connected() ) {
+			echo '<p>Status: <strong>Connected</strong>';
+			if ( ! empty( $data['plan'] ) ) {
+				echo ' · Plan: <strong>' . esc_html( ucfirst( (string) $data['plan'] ) ) . '</strong>';
+			}
+			if ( isset( $data['credits'] ) && null !== $data['credits'] ) {
+				echo ' · Words left: <strong>' . esc_html( number_format_i18n( (int) $data['credits'] ) ) . '</strong>';
+			}
+			if ( ! empty( $data['checked_at'] ) ) {
+				echo ' <span class="zzzc-help">(checked ' . esc_html( Schedule::format_local( (string) $data['checked_at'], true ) ) . ')</span>';
+			}
+			echo '</p><div class="zzzc-buttons">';
+			self::action_button( 'walter_check', 'Check now' );
+			self::action_button( 'walter_disconnect', 'Disconnect', array(), '', 'Disconnect Walter? Posts will go out with the AI\'s wording until you connect it again.' );
+			echo '</div>';
+		} else {
+			if ( WalterClient::needs_reconnect() ) {
+				echo '<p class="zzzc-field-error">The connection stopped working: ' . esc_html( (string) ( $data['last_error'] ?? '' ) ) . ' Connect again below.</p>';
+			} else {
+				echo '<p>Status: <strong>Not connected</strong></p>';
+			}
+			echo '<p class="zzzc-help">Click Connect Walter, sign in to Walter Writes with your own account and click Allow. Your password is never seen or kept by this site.</p><div class="zzzc-buttons">';
+			self::action_button( 'walter_connect', WalterClient::needs_reconnect() ? 'Connect Walter again' : 'Connect Walter', array(), 'is-primary' );
+			echo '</div>';
+		}
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="zzzc-form" data-track-changes="1">';
+		Actions::url_field( 'save_walter' );
+		self::check_row( 'walter_enabled', 'Humanize each article before it is published', 'Turn off to stop sending articles to Walter without disconnecting.' );
+		echo '<div class="zzzc-grid">';
+		self::select_row(
+			'walter_mode',
+			'Rewriting strength',
+			array(
+				'safe'     => 'Safe: smaller changes, fewer facts lost (recommended for news)',
+				'balanced' => 'Balanced: rewrites more, more pieces fail the fact check',
+			)
+		);
+		self::select_row(
+			'walter_reading_level',
+			'Reading level',
+			array(
+				'general'      => 'General readers',
+				'professional' => 'Professional',
+				'technical'    => 'Technical',
+			)
+		);
+		self::number_row( 'walter_renewal_day', 'Plan renews on day of the month', 'The words left are shared evenly over the posts until this day, so the plan does not run out mid-month. Each post then has its first part humanized.' );
+		self::number_row( 'walter_max_words', 'Most words humanized per article' );
+		self::number_row( 'walter_timeout', 'Walter request timeout (seconds)' );
+		echo '</div>';
+		self::save_bar( 'Save Walter settings' );
+		echo '</form></section>';
 	}
 
 	/* ---- Schedule ---- */
@@ -1615,6 +1682,7 @@ final class Pages {
 			'Created'                => Schedule::format_local( $job['created_at'] ),
 			'Updated'                => Schedule::format_local( $job['updated_at'] ) . ' (' . $job['updated_at'] . ' UTC)',
 			'WordPress post'         => $link ?: '',
+			'Walter humanizer'       => $content ? trim( Humanizer::label( $content ) . ( '' !== (string) ( $content['humanize_note'] ?? '' ) ? ': ' . $content['humanize_note'] : '' ) ) : '',
 		);
 		foreach ( $rows as $label => $value ) {
 			if ( '' !== (string) $value ) {

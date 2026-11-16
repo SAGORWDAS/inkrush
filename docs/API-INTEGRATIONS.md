@@ -35,6 +35,30 @@ InkRush reaches AI models only through [OpenRouter](https://openrouter.ai/). It 
 
 **Changing the address.** Developers can point the plugin at another OpenRouter-compatible address with the `zzzc_openrouter_base_url` filter. This is meant for testing.
 
+## Walter Writes humanizer
+
+Optional, from 1.12.0. The article chosen for each post is rewritten by your own [Walter Writes](https://walterwrites.ai/) plan after the AI writes it and before it is published. It uses your subscription words, not a separate API plan.
+
+**Connecting.** On the AI Settings page, click **Connect Walter**, sign in to Walter Writes and click **Allow**. The plugin talks to Walter's official MCP server (`https://mcp-server.walterwrites.ai/mcp`) with standard OAuth: it registers itself as a client, signs you in with a PKCE challenge, and stores the tokens encrypted. The access token lasts an hour and is renewed automatically. If Walter stops accepting the sign-in, the log and an email (at most one a day) ask you to connect again. Walter's web app itself cannot be used from a server, because Cloudflare refuses requests that do not come from a browser.
+
+**What is sent.** Only plain paragraphs. Never headings, lists, tables, block quotes, links, quotes, source lines, or paragraphs under 15 words. Paragraphs next to each other are sent together in pieces of 60 to 300 words, because Walter refuses anything under 50 words. Names in each piece are sent as entities to keep, and numbers and links are marked to keep too.
+
+**The fact check.** In tests on 16 November 2026, Walter changed dates and figures, dropped a whole paragraph and invented a quote, even when asked to keep them. So a piece is used only if all of these hold:
+
+- Its length is within 75 to 140 percent of the original.
+- Every figure is the same, and none is added.
+- Every time word (Monday, next, March, spring) and number word stays, and none is added.
+- No "not" or "no" is added or lost.
+- It has at least as many "said"-type words, and every hedge ("about", "may", "expected") stays.
+- Every name stays, and none is invented.
+- It has no quote marks, links or the forbidden dash.
+
+A piece that fails keeps the AI's wording. Then the whole article must pass the same validation as before.
+
+**Words.** Walter's Pro plan has 70,000 words a month, and three 1,500-word articles a day need about 135,000. So the words left are shared evenly over the posts until your plan renews (the renewal day is a setting), and each post has its first part humanized. Words left are shown on the AI Settings page, and the words used for each article are in the log.
+
+**When.** In Past-Hour Posting, as soon as the post's article has its image, while the post waits for its time. Otherwise, or if Walter was busy then, just before the post is created. A post is never held back for Walter. If Walter is not connected, out of words or down, the post goes out on time with the AI's wording.
+
 ## Wikimedia Commons
 
 Images are found through the official [MediaWiki API](https://commons.wikimedia.org/w/api.php) for Wikimedia Commons. No account or key is needed.

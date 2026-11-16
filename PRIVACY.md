@@ -15,6 +15,7 @@ The plugin contacts only these services, and only as part of its work.
 | Google News RSS (`news.google.com`) | Your category topic addresses and search queries, language and region | To find stories |
 | Publisher websites | Requests for their feeds, robots.txt and article pages | To find stories and read their text |
 | OpenRouter (`openrouter.ai`) | Your API key, the publisher text, your article and tag prompts, the model identifier, your site address, and the plugin name | To write the article and its tags, check the key and model, and report usage |
+| Walter Writes (`mcp-server.walterwrites.ai`) | Only when you connect Walter and humanizing is on: the plain paragraphs of the article chosen for each post (never quotes, links, lists or headings), the names in them, your sign-in token for Walter, and your site address in this site's registration as a Walter client | To rewrite those paragraphs in a more natural style, using your Walter plan's words, and to read how many words your plan has left |
 | Wikimedia Commons (`commons.wikimedia.org`) | Search terms made from the article's title, text and tags | To find a featured image |
 | Facebook and Instagram (`graph.facebook.com`) | Only when connected and switched on: the generated post text, your article's web address, the featured image's web address, the image's alt text, the hashtags, and the access credential for that account | To publish the article to a Page or an Instagram professional account |
 | X (`api.x.com`) | Only when connected and switched on: the generated post text, your article's web address, the featured image's bytes, its alt text, the hashtags, and the access credential | To publish the article |
@@ -36,6 +37,8 @@ OpenRouter passes your requests to the provider of the model you chose. What Ope
 
 - **Settings, categories, prompts and state**, in WordPress options and the plugin's own database tables.
 - **The OpenRouter API key**, encrypted.
+- **The Walter Writes sign-in** (access and refresh tokens), encrypted, when you connect Walter. Your Walter password is never seen or kept by this site. Disconnect removes the tokens and asks Walter to revoke them.
+- **The AI's own version of each humanized article**, kept beside the humanized one so you can compare them.
 - **Publisher text and story details** used to write articles. Kept for 30 days by default ("Keep publisher text and rejected stories").
 - **Logs**, including the WordPress user who made a change and the author credited with a post. Kept for 90 days by default.
 - **Raw diagnostics of failed articles.** Kept for 30 days by default.
@@ -59,7 +62,7 @@ You can change the retention periods on the **Publishing** page. Log exports to 
 ## Your responsibilities
 
 - Tell your visitors, in your own privacy notice, that your posts are written with AI and use outside sources, if your law or your readers expect it.
-- Make sure your use of Google News, publisher content, OpenRouter, the model provider and Wikimedia Commons follows their terms.
+- Make sure your use of Google News, publisher content, OpenRouter, the model provider, Walter Writes and Wikimedia Commons follows their terms.
 - If you connect a social media platform, make sure your use of it follows that platform's terms and developer terms, and that you are entitled to publish the article and its image there. Publishing an image under a share-alike licence to a platform is still your decision and your responsibility.
 - Do not put personal data into prompts, categories or search queries unless you are allowed to send it to those services.
 

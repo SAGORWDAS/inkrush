@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Schema {
 
-	public const DB_VERSION = '17';
+	public const DB_VERSION = '18';
 
 	public static function maybe_upgrade(): void {
 		if ( get_option( 'zzzc_db_version' ) !== self::DB_VERSION ) {
@@ -68,6 +68,9 @@ final class Schema {
 		}
 		if ( '' !== $previous && version_compare( $previous, '17', '<' ) ) {
 			self::upgrade_to_17();
+		}
+		if ( '' !== $previous && version_compare( $previous, '18', '<' ) ) {
+			self::upgrade_to_18();
 		}
 
 		// Autoloaded, because this one small value is read on every request.
@@ -305,6 +308,15 @@ final class Schema {
 		}
 	}
 
+	/**
+	 * Version 18: the Walter Writes humanizer. create_tables() adds five columns to article_content
+	 * (original_body, humanize_status, humanize_note, humanized_words, humanized_at). Articles written
+	 * before this keep an empty status, and nothing else changes until Walter is connected.
+	 */
+	private static function upgrade_to_18(): void {
+		Events::log( 'config', 'info', 'Upgraded plugin data for the Walter Writes humanizer. Connect Walter on the AI Settings page to humanize each article before it is published. Until then nothing changes.' );
+	}
+
 	private static function create_tables(): void {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -421,6 +433,11 @@ final class Schema {
   readability float NULL,
   generated_at datetime NULL,
   validated_at datetime NULL,
+  original_body longtext NULL,
+  humanize_status varchar(20) NOT NULL DEFAULT '',
+  humanize_note varchar(255) NOT NULL DEFAULT '',
+  humanized_words int(11) NOT NULL DEFAULT 0,
+  humanized_at datetime NULL,
   PRIMARY KEY  (article_job_id),
   KEY generated_at (generated_at),
   KEY validated_at (validated_at)

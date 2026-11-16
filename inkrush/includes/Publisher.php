@@ -551,6 +551,11 @@ final class Publisher {
 		}
 
 		if ( ! $post_id ) {
+			// The article is going out now, so this is the last moment to humanize it. Done already
+			// in Past-Hour Posting unless Walter was busy then. Never holds the post back.
+			Walter\Humanizer::run( $article_job_id, true );
+			$content = Lifecycle::content( $article_job_id ) ?: $content;
+
 			$created = self::create_post( $job, $item, $content, $credited );
 			if ( is_wp_error( $created ) ) {
 				self::publish_failed( $article_job_id, $queue_id, $created->get_error_code(), $created->get_error_message(), $attempt, $context );

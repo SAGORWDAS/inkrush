@@ -565,6 +565,10 @@ final class PastHour {
 				'source_item_id' => (int) $article['source_item_id'],
 			)
 		);
+
+		// Now this is the post's article, humanize it while the post waits for its time. The slot
+		// is already READY, so a slow or failed Walter call can never cost the post.
+		Walter\Humanizer::run( (int) $article['id'], false );
 	}
 
 	/** The image minimum for a post's last chance, owner's decision of 2026-11-15. */

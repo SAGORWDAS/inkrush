@@ -44,6 +44,7 @@ anywhere PHP does:
 php tests/unit/run-unit.php
 php tests/unit/run-images.php
 php tests/unit/run-validator.php
+php tests/unit/run-humanizer.php
 ```
 
 They need the `mbstring`, `openssl` and `sodium` extensions. On a PHP build without them loaded by

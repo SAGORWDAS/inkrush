@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.8
+Stable tag: 1.12.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -23,13 +23,14 @@ After setup, press Start Automation. The plugin keeps working in the background 
 4. Sends the source and your exact saved prompt to your OpenRouter model.
 5. Generates 20 tags with your exact saved tag prompt.
 6. Validates the result and holds anything that fails.
-7. At each publishing slot, finds a featured image on Wikimedia Commons with rules only, then creates a draft or published WordPress post.
-8. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
-9. Optionally stops by itself after a number of days or published posts, whichever comes first.
+7. Optionally, when you connect your own Walter Writes plan, humanizes the article chosen for each post before it goes out, keeping every fact. A post never waits for Walter.
+8. At each publishing slot, finds a featured image on Wikimedia Commons with rules only, then creates a draft or published WordPress post.
+9. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
+10. Optionally stops by itself after a number of days or published posts, whichever comes first.
 
-10. Optionally distributes each published article to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, through those platforms' own official APIs. This is switched off until you connect an account and turn a platform on.
+11. Optionally distributes each published article to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, through those platforms' own official APIs. This is switched off until you connect an account and turn a platform on.
 
-The outside services are your news sources, OpenRouter, Wikimedia Commons, and any social media platform you choose to connect. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
+The outside services are your news sources, OpenRouter, Wikimedia Commons, Walter Writes if you connect it, and any social media platform you choose to connect. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
 
 Developed by: Sagor Das
 Developer Contact: das.sagorwork@gmail.com
@@ -43,6 +44,7 @@ InkRush is a tool, and you are responsible for what it publishes. A story or ima
 This plugin connects to these outside services. It sends nothing to the developer.
 
 * **OpenRouter** (https://openrouter.ai/), to write articles and tags. It receives your API key, the publisher text, your prompts, the model identifier and your site address, each time an article or its tags are written, and when you test the connection. Terms: https://openrouter.ai/terms. Privacy: https://openrouter.ai/privacy.
+* **Walter Writes** (https://walterwrites.ai/), only if you connect it on the AI Settings page, to humanize the article chosen for each post. Through Walter's MCP server (https://mcp-server.walterwrites.ai/mcp) it receives the article's plain paragraphs (never quotes, links, lists or headings), the names in them and your Walter sign-in token, once for each post, and your site address when the site registers itself as a Walter client. It uses your Walter plan's words. Terms: https://walterwrites.ai/terms-of-service/. Privacy: https://walterwrites.ai/privacy-policy/.
 * **Wikimedia Commons** (https://commons.wikimedia.org/), to find and download featured images. It receives search terms made from each article. Terms: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use. Privacy: https://foundation.wikimedia.org/wiki/Policy:Privacy_policy.
 * **Google News RSS** (https://news.google.com/), to find stories, when "Use Google News RSS" is on. It receives your topic addresses, search queries, language and region. Terms: https://policies.google.com/terms. Privacy: https://policies.google.com/privacy.
 * **Publisher websites** you add or that Google News links to, to read feeds, robots.txt and article pages.
@@ -112,6 +114,17 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.12.0 =
+Articles humanized with your Walter Writes plan.
+
+**Connect Walter once, and each post is humanized before it goes out.** On the AI Settings page, click Connect Walter, sign in to Walter Writes and click Allow. It uses the words in your own Walter plan, with no separate API plan, nothing running on your computer and no extra server. Only the article chosen for each post is sent, so three a day on a three-post schedule, never the spare articles.
+
+**Facts come first.** In tests, Walter changed "next spring" to "this spring", wrote "$12 million" out in words, dropped a paragraph and made up a quote for a mayor. So only plain paragraphs without quotes, links, lists or headings are sent. Each one is kept only if every number, name, date, "said" and "about" is still there and nothing new was added. Otherwise the AI's wording stays for that part. An article may be fully humanized, partly humanized or unchanged, and the Articles page and the log say which and why.
+
+**Your words last the month.** The Pro plan's 70,000 words a month cover about half of what three full articles a day need. The words you have left are shared evenly over the posts until your plan renews (set the renewal day on the AI Settings page, the 29th by default), so every post gets its first part humanized and the plan does not run out mid-month.
+
+**A post is never held back.** If Walter is not connected, out of words, slow or down, the post goes out on time with the AI's wording. If the Walter connection stops working, you get an email, at most one a day, asking you to connect it again.
 
 = 1.11.8 =
 Picture searches that find the right thing.
