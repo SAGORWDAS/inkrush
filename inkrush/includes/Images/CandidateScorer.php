@@ -51,7 +51,25 @@ final class CandidateScorer {
 		'club', 'society', 'association', 'foundation', 'trust', 'force', 'army', 'navy', 'police',
 		'railway', 'line', 'route', 'highway', 'festival', 'conference', 'summit', 'games',
 		'championship', 'cup', 'league', 'series', 'show', 'awards', 'museum', 'zoo',
+		// Views of a place. "Doha Skyline" is a picture of a city, not a person called that.
+		'skyline', 'skylines', 'cityscape', 'panorama', 'view', 'views', 'waterfront', 'corniche',
+		'downtown', 'promenade', 'marina', 'night', 'sunset', 'skyscrapers', 'towers', 'aerial',
 	);
+
+	/**
+	 * Words for how a photograph was made, not what it shows. "Festival In Focus" in a headline
+	 * matched "Focus stacking" on a photograph of mushrooms (owner's log of 2026-11-17).
+	 */
+	private const TECHNIQUE = '/(?<![\p{L}\p{N}])(focus[\s-]*stack(?:ed|ing|s)?|helicon focus|long[\s-]exposure|tilt[\s-]shift|hdr|close[\s-]ups?|macro photograph(?:s|y)?|photographs taken on [\d-]+|taken on [\d-]+)(?![\p{L}\p{N}])/iu';
+
+	/**
+	 * Labels for living things. A photograph labelled with one of these is about nature, and is the
+	 * wrong picture for an article that never mentions it, whatever other words it shares.
+	 */
+	private const NATURE = '/(?<![\p{L}\p{N}])(fungi|fungus|mushrooms?|toadstools?|flowers?|blossoms?|flora|plantae|insects?|beetles?|butterfl(?:y|ies)|moths?|spiders?|lichens?|mosses|birds?|aves|fauna|mammals?|reptiles?|amphibians?|snakes?|frogs?)(?![\p{L}\p{N}])/iu';
+
+	/** Words that say a picture is a general view of a place. */
+	private const PLACE_VIEW = '/(?<![\p{L}\p{N}])(skylines?|cityscapes?|panoramas?|panoramic|views? of|aerial views?|downtown|waterfront|corniche|city cent(?:re|er)|old town)(?![\p{L}\p{N}])/iu';
 
 	/**
 	 * Proper names in a file's own title that look like a person rather than a place or an
@@ -165,7 +183,9 @@ final class CandidateScorer {
 		$title = (string) preg_replace( '/^File:/i', '', (string) $candidate['title'] );
 		$title = (string) preg_replace( '/\.[a-z0-9]{2,5}$/i', '', $title );
 		$text  = str_replace( array( '_', '-' ), ' ', $title ) . ' ' . implode( ' ', $fields );
-		return mb_strtolower( html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+		$text  = mb_strtolower( html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+		// How the photograph was taken is not what it shows.
+		return (string) preg_replace( self::TECHNIQUE, ' ', $text );
 	}
 
 	/**
@@ -214,6 +234,20 @@ final class CandidateScorer {
 			}
 		}
 		return array_values( $found );
+	}
+
+	/**
+	 * The words of the article's subjects and tags, the words that say what it is about.
+	 *
+	 * @return string[]
+	 */
+	public static function naming_words( array $analysis ): array {
+		$names = array_merge(
+			(array) ( $analysis['entities'] ?? array() ),
+			(array) ( $analysis['tags'] ?? array() ),
+			array( (string) ( $analysis['main'] ?? '' ) )
+		);
+		return array_values( array_unique( ArticleAnalyzer::tokens( implode( ' ', array_map( 'strval', $names ) ) ) ) );
 	}
 
 	/**
@@ -298,11 +332,43 @@ final class CandidateScorer {
 		// also ordinary words. "Halo" is a video game and a ring of light around the sun, and the
 		// labels cannot say which one a file shows. A second article word in the labels, such as
 		// "Xbox" or "game", confirms the meaning. From the owner's log of 2026-11-15.
-		$matched = self::matched_words( $candidate, $analysis );
-		if ( count( $matched ) < 2 ) {
-			return $matched
-				? sprintf( 'Only one article word, "%s", is in the labels, so the picture may show something else of that name.', $matched[0] )
-				: 'No article word is in the labels.';
+		// A picture of nature is wrong for an article that never mentions it. The mushroom photograph
+		// chosen for a film festival story on 2026-11-17 was filed under "Fungi" and "mushrooms".
+		if ( preg_match_all( self::NATURE, $text, $nature ) ) {
+			$article = (string) ( $analysis['text'] ?? '' );
+			foreach ( array_unique( $nature[1] ) as $word ) {
+				$root = (string) preg_replace( '/(ies|es|us|i|y|s)$/u', '', mb_strtolower( (string) $word ) );
+				if ( mb_strlen( $root ) < 4 ) {
+					$root = mb_strtolower( (string) $word );
+				}
+				if ( '' !== $article && ! preg_match( '/(?<![\p{L}\p{N}])' . preg_quote( $root, '/' ) . '/u', $article ) ) {
+					return sprintf( 'The labels describe %s, which the article never mentions.', $word );
+				}
+			}
+		}
+
+		$place = (string) ( $analysis['view_of'] ?? '' );
+		if ( '' !== $place ) {
+			// A general view of where the story happens, used only when no picture of the subject could be.
+			if ( ! self::has_phrase( $text, $place ) ) {
+				return sprintf( 'The labels do not name %s.', $place );
+			}
+			if ( ! preg_match( self::PLACE_VIEW, $text ) ) {
+				return sprintf( 'Not a general view of %s.', $place );
+			}
+		} else {
+			$matched = self::matched_words( $candidate, $analysis );
+			if ( count( $matched ) < 2 ) {
+				return $matched
+					? sprintf( 'Only one article word, "%s", is in the labels, so the picture may show something else of that name.', $matched[0] )
+					: 'No article word is in the labels.';
+			}
+			// One of the words must come from what the article is about: its subjects or its tags. Two
+			// words from the headline alone, such as "november" and "focus", say nothing about the subject.
+			$naming = self::naming_words( $analysis );
+			if ( $naming && ! array_intersect( $matched, $naming ) ) {
+				return sprintf( 'The labels share only "%s" with the article, not a word from its subject.', implode( '", "', $matched ) );
+			}
 		}
 
 		// A picture whose own title names a person the article never mentions is the wrong picture,
