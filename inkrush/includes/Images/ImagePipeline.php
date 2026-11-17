@@ -148,7 +148,10 @@ final class ImagePipeline {
 		$strong = max( self::STRONG_MATCH, $min );
 		$enough = static function ( array $items ) use ( $analysis, $name, $strong, $min ): bool {
 			foreach ( self::review( $items, $analysis, $name, $min )['eligible'] as $candidate ) {
-				if ( $candidate['score'] >= $strong ) {
+				// Only a file that names one of the article's subjects ends the searching. On
+				// 2026-11-17 a mushroom photograph scored 77 on stray words, and the searches for
+				// "Doha Film Festival" and "Doha Film Institute" never ran.
+				if ( $candidate['score'] >= $strong && (int) $candidate['subjects'] > 0 ) {
 					return true;
 				}
 			}
@@ -225,10 +228,23 @@ final class ImagePipeline {
 				if ( $search_temp ) {
 					return self::retry_later( $job, $attempts, $search_error, $search_wait );
 				}
-				return self::give_up( $job, self::no_match_reason( $reviewed['all'], $found['error'], $min ) );
+				return self::place_or_give_up( $job, $content, $analysis, $name, $attempts, self::no_match_reason( $reviewed['all'], $found['error'], $min ) );
 			}
 
-			$chosen = self::try_files( $reviewed['eligible'], $job, $content, $temporary, $retry );
+			// A file whose labels name one of the article's subjects comes first. One that only shares
+			// words with it waits until a view of the place has been tried: on 2026-11-17 the search
+			// "festival film" passed a slogan from a Polish film festival, which is a worse picture
+			// for a Doha festival than the Doha skyline.
+			$named = array();
+			$loose = array();
+			foreach ( $reviewed['eligible'] as $candidate ) {
+				if ( (int) $candidate['subjects'] > 0 ) {
+					$named[] = $candidate;
+				} else {
+					$loose[] = $candidate;
+				}
+			}
+			$chosen = $named ? self::try_files( $named, $job, $content, $temporary, $retry ) : null;
 			if ( $chosen ) {
 				return $chosen;
 			}
@@ -245,7 +261,72 @@ final class ImagePipeline {
 		if ( $search_temp ) {
 			return self::retry_later( $job, $attempts, $search_error, $search_wait );
 		}
-		return self::give_up( $job, 'Every suitable file was already used, or failed the file checks.' );
+		return self::place_or_give_up( $job, $content, $analysis, $name, $attempts, 'Every suitable file was already used, or failed the file checks.', $loose ?? array() );
+	}
+
+	/**
+	 * The last resort before a post goes without an image: a general view of where the story
+	 * happens, such as the Doha skyline for a Doha film festival story. Commons had 13 files for
+	 * "Doha Film Festival", none of them of this festival, and 335 of the Doha skyline. A true
+	 * picture of the place is better than a wrong picture of the subject, or a skipped post.
+	 */
+	private static function place_or_give_up( array $job, array $content, array $analysis, string $category, int $attempts, string $reason, array $loose = array() ): array {
+		$queries = array_values( (array) ( $analysis['fallback'] ?? array() ) );
+		$place   = (string) ( $analysis['place'] ?? '' );
+		if ( ! $queries || '' === $place ) {
+			return self::loose_or_give_up( $job, $content, $attempts, $reason, $loose );
+		}
+
+		$found = self::search_all( $queries );
+		if ( ! $found['items'] && $found['temporary'] ) {
+			return self::retry_later( $job, $attempts, $found['error'], (int) $found['retry_after'] );
+		}
+		$run = self::get_run( (int) $job['id'] );
+		self::save_run( (int) $job['id'], array( 'searches' => (int) ( $run['searches'] ?? 0 ) + $found['requests'] ) );
+
+		// The place's own rules decide here: its name and a general view in the labels. The relevance
+		// score, which measures a match with the story's subject, cannot be met by any view of a city.
+		$reviewed = self::review( $found['items'], array_merge( $analysis, array( 'view_of' => $place ) ), $category, 1 );
+		self::log(
+			'info',
+			sprintf( 'No picture of the subject itself could be used (%1$s), so a general view of %2$s was searched for: %3$d files checked, %4$d passed. Searches: %5$s', $reason, $place, count( $reviewed['all'] ), count( $reviewed['eligible'] ), implode( ' | ', $found['searched'] ) ),
+			$job,
+			array( 'status' => 'searched' )
+		);
+		if ( $reviewed['eligible'] ) {
+			$temporary = '';
+			$retry     = 0;
+			$chosen    = self::try_files( $reviewed['eligible'], $job, $content, $temporary, $retry );
+			if ( $chosen ) {
+				return $chosen;
+			}
+			if ( '' !== $temporary ) {
+				return self::retry_later( $job, $attempts, $temporary, $retry );
+			}
+		} elseif ( $found['temporary'] ) {
+			return self::retry_later( $job, $attempts, $found['error'], (int) $found['retry_after'] );
+		}
+		return self::loose_or_give_up( $job, $content, $attempts, $reason . sprintf( ' A general view of %s was also searched for, and none could be used.', $place ), $loose );
+	}
+
+	/**
+	 * Files that passed every rule but name none of the article's subjects. They are used only when
+	 * nothing better could be, so a post is not skipped while a usable picture is in hand.
+	 */
+	private static function loose_or_give_up( array $job, array $content, int $attempts, string $reason, array $loose ): array {
+		if ( $loose ) {
+			self::log( 'info', 'No file naming the subject could be used, so the best file that matches the story\'s words is tried.', $job );
+			$temporary = '';
+			$retry     = 0;
+			$chosen    = self::try_files( $loose, $job, $content, $temporary, $retry );
+			if ( $chosen ) {
+				return $chosen;
+			}
+			if ( '' !== $temporary ) {
+				return self::retry_later( $job, $attempts, $temporary, $retry );
+			}
+		}
+		return self::give_up( $job, $reason );
 	}
 
 	/**

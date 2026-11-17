@@ -367,7 +367,7 @@ $published = ArticleAnalyzer::analyze(
 echo "Published title queries: " . implode( ' | ', $published['queries'] ) . "\n";
 
 u_is(
-	'Donald Trump Dana White',
+	'"Donald Trump" "Dana White"',
 	$published['queries'][0] ?? '',
 	'The first search is the two people of the headline, together'
 );
@@ -384,12 +384,12 @@ u_false(
 // exactly the illustration the story wants. Her own name is still searched, so a pair that finds
 // nothing costs the article nothing: at least two searches always run.
 u_is(
-	'Taylor Swift Knicks',
+	'"Taylor Swift" Knicks',
 	$swift['queries'][0] ?? '',
 	'A person and the club in the same headline are searched together first'
 );
 u_true(
-	in_array( 'Taylor Swift', $swift['queries'], true ),
+	in_array( '"Taylor Swift"', $swift['queries'], true ),
 	'And the person alone is still searched, so the pair can safely find nothing'
 );
 
@@ -401,7 +401,7 @@ u_true(
 );
 
 // A lower-case tag is a subject, not somebody's name, so it is never half of a pair.
-u_is( 'Customer Service', $ey['queries'][0] ?? '', 'A concept is searched on its own terms' );
+u_is( '"Customer Service"', $ey['queries'][0] ?? '', 'A concept is searched on its own terms' );
 
 /* ---- Choosing between two pictures that score alike ---- */
 
@@ -595,5 +595,78 @@ u_false( in_array( 'firefight', $halo_lc, true ), '1.11.8: nor is "Firefight", w
 // With no tag to give context, a one-word subject is still searched, so no post loses its search.
 $plain = ArticleAnalyzer::analyze( 'Nvidia Shares Fall After Earnings', '<p>Nvidia shares fell after earnings. Nvidia said demand stayed strong.</p>', array( 'Nvidia', 'earnings', 'stocks' ), 'Nvidia shares fall', 'Business', 'CNBC' );
 u_true( in_array( 'Nvidia', $plain['queries'], true ), '1.11.8: a one-word subject with no context tag is searched as before' );
+
+/* =====================================================================
+   1.12.4: the 22:00 post on 2026-11-17
+   "Doha Film Festival 2026 to Open November 19 With 15 Competition
+   Films and More Guests" was published with a close-up of purple
+   mushrooms, File:De Famberhorst 08-11-2021. (d.j.b) 03.jpg, at 77.
+   The title, headline, tags and file labels are the real ones; the
+   body is a shortened copy of the published article.
+   ===================================================================== */
+
+$doha_tags = array( 'Cinema Alkhaleej', 'Creative Excellence Award', 'Doha cultural events', 'Doha Film Festival 2026', 'Doha Film Institute', 'Doha Grand Prix', 'film festival jury', 'film festival lineup', 'film industry development', 'Gulf cinema', 'international film competition', 'international filmmakers', 'Made In Qatar', 'Middle Eastern cinema', 'Palestinian filmmakers', 'Qatar cinema', 'Qatar film production', 'Sara Ishaq', 'The Station', 'Yemeni film' );
+$doha      = ArticleAnalyzer::analyze(
+	'Doha Film Festival 2026 to Open November 19 With 15 Competition Films and More Guests',
+	'<p>The Doha Film Festival is set to open on November 19 with 15 films in its International Competition. Doha Film Institute chief executive Fatma Al Remaihi says the festival will feature more films and guests than last year. The event continues through November 27.</p>'
+	. '<h2>Doha’s festival plans reflect both uncertainty and a wider cultural calendar</h2>'
+	. '<p>Al Remaihi told Deadline that the Doha Film Institute planned for three possible formats. The festival is scheduled alongside other major events in Doha: the Fashion Trust Arabia Awards on November 28 and the Formula 1 Grand Prix from November 27 to 28.</p>'
+	. '<table><tr><td>Doha Film Festival</td><td>November 19–27</td></tr><tr><td>Formula 1 Grand Prix in Doha</td><td>November 27–28</td></tr></table>'
+	. '<h2>International Competition puts regional stories and festival-circuit films in focus</h2>'
+	. '<p>The opening film is The Station, a Yemen-set drama by Sara Ishaq, backed by the Doha Film Institute. The festival is scheduled to open on November 19 and close on November 27.</p>'
+	. '<h2>References</h2><p>Goodfellow M. Festival In Focus: Doha Gears Up For Lift-Off Against Geopolitical Odds. Deadline.</p>',
+	$doha_tags,
+	'Festival In Focus: Doha Gears Up For Lift-Off Against Geopolitical Odds: “It’s Not Smaller, We Have More Films & Guests”',
+	'Entertainment',
+	'Deadline'
+);
+echo 'Doha queries: ' . implode( ' | ', $doha['queries'] ) . "\n";
+$doha_q = strtolower( implode( ' | ', $doha['queries'] ) );
+
+u_false( in_array( 'November', $doha['entities'], true ), '1.12.4: a month is not one of the subjects' );
+u_is( 'Doha Film Festival', $doha['main'], '1.12.4: the main subject is the festival, without the year from its tag' );
+u_false( false !== strpos( $doha_q, 'november' ), '1.12.4: no search uses "November"' );
+u_false( false !== strpos( $doha_q, 'yemeni film' ), '1.12.4: "Yemeni film" is a kind of thing, not a name to pair with anything' );
+u_is( '"Doha Film Festival"', $doha['queries'][0] ?? '', '1.12.4: the first search is the festival, as an exact phrase' );
+u_true( false !== strpos( $doha_q, '"doha film institute"' ), '1.12.4: the institute is searched too, as a phrase' );
+u_false( in_array( 'november', $doha['keywords'], true ), '1.12.4: a month is not a keyword either' );
+u_is( 'Doha', $doha['place'], '1.12.4: the story happens in Doha' );
+u_is( array( 'Doha skyline', 'Doha cityscape' ), $doha['fallback'], '1.12.4: so a view of Doha is the last resort' );
+
+$mushroom = candidate(
+	'File:De Famberhorst 08-11-2021. (d.j.b) 03.jpg',
+	'Laccaria amethystina (amethyst deceiver) Focus stack of 20 photos.',
+	'Self-published work|Laccaria amethystina in the Netherlands|Close-up photographs of mushrooms|Created with Helicon Focus|Netherlands photographs taken on 2021-11-08|2021 in De Fryske Marren|Fungi of Friesland in November|Focus stacking images by User:Famberhorst|Focus stacking images of mushrooms|Fungi of De Famberhorst|Focus stacked image',
+	array( 'width' => 4766, 'height' => 2979 )
+);
+u_false( false !== strpos( CandidateScorer::label_text( $mushroom ), 'focus' ), '1.12.4: "Focus stacking" is how the photograph was made, so it is not a label' );
+u_is( array(), CandidateScorer::matched_words( $mushroom, $doha ), '1.12.4: the mushroom photograph shares no article word' );
+u_true( false !== stripos( CandidateScorer::mandatory_failure( $mushroom, $doha, 'Entertainment' ), 'never mentions' ), '1.12.4: and is refused as nature the article never mentions' );
+
+// Two stray headline words, with nothing from the subject, are not enough on their own.
+$stray = candidate( 'File:Guests in focus at the open day.jpg', 'Guests at an open day.', 'Open days|Visitors' );
+u_true( '' !== CandidateScorer::mandatory_failure( $stray, $doha, 'Entertainment' ), '1.12.4: a file sharing only headline words, not the subject, is refused' );
+
+// A real festival photograph is still accepted.
+$festival = candidate( 'File:Red carpet at the Doha Film Festival.jpg', 'Guests arrive at the Doha Film Festival opening.', 'Doha Film Festival|Film festivals in Qatar' );
+u_is( '', CandidateScorer::mandatory_failure( $festival, $doha, 'Entertainment' ), '1.12.4: a Doha Film Festival photograph is accepted' );
+
+// The last resort: a view of Doha passes the place rules, a picture of something else in Doha does not.
+$view_of_doha = array_merge( $doha, array( 'view_of' => 'Doha' ) );
+$skyline      = candidate( 'File:Doha Skyline 10.jpg', 'Skyline of Doha at dusk.', 'Skylines of Doha|West Bay, Doha' );
+u_is( '', CandidateScorer::mandatory_failure( $skyline, $view_of_doha, 'Entertainment' ), '1.12.4: a Doha skyline is accepted as a view of the place' );
+$doha_bird = candidate( 'File:Doha corniche birds.jpg', 'Birds on the corniche in Doha.', 'Birds of Qatar|Doha Corniche' );
+u_true( '' !== CandidateScorer::mandatory_failure( $doha_bird, $view_of_doha, 'Entertainment' ), '1.12.4: a picture of birds in Doha is still refused' );
+$doha_mall = candidate( 'File:Doha mall interior.jpg', 'A shopping mall in Doha.', 'Shopping malls in Doha' );
+u_true( '' !== CandidateScorer::mandatory_failure( $doha_mall, $view_of_doha, 'Entertainment' ), '1.12.4: a picture that is not a general view of Doha is refused' );
+u_true( '' !== CandidateScorer::mandatory_failure( $skyline, array_merge( $doha, array( 'view_of' => 'Dubai' ) ), 'Entertainment' ), '1.12.4: a skyline of another city is refused' );
+
+// A month that is also a name keeps its meaning outside a date.
+$april = ArticleAnalyzer::analyze( 'April Ryan Joins Newsroom on June 3', '<p>April Ryan will join the newsroom on June 3. April Ryan said she was pleased. Ryan covered the White House.</p>', array( 'April Ryan', 'journalism' ), 'April Ryan joins newsroom', 'Politics', 'Axios' );
+u_is( 'April Ryan', $april['main'], '1.12.4: "April Ryan" is still a name' );
+u_false( false !== stripos( implode( ' | ', $april['queries'] ), 'June' ), '1.12.4: but "June 3" is a date, and not searched' );
+
+// "in Halo 3" names a game, not a place, so Halo has no view to fall back on.
+u_is( '', $halo['place'], '1.12.4: a game is not taken for a place' );
 
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );

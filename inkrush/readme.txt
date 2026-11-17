@@ -3,7 +3,7 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.12.3
+Stable tag: 1.12.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -114,6 +114,21 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.12.4 =
+Better image searches, and no more pictures that only share stray words with the story.
+
+**Why.** The Doha Film Festival post of 17 November got a close-up of purple mushrooms. "November" had been taken as the story's subject, and the mushroom photo shared two words with the article: "November" and "Focus", from Deadline's "Festival In Focus" headline and the photo's "focus stacking".
+
+**Dates are not subjects.** Months and weekdays are never searched for or counted as a shared word. A name such as April Ryan still counts.
+
+**Better searches.** A name of two or more words is searched as an exact phrase ("Doha Film Festival"), so Commons stops matching the words one by one. Only real names are paired into one search, so "Yemeni film" is no longer joined with another subject. A year in a tag is left out.
+
+**Stricter picture check.** How a photo was taken ("focus stacking", "close-up", "taken on…") no longer counts as a label. One of the shared words must come from what the story is about: its subjects or its tags. A photo of mushrooms, flowers, birds, insects and the like is refused when the article never mentions them.
+
+**Searching no longer stops on a stray match.** The searches stop early only for a file that names one of the story's subjects.
+
+**A view of the place before a skip.** When no picture of the subject can be used, the plugin looks for a skyline or cityscape of the place the story happens in, such as Doha. A file that matches only the story's words is tried after that, so a post is still not skipped.
 
 = 1.12.3 =
 Tables humanized too, and every article sent in full, every time.

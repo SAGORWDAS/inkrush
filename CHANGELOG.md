@@ -10,6 +10,28 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.12.4] - 2026-11-17
+
+The 22:00 post of 2026-11-17, "Doha Film Festival 2026 to Open November 19 With 15 Competition Films and More Guests" (Entertainment), was published with `File:De Famberhorst 08-11-2021. (d.j.b) 03.jpg`, a focus-stacked close-up of *Laccaria amethystina* mushrooms, at score 77. Reproduced locally with the real title, headline, 20 tags, body and Commons metadata. `ArticleAnalyzer` made "November" the main subject (capitalized in every date and not in `NOT_NAMES`). `headline_pair()` paired the tag "Yemeni film" with it, because the title says "Film". The searches were "Yemeni film November" and "November" (84 million Commons hits, led by this photographer's series). The file passed the 1.11.7 two-word rule on "november" (category "Fungi of Friesland in November") and "focus" (headline "Festival In Focus", labels "Focus stacking"). Searching stopped after 2 of 5 at the 75 mark, so "Doha Film Institute" was never searched. No schema change, `DB_VERSION` stays 19.
+
+### Fixed
+
+- **Dates.** New `ArticleAnalyzer::undate()` lower-cases a month that is part of a date ("November 19", "19 June") in the title, headline and body. Months that are nobody's name, and the weekdays, are added to `NOT_NAMES`. All months except March, and the weekdays, are added to `STOP`, so they are never keywords, concepts or matched words.
+- **Pairing.** `headline_pair()` takes only names, via the new `looks_like_name()`: every word capitalized, a number, or a particle.
+- **Main subject.** A tag that only adds a year to the main subject ("Doha Film Festival 2026") no longer replaces it.
+- **Phrase searches.** Multi-word names (subjects and name-like tags, longest first) are quoted in the final queries. Live Commons on 2026-11-17: `Sara Ishaq` 244,295 hits (Isaac paintings), `"Sara Ishaq"` 1.
+- **Labels.** `CandidateScorer::label_text()` removes photographic technique (`TECHNIQUE`: focus stacking, Helicon Focus, HDR, long exposure, tilt-shift, close-up, macro, "taken on <date>").
+- **Two-word rule.** `mandatory_failure()` also needs one matched word from `naming_words()` (tokens of entities, main subject and tags; `analyze()` now returns `tags`).
+- **Nature.** New `NATURE` check refuses labels about fungi, flowers, plants, insects, birds, animals and similar when the article text has no such word.
+- **Early stop.** `ImagePipeline::prepare()` stops early only for a file with `subjects > 0`. Eligible files with `subjects = 0` are held back.
+- **Place fallback.** `analyze()` returns `place` (an entity or name-like tag the body says something is "in" at least twice, not followed by a number or a colon and a title) and `fallback` (`<place> skyline`, `<place> cityscape`). The new `place_or_give_up()` runs these before giving up. Files are reviewed with `view_of`, which replaces the word rules with "labels name the place and a general-view word" (`PLACE_VIEW`) and a minimum score of 1. Then the new `loose_or_give_up()` tries the held-back files. `NOT_PERSON_WORDS` gains skyline, cityscape, view and similar, so "Doha Skyline" is not read as a person.
+
+### Tested
+
+- `run-images` 102 (21 new from the Doha case: no month subject or search, no "Yemeni film" pair, main "Doha Film Festival", phrase queries, place Doha and its fallback, the real mushroom file has no matched word and is refused as nature, a headline-words-only file is refused, a festival photo passes, a Doha skyline passes in place mode while birds, a mall, or another city's skyline do not, "April Ryan" stays a name while "June 3" is dropped, "in Halo 3" is not a place). Four existing assertions now expect quoted phrases. `run-unit` 128, `run-validator` 17, `run-humanizer` 59, all 0 failures. `php -l` clean.
+- Live Commons simulation of the real article, outside WordPress: the four subject searches found 2 files and none passed. "festival film Entertainment" passed one, a Polish film festival slogan at 74, with no subject named, so it is held back. "Doha skyline" passed 20 of 20 and "Doha cityscape" 8 of 12, so a Doha skyline would be used.
+- **Not verified:** `prepare()` and the fallback order have no unit test (they need the database) and were checked by reading only. Not run on a WordPress site. Not measured: how many more `no_image` rejections the naming-word and nature rules cause on other stories. Earlier posts (Chrome, JPMorgan) were not rerun.
+
 ## [1.12.3] - 2026-11-16
 
 Owner's request: humanize tables too, and humanize every article fully with no skipping (word use to be reviewed later). No schema change, `DB_VERSION` stays 19.

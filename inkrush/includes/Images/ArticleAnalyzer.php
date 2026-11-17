@@ -11,7 +11,15 @@ defined( 'ABSPATH' ) || exit;
  */
 final class ArticleAnalyzer {
 
-	private const STOP = array( 'the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'has', 'have', 'had', 'its', 'his', 'her', 'their', 'after', 'before', 'over', 'into', 'about', 'new', 'not', 'but', 'you', 'your', 'our', 'will', 'can', 'may', 'more', 'than', 'what', 'why', 'how', 'who', 'when', 'where', 'says', 'said', 'now', 'out', 'off', 'amid', 'against', 'report', 'reports', 'latest', 'today', 'news', 'update', 'here', 'know', 'need', 'could', 'would', 'should', 'being', 'been', 'they', 'them', 'also', 'plans', 'plan', 'first', 'next', 'year', 'years', 'week', 'month', 'day' );
+	private const STOP = array( 'the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'has', 'have', 'had', 'its', 'his', 'her', 'their', 'after', 'before', 'over', 'into', 'about', 'new', 'not', 'but', 'you', 'your', 'our', 'will', 'can', 'may', 'more', 'than', 'what', 'why', 'how', 'who', 'when', 'where', 'says', 'said', 'now', 'out', 'off', 'amid', 'against', 'report', 'reports', 'latest', 'today', 'news', 'update', 'here', 'know', 'need', 'could', 'would', 'should', 'being', 'been', 'they', 'them', 'also', 'plans', 'plan', 'first', 'next', 'year', 'years', 'week', 'month', 'day',
+		// Dates say when, not what. "November" was the only real word a photograph of mushrooms filed
+		// under "Fungi of Friesland in November" shared with a film festival story (1.12.4). "March"
+		// is left in, because a march is also a protest, and "may" is already a stop word.
+		'january', 'february', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+		'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday' );
+
+	/** Month names, for finding dates such as "November 19" and "19 November". */
+	private const MONTHS = 'January|February|March|April|May|June|July|August|September|October|November|December';
 
 	/** Capitalized words that begin a sentence or heading and do not name anything. */
 	private const NOT_NAMES = array( 'The', 'A', 'An', 'And', 'But', 'For', 'With', 'After', 'Before', 'How', 'Why', 'What', 'When', 'Where', 'Who', 'This', 'That', 'These', 'Those', 'It', 'In', 'On', 'At', 'As', 'By', 'To', 'Of', 'If', 'New', 'Trending', 'FAQ', 'Here', 'They', 'We', 'You', 'Our', 'Their', 'His', 'Her', 'Its', 'Some', 'Many', 'Most', 'More', 'Key', 'Top', 'Stage', 'Date', 'Is', 'Are', 'Was', 'Were', 'Can', 'Could', 'Would', 'Should', 'Does', 'Do', 'Did', 'Has', 'Have', 'Had', 'However', 'Meanwhile', 'While', 'Despite', 'Although', 'According', 'There', 'Then', 'So', 'Yet', 'Also', 'Still',
@@ -19,7 +27,12 @@ final class ArticleAnalyzer {
 		// "No. Nvidia" and "Through Nov" were each searched as if they were a name.
 		'Which', 'Whose', 'Whom', 'Check', 'Use', 'Using', 'Through', 'During', 'Since', 'Until', 'Between', 'Among', 'About', 'Against', 'Into', 'From', 'No', 'Not', 'Yes', 'Let', 'Just', 'Only', 'Even', 'Today', 'Yesterday', 'Tomorrow',
 		// Short months that are nobody's name. "Jan", "Mar" and "Jun" are left out, because they are.
-		'Feb', 'Apr', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec' );
+		'Feb', 'Apr', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
+		// Full months and weekdays that are nobody's name. April, May, June, July and August can be,
+		// so those are only set aside when they are part of a date (see undate()). From the owner's log
+		// of 2026-11-17, where "November" became the subject of a film festival story.
+		'January', 'February', 'March', 'September', 'October', 'November', 'December',
+		'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday' );
 
 	/**
 	 * Last words of a news outlet's name. An outlet the article quotes or was published by is not what it is about.
@@ -27,6 +40,36 @@ final class ArticleAnalyzer {
 	private const OUTLET_WORDS = array( 'News', 'Network', 'Reporter', 'Times', 'Post', 'Herald', 'Tribune', 'Journal', 'Gazette', 'Telegraph', 'Chronicle', 'Press', 'Broadcasting', 'Daily', 'Wire' );
 
 	private const NEW_PLACES = array( 'York', 'Jersey', 'Zealand', 'Delhi', 'Orleans', 'Mexico', 'Hampshire', 'England', 'South', 'Brunswick', 'Guinea', 'Caledonia', 'Haven' );
+
+	/**
+	 * Text with each date's month in lower case, so "November 19" or "19 June" is not read as a name.
+	 * A month on its own keeps its capital, because "June" or "April" alone may be somebody's name.
+	 */
+	private static function undate( string $text ): string {
+		$lower = static function ( array $match ): string {
+			return mb_strtolower( $match[0] );
+		};
+		$text = (string) preg_replace_callback( '/(?<![\p{L}\p{N}])(?:' . self::MONTHS . ')(?=\s+\d{1,4}(?!\p{L}))/u', $lower, $text );
+		return (string) preg_replace_callback( '/(?<=\d\s)(?:' . self::MONTHS . ')(?![\p{L}\p{N}])/u', $lower, $text );
+	}
+
+	/**
+	 * Whether a tag or subject is written as a name: every word capitalized, a number, or a joining
+	 * word such as "of". "Doha Film Institute" and "Sara Ishaq" are names. "Yemeni film" is a kind of
+	 * thing, and was paired with "November" as a search in the owner's log of 2026-11-17.
+	 */
+	private static function looks_like_name( string $name ): bool {
+		$words = preg_split( '/\s+/u', trim( $name ) ) ?: array();
+		if ( ! $words || ! preg_match( '/^\p{Lu}/u', (string) $words[0] ) ) {
+			return false;
+		}
+		foreach ( $words as $word ) {
+			if ( ! preg_match( '/^(\p{Lu}|\p{N})/u', $word ) && ! in_array( mb_strtolower( $word ), array( 'of', 'de', 'la', 'the', 'van', 'von', 'al', 'el', 'bin', 'and', '&' ), true ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
 
 	public static function tokens( string $text ): array {
 		$text = mb_strtolower( html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
@@ -335,7 +378,7 @@ final class ArticleAnalyzer {
 				continue;
 			}
 			// A name, not an ordinary word, and one the title or headline really refers to.
-			if ( ! preg_match( '/^\p{Lu}/u', $name ) || ! preg_match( self::word_pattern( $last, 'iu' ), $lines ) ) {
+			if ( ! self::looks_like_name( $name ) || ! preg_match( self::word_pattern( $last, 'iu' ), $lines ) ) {
 				continue;
 			}
 			$at                  = mb_stripos( $lines, $last );
@@ -413,6 +456,42 @@ final class ArticleAnalyzer {
 		return '';
 	}
 
+	/** A name for a search, as a phrase when it has more than one word. */
+	private static function quoted( string $name ): string {
+		return false !== strpos( $name, ' ' ) ? '"' . $name . '"' : $name;
+	}
+
+	/**
+	 * Where the story happens: the subject or tag the article most often says something is "in",
+	 * as in "events in Doha". Empty when the article never says.
+	 *
+	 * @param string[] $entities Subjects, best first.
+	 * @param string[] $tags     Generated tags.
+	 */
+	private static function place( array $entities, array $tags, string $plain_body, string $publisher ): string {
+		$best  = '';
+		$count = 0;
+		foreach ( array_merge( $entities, $tags ) as $name ) {
+			$name = trim( (string) $name );
+			if ( mb_strlen( $name ) < 3 || ! self::looks_like_name( $name ) || self::is_outlet( $name, $publisher ) || substr_count( $name, ' ' ) > 2 ) {
+				continue;
+			}
+			// "in Halo 3" or "in Halo: Reach" is a game, not a place, so a number or a colon and a
+			// title after it does not count. "in Doha: the festival…" still does.
+			$found = (int) preg_match_all( '/(?<![\p{L}\p{N}])in\s+(?:the\s+)?' . preg_quote( $name, '/' ) . '(?![\p{L}\p{N}]|\s*\d|:\s*\p{Lu})/u', $plain_body );
+			// Said twice at least, so one passing phrase does not make a place. More mentions win.
+			// Between equals, the shorter name is more likely the place itself.
+			if ( $found < 2 ) {
+				continue;
+			}
+			if ( $found > $count || ( $found === $count && mb_strlen( $name ) < mb_strlen( $best ) ) ) {
+				$best  = $name;
+				$count = $found;
+			}
+		}
+		return $best;
+	}
+
 	/**
 	 * @param string   $title    Generated title.
 	 * @param string   $body     Generated body HTML.
@@ -423,6 +502,9 @@ final class ArticleAnalyzer {
 	 * @return array{main:string, entities:string[], keywords:string[], concepts:string[], queries:string[]}
 	 */
 	public static function analyze( string $title, string $body, array $tags, string $headline, string $category, string $publisher = '' ): array {
+		$title      = self::undate( $title );
+		$headline   = self::undate( $headline );
+		$body       = self::undate( $body );
 		$plain_body = html_entity_decode( wp_strip_all_tags( str_replace( '<', ' <', $body ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		$title_text = html_entity_decode( wp_strip_all_tags( $title ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		$head_text  = html_entity_decode( wp_strip_all_tags( $headline ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
@@ -574,6 +656,12 @@ final class ArticleAnalyzer {
 				continue;
 			}
 			$inside = preg_match( self::word_pattern( $tag, 'iu' ), $main ) || preg_match( self::word_pattern( $main, 'iu' ), $tag );
+			// A tag that only adds a year, as "Doha Film Festival 2026" does, is not a cleaner name.
+			// Commons labels an event by its name far more often than by one year of it.
+			$extra = trim( (string) preg_replace( self::word_pattern( $main, 'iu' ), ' ', $tag ) );
+			if ( $inside && '' !== $extra && preg_match( '/^[\p{N}\s]+$/u', $extra ) ) {
+				continue;
+			}
 			if ( $inside && preg_match( self::word_pattern( $tag, 'iu' ), $article_text, $written ) ) {
 				$main     = $written[0];
 				$entities = array_slice( array_values( array_unique( array_merge( array( $main ), array_slice( $entities, 1 ) ) ) ), 0, 6 );
@@ -733,12 +821,44 @@ final class ArticleAnalyzer {
 			}
 		}
 
+		// A name of two or more words is searched as a phrase. Commons otherwise matches the words
+		// anywhere in a file's labels: "Sara Ishaq" found 244,000 files, mostly paintings of Isaac,
+		// while "\"Sara Ishaq\"" finds the director (Commons, 2026-11-17). Longest names first, so
+		// "Doha Film Institute" is quoted whole and not as "Doha Film" inside it.
+		$phrases = array();
+		foreach ( array_merge( $entities, array( $main ), $tags ) as $name ) {
+			$name = trim( (string) $name );
+			if ( false !== strpos( $name, ' ' ) && self::looks_like_name( $name ) && ! self::is_outlet( $name, $publisher ) ) {
+				$phrases[ mb_strtolower( $name ) ] = $name;
+			}
+		}
+		usort(
+			$phrases,
+			static function ( $a, $b ) {
+				return mb_strlen( $b ) <=> mb_strlen( $a );
+			}
+		);
+		foreach ( $picked as $index => $query ) {
+			foreach ( $phrases as $phrase ) {
+				$query = (string) preg_replace( '/(?<!["\p{L}\p{N}])' . preg_quote( $phrase, '/' ) . '(?!["\p{L}\p{N}])/iu', '"$0"', $query, 1 );
+			}
+			$picked[ $index ] = $query;
+		}
+
+		$place = self::place( $entities, $tags, $plain_body, $publisher );
+
 		return array(
 			'main'     => $main,
 			'entities' => $entities,
 			'keywords' => $keywords,
 			'concepts' => $concepts,
 			'queries'  => $picked,
+			// The tags, which name what the article is about in the article's own terms.
+			'tags'     => array_values( array_filter( array_map( 'strval', $tags ), 'strlen' ) ),
+			// Where the story happens, and searches for a general picture of it. Used only when no
+			// picture of the subject itself can be used, so a post is not skipped for want of one.
+			'place'    => $place,
+			'fallback' => '' === $place ? array() : array( self::quoted( $place ) . ' skyline', self::quoted( $place ) . ' cityscape' ),
 			// The article's own words, so a candidate can be checked against everything the
 			// article actually says, not only against the handful of subjects drawn from it.
 			// Bounded, because it is compared against for every file found.
