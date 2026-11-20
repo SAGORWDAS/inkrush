@@ -105,7 +105,7 @@ final class SocialPages {
 		echo '<h4>What is posted</h4>';
 		Pages::check_row( 'social_generate_captions', 'Write the post text with AI', 'Uses your existing OpenRouter key and model. With this off, each post uses the article\'s own headline.' );
 		Pages::check_row( 'social_generate_hashtags', 'Add hashtags', 'Only hashtags drawn from the article\'s own subjects, within each platform\'s limit.' );
-		Pages::check_row( 'social_use_featured_image', 'Use the article\'s featured image', 'The picture the Wikimedia Commons pipeline already chose. No separate image search.' );
+		Pages::check_row( 'social_use_featured_image', 'Use the article\'s featured image', 'The picture the featured image step already chose. No separate image search.' );
 		Pages::check_row( 'social_include_url', 'Include the article address', 'Where the platform makes a link usable. On Instagram a link in a caption is not clickable, so a call to action is used instead.' );
 		Pages::check_row( 'social_platform_specific', 'Write each platform its own text', 'Each platform gets text in its own tone and length rather than one post copied six times.' );
 		echo '</div>';

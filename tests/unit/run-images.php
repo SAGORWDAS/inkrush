@@ -21,6 +21,8 @@ require __DIR__ . '/stubs.php';
 use ZZZCopy\Images\ArticleAnalyzer;
 use ZZZCopy\Images\LicenseChecker;
 use ZZZCopy\Images\CandidateScorer;
+use ZZZCopy\Images\ImageQueries;
+use ZZZCopy\Images\Openverse;
 use ZZZCopy\Settings;
 
 $GLOBALS['stub_options']['zzzc_settings'] = array(
@@ -668,5 +670,107 @@ u_false( false !== stripos( implode( ' | ', $april['queries'] ), 'June' ), '1.12
 
 // "in Halo 3" names a game, not a place, so Halo has no view to fall back on.
 u_is( '', $halo['place'], '1.12.4: a game is not taken for a place' );
+
+/* =====================================================================
+   1.11.10: the AI names what the picture must show, and Openverse
+   (Flickr and Wikimedia Commons) is the only image source.
+   ===================================================================== */
+
+$doha_article = 'Doha Film Festival 2026 to Open November 19 With 15 Competition Films and More Guests . '
+	. implode( ' . ', $doha_tags ) . ' . The Doha Film Festival is set to open on November 19 with 15 films in its International Competition. '
+	. 'Doha Film Institute chief executive Fatma Al Remaihi says the festival will feature more films and guests. The opening film is The Station, a Yemen-set drama by Sara Ishaq. '
+	. 'The festival is scheduled alongside other major events in Doha.';
+
+// A reply as a model writes it: in a code fence, with one search that is only a date, one with a
+// festival the article never mentions, and an "avoid" word the article uses itself.
+$reply = "```json\n" . json_encode(
+	array(
+		'core'     => 'The Doha Film Festival 2026 opens on November 19 with 15 competition films.',
+		'names'    => array( 'Doha Film Festival', 'November 19', 'Cannes Film Festival' ),
+		'searches' => array( '"Doha Film Festival"', 'November 19', '"Doha Film Institute"', '"Cannes Film Festival" Doha', '“Sara Ishaq” film', 'Doha festival' ),
+		'avoid'    => array( 'mushroom', 'film', 'fungi' ),
+		'place'    => 'Doha',
+	)
+) . "\n```";
+$plan = ImageQueries::check( $reply, $doha_article );
+u_true( $plan['ok'], '1.11.10: a JSON reply in a code fence is read' );
+u_is( array( 'Doha Film Festival' ), $plan['names'], '1.11.10: names must be in the article, and a date is never a name' );
+u_is( array( '"Doha Film Festival"', '"Doha Film Institute"', '"Sara Ishaq" film', 'Doha festival' ), $plan['searches'], '1.11.10: a date alone, and a festival the article never names, are not searched' );
+u_is( array( 'mushroom', 'fungi' ), $plan['avoid'], '1.11.10: "film" is in the article, so it cannot refuse pictures' );
+u_is( 'Doha', $plan['place'], '1.11.10: the place is kept when the article names it' );
+
+u_false( ImageQueries::check( 'Sorry, I cannot help with that.', $doha_article )['ok'], '1.11.10: a reply that is not JSON is not used' );
+u_false( ImageQueries::check( '{"searches":["Cannes red carpet"],"names":[]}', $doha_article )['ok'], '1.11.10: when no search uses the article\'s words, the plugin\'s own searches run' );
+u_is( 'Lagos', ImageQueries::check( '{"searches":["Doha"],"place":"Lagos"}', 'Lagos and Doha' )['place'], '1.11.10: a place the article names is kept' );
+u_is( '', ImageQueries::check( '{"searches":["Doha"],"place":"Paris"}', 'Doha only' )['place'], '1.11.10: a place the article never names is dropped' );
+
+
+$applied = ImageQueries::apply( $doha, $plan );
+u_is( $plan['searches'], $applied['queries'], '1.11.10: the AI searches run first, and fill the 4 searches here' );
+u_is( 4, count( $applied['queries'] ), '1.11.10: the plugin\'s own searches fill the rest, within the limit' );
+u_is( 'Doha Film Festival', $applied['main'], '1.11.10: the AI\'s first name is the main subject' );
+u_is( array( 'Doha skyline', 'Doha cityscape' ), $applied['fallback'], '1.11.10: the AI\'s place gives the view to fall back on' );
+u_is( $doha['queries'], ImageQueries::apply( $doha, array( 'ok' => false ) )['queries'], '1.11.10: when the AI fails, nothing changes' );
+
+
+// The avoid list refuses a different thing of the same name.
+$halo_plan = ImageQueries::check( '{"core":"Halo game update","names":["Halo"],"searches":["\"Halo: Campaign Evolved\"","Halo Xbox","Halo Firefight"],"avoid":["sun","solar","optics"],"place":""}', 'Halo: Campaign Evolved adds Firefight, Xbox has confirmed. Halo 3.' );
+u_is( array( '"Halo Campaign Evolved"', 'Halo Xbox', 'Halo Firefight' ), $halo_plan['searches'], '1.11.10: the Halo searches name the game' );
+$halo_ai = ImageQueries::apply( $halo, $halo_plan );
+u_true( false !== strpos( CandidateScorer::mandatory_failure( $sun_halo, $halo_ai, 'Entertainment' ), '"sun"' ), '1.11.10: the solar halo is refused for its "sun" label' );
+u_is( '', CandidateScorer::mandatory_failure( $halo_event, $halo_ai, 'Entertainment' ), '1.11.10: the Halo game photograph still passes' );
+
+// Openverse results, shaped as the live API returned them on 2026-11-20.
+$flickr_raw = array(
+	'id'                  => 'c1100267-2d8f-4162-b896-4b8cfb0e2267',
+	'title'               => 'Doha Film Festival',
+	'foreign_landing_url' => 'https://www.flickr.com/photos/97189192@N00/6291964975',
+	'url'                 => 'https://live.staticflickr.com/6117/6291964975_7cf57d7038_b.jpg',
+	'creator'             => 'isapisa',
+	'creator_url'         => 'https://www.flickr.com/photos/97189192@N00',
+	'license'             => 'by-sa',
+	'license_version'     => '2.0',
+	'license_url'         => 'https://creativecommons.org/licenses/by-sa/2.0/',
+	'source'              => 'flickr',
+	'width'               => 1024,
+	'height'              => 768,
+	'thumbnail'           => 'https://api.openverse.org/v1/images/c1100267-2d8f-4162-b896-4b8cfb0e2267/thumb/',
+	'tags'                => array(
+		array( 'name' => 'doha', 'accuracy' => null ),
+		array( 'name' => 'filmfestival', 'accuracy' => null ),
+		array( 'name' => 'katara', 'accuracy' => null ),
+		array( 'name' => 'people', 'accuracy' => 0.97 ),
+	),
+);
+$flickr = Openverse::normalize( $flickr_raw );
+u_is( 'Doha Film Festival (Flickr 6291964975)', $flickr['title'], '1.11.10: a Flickr title carries its photo number, so two photos with one title stay apart' );
+u_is( 'image/jpeg', $flickr['mime'], '1.11.10: the type comes from the file name' );
+u_true( $flickr['page_id'] > 1099511627776, '1.11.10: the history number cannot collide with a Commons page number' );
+u_is( $flickr['page_id'], Openverse::normalize( array_merge( $flickr_raw, array( 'id' => strtoupper( $flickr_raw['id'] ) ) ) )['page_id'], '1.11.10: the number is stable' );
+u_false( false !== strpos( CandidateScorer::label_text( $flickr ), 'people' ), '1.11.10: a machine-guessed tag is not a label' );
+$flickr_license = LicenseChecker::check( $flickr['extmetadata'] );
+u_true( $flickr_license['ok'], '1.11.10: a Flickr CC BY-SA 2.0 photo passes the license check' );
+u_is( 'isapisa', $flickr_license['creator'], '1.11.10: with its creator named' );
+u_is( '', CandidateScorer::mandatory_failure( $flickr, $applied, 'Entertainment' ), '1.11.10: the real Doha Film Festival photo from Flickr is accepted, at 1,024 pixels wide' );
+u_true( CandidateScorer::subjects_matched( $flickr, $applied ) > 0, '1.11.10: and it names the subject, so it ends the searching' );
+u_is( 1024, Openverse::min_width(), '1.11.10: a 1,200-pixel minimum is used as 1,024, the widest Flickr gives' );
+
+$nc = Openverse::normalize( array( 'id' => 'x1', 'title' => 'Doha', 'url' => 'https://live.staticflickr.com/1/2_b.jpg', 'source' => 'flickr', 'license' => 'by-nc', 'license_version' => '2.0', 'license_url' => 'https://creativecommons.org/licenses/by-nc/2.0/', 'creator' => 'A', 'width' => 1024, 'height' => 768 ) );
+u_false( LicenseChecker::check( $nc['extmetadata'] )['ok'], '1.11.10: a non-commercial license is refused even if Openverse returns it' );
+$pdm = Openverse::normalize( array( 'id' => 'x2', 'title' => 'Old harbour', 'url' => 'https://live.staticflickr.com/1/3_b.jpg', 'source' => 'flickr', 'license' => 'pdm', 'license_version' => '1.0', 'license_url' => 'https://creativecommons.org/publicdomain/mark/1.0/', 'creator' => '', 'width' => 1024, 'height' => 768 ) );
+u_true( LicenseChecker::check( $pdm['extmetadata'] )['ok'], '1.11.10: a public domain mark is accepted' );
+$cc0 = Openverse::normalize( array( 'id' => 'x3', 'title' => 'Sea', 'url' => 'https://live.staticflickr.com/1/4_b.jpg', 'source' => 'flickr', 'license' => 'cc0', 'license_version' => '1.0', 'license_url' => 'https://creativecommons.org/publicdomain/zero/1.0/', 'creator' => '', 'width' => 1024, 'height' => 768 ) );
+u_true( LicenseChecker::check( $cc0['extmetadata'] )['ok'], '1.11.10: CC0 is accepted' );
+
+$wiki = Openverse::normalize( array( 'id' => 'w1', 'title' => 'Doha skyline (4913228969)', 'url' => 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Doha_skyline_%284913228969%29.jpg', 'foreign_landing_url' => 'https://commons.wikimedia.org/w/index.php?curid=1', 'source' => 'wikimedia', 'license' => 'by-sa', 'license_version' => '2.0', 'license_url' => 'https://creativecommons.org/licenses/by-sa/2.0/', 'creator' => 'Someone', 'width' => 4032, 'height' => 3024, 'filesize' => 6371059 ) );
+u_is( 'File:Doha_skyline_(4913228969).jpg', $wiki['title'], '1.11.10: a Wikimedia file keeps its file name, so one used through Commons before is still recognised' );
+u_is( 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Doha_skyline_%284913228969%29.jpg/1920px-Doha_skyline_%284913228969%29.jpg', $wiki['download'], '1.11.10: a large Wikimedia original is downloaded at 1,920 pixels' );
+u_is( 0, $wiki['size'], '1.11.10: the original\'s size is not checked against the smaller copy' );
+u_is( null, Openverse::normalize( array( 'id' => 'm1', 'title' => 'Vase', 'url' => 'https://ids.si.edu/ids/a.jpg', 'source' => 'smithsonian_x', 'license' => 'cc0' ) ), '1.11.10: files kept on other hosts are not used' );
+u_is( null, Openverse::normalize( array( 'id' => 'm2', 'title' => 'Doha', 'url' => 'https://live.staticflickr.com.evil.example/a.jpg', 'source' => 'flickr', 'license' => 'by' ) ), '1.11.10: a look-alike host is refused' );
+u_is( 'Flickr', Openverse::source_name( 'https://www.flickr.com/photos/1/2' ), '1.11.10: a Flickr photo is credited to Flickr' );
+u_is( 'Wikimedia Commons', Openverse::source_name( 'https://commons.wikimedia.org/wiki/File:A.jpg' ), '1.11.10: and a Commons file to Wikimedia Commons' );
+
+u_is( 'Doha Film Festival', Openverse::display_title( $flickr['title'] ), '1.11.10: the photo number is left out of the alt text and the credit' );
 
 exit( u_report( 'InkRush image subject and relevance: real cases from the logs' ) );

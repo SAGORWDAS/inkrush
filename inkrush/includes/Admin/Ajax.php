@@ -7,7 +7,8 @@ use ZZZCopy\Discovery;
 use ZZZCopy\Events;
 use ZZZCopy\Generation;
 use ZZZCopy\Images\ArticleAnalyzer;
-use ZZZCopy\Images\Commons;
+use ZZZCopy\Images\ImageQueries;
+use ZZZCopy\Images\Openverse;
 use ZZZCopy\Images\ImagePipeline;
 use ZZZCopy\OpenRouter;
 use ZZZCopy\Plugin;
@@ -31,8 +32,8 @@ final class Ajax {
 
 	public static function test_commons(): void {
 		self::guard();
-		$check = Commons::test_connection();
-		Events::log( 'image', $check['ok'] ? 'info' : 'warning', 'Commons connection test: ' . $check['message'] );
+		$check = Openverse::test_connection();
+		Events::log( 'image', $check['ok'] ? 'info' : 'warning', 'Openverse connection test: ' . $check['message'] );
 		if ( $check['ok'] ) {
 			wp_send_json_success( array( 'message' => $check['message'] ) );
 		}
@@ -52,12 +53,15 @@ final class Ajax {
 		$name     = $category ? (string) $category['name'] : '';
 		$lines    = preg_split( '/\R/', trim( $text ) );
 		$analysis = ArticleAnalyzer::analyze( (string) $lines[0], $text, array(), (string) $lines[0], $name );
+		// The same AI step as a real post, so the test shows what a post would search. One small AI call.
+		$ai       = ImageQueries::for_article( 0, (string) $lines[0], (string) $lines[0], $text, array() );
+		$analysis = ImageQueries::apply( $analysis, $ai );
 
 		$items    = array();
 		$error    = '';
 		$searched = array();
 		foreach ( $analysis['queries'] as $query ) {
-			$result     = Commons::search( (string) $query );
+			$result     = Openverse::search( (string) $query );
 			$searched[] = (string) $query;
 			if ( ! $result['ok'] ) {
 				$error = $result['error'];
@@ -75,6 +79,7 @@ final class Ajax {
 		wp_send_json_success(
 			array(
 				'queries'    => $searched,
+				'ai'         => $ai['ok'] ? 'AI core: ' . $ai['core'] : 'The AI could not choose searches (' . $ai['error'] . '), so the plugin\'s own were used.',
 				'error'      => $error,
 				'checked'    => count( $reviewed['all'] ),
 				'passed'     => count( $reviewed['eligible'] ),

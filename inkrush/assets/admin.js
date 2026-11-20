@@ -84,7 +84,7 @@
 		} );
 	}
 
-	/* Test the Wikimedia Commons connection. */
+	/* Test the Openverse connection (the id keeps its old name). */
 	var commons = document.getElementById( 'zzzc-test-commons' );
 	if ( commons ) {
 		commons.addEventListener( 'click', function () {
@@ -107,7 +107,7 @@
 		imageSearch.addEventListener( 'click', function () {
 			var box = document.getElementById( 'zzzc-image-results' );
 			imageSearch.disabled = true;
-			setText( box, 'Searching. This takes a few seconds, because Wikimedia Commons allows only slow requests...' );
+			setText( box, 'Asking the AI for searches, then searching Openverse. This can take a minute, because Openverse answers slowly...' );
 			post( 'test_image_search', {
 				text: document.getElementById( 'zzzc-image-text' ).value,
 				category_id: document.getElementById( 'zzzc-image-category' ).value
@@ -118,6 +118,9 @@
 					return;
 				}
 				var data = reply.data;
+				if ( data.ai ) {
+					box.appendChild( element( 'p', data.ai ) );
+				}
 				box.appendChild( element( 'p', 'Searches used: ' + data.queries.join( ' | ' ) ) );
 				box.appendChild( element( 'p', data.checked + ' files checked, ' + data.passed + ' passed.' + ( data.error ? ' Search problem: ' + data.error : '' ) ) );
 				if ( ! data.candidates.length ) {

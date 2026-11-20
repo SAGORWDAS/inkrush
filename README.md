@@ -43,10 +43,10 @@ InkRush is a content automation plugin for one WordPress site. You set up news c
 3. Reads the original publisher page when it is accessible. It does not get past paywalls, logins or robots.txt rules.
 4. Sends the source text and your saved prompt to the OpenRouter model you chose, and asks for tags with your saved tag prompt.
 5. Checks the result. An article that fails a check is held for you to review and is never published.
-6. Finds a featured image on Wikimedia Commons, using fixed rules about license, size and labels.
+6. Asks the AI what the picture must show, finds a featured image on Openverse (Flickr and Wikimedia Commons pictures), and checks it with fixed rules about license, size and labels.
 7. Creates a WordPress post at the planned time, as a draft or published, credited to an author you authorised.
 
-The only outside services it contacts are your news sources, OpenRouter and Wikimedia Commons. It loads no third-party libraries, fonts, CDNs or tracking.
+The only outside services it contacts are your news sources, OpenRouter and Openverse (pictures download from Flickr or Wikimedia Commons). It loads no third-party libraries, fonts, CDNs or tracking.
 
 ## Features
 
@@ -67,7 +67,7 @@ The only outside services it contacts are your news sources, OpenRouter and Wiki
 
 **Featured images**
 
-- Every post needs a featured image from Wikimedia Commons. Without a usable one, the article is held and not published.
+- Every post needs a featured image from Openverse. Without a usable one, the article is held and not published.
 - Images are chosen by rules, with no AI: accepted licenses only, minimum size, preferred shape, relevance score from file labels, and no image used twice.
 - A credit line under the image, with the author, license and file name.
 
@@ -147,7 +147,7 @@ The plugin reads a publisher page only when that site's robots.txt allows it, an
 
 ## Featured images
 
-Images come from Wikimedia Commons through its official API. The plugin accepts CC0, public domain and CC BY files, and CC BY-SA files unless you turn them off. It refuses non-commercial, no-derivatives, unknown and conflicting licenses. It reads file labels, not the pictures themselves, so some images will not suit their story. Check them.
+Images come from Openverse (WordPress.org's search of openly licensed pictures), using only files kept on Flickr or Wikimedia Commons. The AI model chooses the searches from the article; the plugin checks every word against the article. The plugin accepts CC0, public domain and CC BY files, and CC BY-SA files unless you turn them off. It refuses non-commercial, no-derivatives, unknown and conflicting licenses. It reads file labels, not the pictures themselves, so some images will not suit their story. Check them.
 
 Full details are in [IMAGES.md](inkrush/docs/IMAGES.md).
 

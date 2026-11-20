@@ -164,7 +164,7 @@ final class CandidateScorer {
 	}
 
 	/**
-	 * All the words Commons has about a file.
+	 * All the words the source has about a file: its title, description and tags or categories.
 	 */
 	public static function label_text( array $candidate ): string {
 		$meta   = (array) $candidate['extmetadata'];
@@ -298,7 +298,7 @@ final class CandidateScorer {
 		if ( ! in_array( $candidate['mime'], array( 'image/jpeg', 'image/png', 'image/webp' ), true ) ) {
 			return 'The file type is not allowed: ' . $candidate['mime'] . '.';
 		}
-		if ( (int) $candidate['width'] < (int) Settings::get( 'image_min_width' ) || (int) $candidate['height'] < (int) Settings::get( 'image_min_height' ) ) {
+		if ( (int) $candidate['width'] < Openverse::min_width() || (int) $candidate['height'] < Openverse::min_height() ) {
 			return sprintf( 'Too small: %1$d by %2$d pixels.', $candidate['width'], $candidate['height'] );
 		}
 		// A square picture is accepted from 1.11.0 (the owner's decision of 2026-11-14). A tall one is
@@ -309,8 +309,8 @@ final class CandidateScorer {
 		if ( (int) $candidate['size'] > (int) Settings::get( 'image_max_file_mb' ) * 1048576 ) {
 			return sprintf( 'The file is over the %d MB limit.', Settings::get( 'image_max_file_mb' ) );
 		}
-		if ( ! Commons::is_media_url( (string) $candidate['file_url'] ) ) {
-			return 'The file address is not on an approved Wikimedia host.';
+		if ( ! Openverse::is_media_url( (string) $candidate['file_url'] ) ) {
+			return 'The file address is not on an approved Flickr or Wikimedia host.';
 		}
 
 		$text = self::label_text( $candidate );
@@ -326,6 +326,14 @@ final class CandidateScorer {
 		}
 		if ( preg_match( self::NOT_A_PHOTO, $text ) ) {
 			return 'The labels suggest a chart, logo, map, scan or similar, not a photograph.';
+		}
+		// Words the AI named for something else with the same name, such as "sun" for a picture of
+		// a halo when the article is about the Halo game. ImageQueries keeps only words the article
+		// does not use itself.
+		foreach ( (array) ( $analysis['avoid'] ?? array() ) as $avoid ) {
+			if ( self::has_phrase( $text, (string) $avoid ) ) {
+				return sprintf( 'The labels say "%s", so the picture shows something else of the same name.', $avoid );
+			}
 		}
 
 		// One shared word is not enough to say a picture is about the story, because many names are

@@ -18,7 +18,7 @@ final class Publisher {
 	private const LOCK       = 'publish';
 	public const META_JOB    = '_zzzc_job_uid';
 
-	/** A held article is searched again once, after this long, when the saved Commons results have expired. */
+	/** A held article is searched again once, after this long, when the saved Openverse results have expired. */
 	public const HELD_RETRY_SECONDS = 21600;
 
 	public static function enqueue( array $article ): void {
@@ -914,7 +914,7 @@ final class Publisher {
 	}
 
 	/**
-	 * Commons results are saved for 6 hours, so 6 hours after a hold a new search can find new files.
+	 * Openverse results are saved for 6 hours, so 6 hours after a hold a new search can find new files.
 	 * This happens once for each article. After that only Retry on the Articles page tries again.
 	 */
 	private static function retry_held_image(): void {

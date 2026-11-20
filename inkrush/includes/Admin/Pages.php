@@ -395,7 +395,7 @@ final class Pages {
 			echo '</section>';
 		}
 
-		echo '<section class="zzzc-card"><h3>Featured images</h3><p>' . esc_html( 'Required. Every post gets a featured image from Wikimedia Commons, found ' . ( PastHour::enabled() ? 'while its article is prepared' : 'as soon as its article is ready' ) . '. An article with no usable image is not published.' ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-images' ) ) . '">Image settings and history</a></p>';
+		echo '<section class="zzzc-card"><h3>Featured images</h3><p>' . esc_html( 'Required. Every post gets a featured image from Openverse (Flickr and Wikimedia Commons), found ' . ( PastHour::enabled() ? 'while its article is prepared' : 'as soon as its article is ready' ) . '. An article with no usable image is not published.' ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-images' ) ) . '">Image settings and history</a></p>';
 		$held    = ImagePipeline::held_count();
 		$missing = count( ImagePipeline::posts_without_image( 100 ) );
 		echo '<dl class="zzzc-dl"><dt>Held: no usable image</dt><dd>' . esc_html( (string) $held ) . ( $held ? ' <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-articles' ) ) . '">See Failed or held</a>' : '' ) . '</dd><dt>Published posts with no image</dt><dd>' . esc_html( (string) $missing ) . ( $missing ? ' (from before images were required) <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-images' ) ) . '">List them</a>' : '' ) . '</dd></dl>';
@@ -1006,7 +1006,7 @@ final class Pages {
 		self::save_bar( 'Save publishing settings' );
 		echo '</section></form>';
 
-		echo '<section class="zzzc-card"><h3>Images</h3><p>Featured images come from Wikimedia Commons and have their own settings. Any image element in generated text is still removed. <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-images' ) ) . '">Open Images</a></p></section>';
+		echo '<section class="zzzc-card"><h3>Images</h3><p>Featured images come from Openverse (Flickr and Wikimedia Commons) and have their own settings. Any image element in generated text is still removed. <a href="' . esc_url( admin_url( 'admin.php?page=zzzc-images' ) ) . '">Open Images</a></p></section>';
 
 		self::close();
 	}
@@ -1336,10 +1336,10 @@ final class Pages {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-track-changes>';
 		Actions::url_field( 'save_images' );
 
-		echo '<section class="zzzc-card"><h3>Automatic featured images</h3><p class="zzzc-help">As soon as an article is ready, the plugin searches Wikimedia Commons, checks the license and labels of each file, and sets the best one as the featured image. These checks follow rules and read file labels. They do not look at the picture, and no AI is used.</p><div class="zzzc-grid">';
+		echo '<section class="zzzc-card"><h3>Automatic featured images</h3><p class="zzzc-help">As soon as an article is ready, the AI model reads it and names what the picture must show and the searches to use (one small AI call per article, counted in Usage as image_search). The plugin then searches Openverse, which holds openly licensed pictures from Flickr and Wikimedia Commons, checks the license and labels of each file, and sets the best one as the featured image. The checks read file labels, not the picture. If the AI call fails, the plugin\'s own searches are used.</p><div class="zzzc-grid">';
 		echo '<div class="zzzc-field"><label>Featured image</label><p>Required on every post, and cannot be turned off. A post goes public only when its featured image is set and its file opens on the server, including when a person publishes one of this plugin\'s drafts by hand.</p></div>';
 		echo '<div class="zzzc-field"><label>When no image can be used</label><p>The article is not published. It waits in Failed or held, and its image search runs once more 6 hours later. With Past-Hour Posting on, another story is chosen instead, while there is time.</p></div>';
-		echo '<div class="zzzc-field"><label>Image source</label><p>Wikimedia Commons</p></div>';
+		echo '<div class="zzzc-field"><label>Image source</label><p>Openverse: Flickr and Wikimedia Commons pictures that may be used commercially. Flickr pictures are at most 1,024 pixels wide, so the minimum size below is used up to 1,024 by 576.</p></div>';
 		echo '</div></section>';
 
 		echo '<section class="zzzc-card"><h3>Search and quality</h3><div class="zzzc-grid">';
@@ -1350,8 +1350,8 @@ final class Pages {
 		self::number_row( 'image_preferred_ratio', 'Preferred width-to-height shape', '16:9 is 1.78.', '0.01' );
 		self::number_row( 'image_min_score', 'Minimum relevance score (out of 100)', 'Files below this score are not used. A high score never overrides a license or safety rule.' );
 		self::number_row( 'image_max_file_mb', 'Largest file to download (MB)' );
-		self::number_row( 'image_max_attempts', 'Attempts for each article', 'Used for temporary problems, such as Wikimedia being busy.' );
-		self::number_row( 'image_api_gap_seconds', 'Seconds between Wikimedia requests', 'Wikimedia limits fast requests. Keep this at 3 or more.' );
+		self::number_row( 'image_max_attempts', 'Attempts for each article', 'Used for temporary problems, such as Openverse being busy.' );
+		self::number_row( 'image_api_gap_seconds', 'Seconds between Openverse requests', 'Openverse allows 20 searches a minute and 200 a day without an account. Keep this at 3 or more.' );
 		echo '</div></section>';
 
 		echo '<section class="zzzc-card"><h3>License and credit</h3><div class="zzzc-grid">';
@@ -1371,7 +1371,7 @@ final class Pages {
 		self::save_bar( 'Save image settings' );
 		echo '</section></form>';
 
-		echo '<section class="zzzc-card"><h3>Test tools</h3><div class="zzzc-buttons"><button type="button" class="zzzc-btn" id="zzzc-test-commons">Test Wikimedia connection</button> <span id="zzzc-commons-result" role="status"></span></div>';
+		echo '<section class="zzzc-card"><h3>Test tools</h3><div class="zzzc-buttons"><button type="button" class="zzzc-btn" id="zzzc-test-commons">Test Openverse connection</button> <span id="zzzc-commons-result" role="status"></span></div>';
 		echo '<div class="zzzc-field"><label for="zzzc-image-text">Headline or article text</label><textarea id="zzzc-image-text" rows="5"></textarea></div>';
 		echo '<div class="zzzc-field"><label for="zzzc-image-category">Category</label><select id="zzzc-image-category"><option value="0">None</option>';
 		foreach ( Categories::all() as $row ) {
@@ -1382,7 +1382,7 @@ final class Pages {
 
 		$missing = ImagePipeline::posts_without_image( 20 );
 		if ( $missing ) {
-			echo '<section class="zzzc-card"><h3>Published posts with no image</h3><p class="zzzc-help">These were published before images were required. They stay published. Retry image searches Wikimedia Commons again, with every rule.</p><div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Post</th><th>Actions</th></tr></thead><tbody>';
+			echo '<section class="zzzc-card"><h3>Published posts with no image</h3><p class="zzzc-help">These were published before images were required. They stay published. Retry image searches Openverse again, with every rule.</p><div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Post</th><th>Actions</th></tr></thead><tbody>';
 			foreach ( $missing as $row ) {
 				echo '<tr><td><a href="' . esc_url( (string) get_edit_post_link( (int) $row['wp_post_id'] ) ) . '">' . esc_html( get_the_title( (int) $row['wp_post_id'] ) ) . '</a></td><td>';
 				self::retry_image_button( (int) $row['article_job_id'], (int) $row['wp_post_id'] );
@@ -1707,7 +1707,7 @@ final class Pages {
 		}
 		echo '</tbody></table></div></section>';
 
-		echo '<section class="zzzc-card"><h3>Images</h3><p class="zzzc-help">Wikimedia Commons is free and no AI is used for images, so images add no cost here.</p><div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Period</th><th>Searches</th><th>Files checked</th><th>Downloaded</th><th>Set as featured</th><th>No suitable image</th><th>Failures</th></tr></thead><tbody>';
+		echo '<section class="zzzc-card"><h3>Images</h3><p class="zzzc-help">Openverse is free. The one AI call per article that chooses the searches is counted in AI usage as image_search.</p><div class="zzzc-table-wrap"><table class="zzzc-table"><thead><tr><th>Period</th><th>Searches</th><th>Files checked</th><th>Downloaded</th><th>Set as featured</th><th>No suitable image</th><th>Failures</th></tr></thead><tbody>';
 		$image_periods = array(
 			'Today'      => ImagePipeline::stats( $today_start, $today_end ),
 			'This month' => ImagePipeline::stats( $month_start, $today_end ),

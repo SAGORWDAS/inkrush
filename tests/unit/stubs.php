@@ -98,6 +98,14 @@ function esc_url_raw( $url ) {
 	return preg_match( "#^(https?:)?//#i", $url ) ? $url : "";
 }
 
+function esc_url( $url ) {
+	return htmlspecialchars( esc_url_raw( $url ), ENT_QUOTES );
+}
+
+function sanitize_key( $key ) {
+	return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+}
+
 function home_url( $path = '' ) {
 	return 'https://example.test' . $path;
 }

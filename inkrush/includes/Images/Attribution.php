@@ -43,7 +43,7 @@ final class Attribution {
 			'license_url'     => (string) $record['license_url'],
 			'commons_url'     => (string) $record['commons_url'],
 			'file_url'        => (string) $record['file_url'],
-			'source'          => 'Wikimedia Commons',
+			'source'          => Openverse::source_name( (string) $record['commons_url'] ),
 			'modifications'   => (string) $record['modifications'],
 			'downloaded_at'   => (string) ( $record['downloaded_at'] ?? Clock::mysql() ),
 			'attachment_id'   => (int) $record['attachment_id'],
@@ -71,7 +71,7 @@ final class Attribution {
 		}
 		$title = (string) preg_replace( '/^File:/i', '', $title );
 		$title = (string) preg_replace( '/\.[a-z0-9]{2,5}$/i', '', $title );
-		return trim( str_replace( '_', ' ', $title ) );
+		return Openverse::display_title( str_replace( '_', ' ', $title ) );
 	}
 
 	/**
@@ -91,7 +91,8 @@ final class Attribution {
 			? sprintf( '<a href="%1$s" rel="nofollow noopener" target="_blank">%2$s</a>', esc_url( (string) $credit['creator_url'] ), esc_html( $name ) )
 			: esc_html( $name );
 
-		$source = sprintf( '<a href="%1$s" rel="nofollow noopener" target="_blank">Wikimedia Commons</a>', esc_url( (string) $credit['commons_url'] ) );
+		// Credits saved before 1.11.10 are all from Wikimedia Commons. Later ones may be from Flickr.
+		$source = sprintf( '<a href="%1$s" rel="nofollow noopener" target="_blank">%2$s</a>', esc_url( (string) $credit['commons_url'] ), esc_html( Openverse::source_name( (string) $credit['commons_url'] ) ) );
 
 		$license_name = esc_html( (string) $credit['license'] );
 		$license      = '' !== (string) ( $credit['license_url'] ?? '' )

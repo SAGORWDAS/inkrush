@@ -10,6 +10,55 @@ Versions from 1.3.0 onward are test releases.
 
 Nothing yet.
 
+## [1.11.10] - 2026-11-20
+
+The owner's request: an AI step that names the core of each article and writes the image searches, and Openverse in place of Wikimedia Commons as the only image source. Built on 1.11.9 (the owner's site runs the 1.11.x line), so there is no Walter humanizer. No schema change, and `DB_VERSION` stays 17, because 18 is used by 1.12.0.
+
+### Added
+
+- **`Images\ImageQueries`.** One `OpenRouter::chat()` call per article, with the `model_id` setting and 700 output tokens. It reads the title, the source headline, the tags and the first 6,000 characters of the body, and returns JSON with `core`, `names`, `searches`, `avoid` and `place`. `check()` keeps only what the article supports:
+  - names and searches must be in the article (punctuation ignored on both sides, so "Halo Campaign Evolved" matches "Halo: Campaign Evolved");
+  - a name is never a date;
+  - a search made only of dates, numbers or short words is dropped;
+  - an `avoid` word the article uses itself is dropped;
+  - a place the article doesn't name is dropped.
+
+  `apply()` puts the AI searches first and fills the rest with `ArticleAnalyzer` queries, up to `image_query_count`. It makes the first name `main`, puts the names first in `entities`, and sets `avoid`, `core`, and `place`/`fallback`. The answer is cached in the transient `zzzc_image_ai_<md5>` for 3 days. The call is recorded by `Usage::record( 'image_search', … )`.
+- **`ImagePipeline::with_ai()`** runs this right after `ArticleAnalyzer::analyze()` in `prepare()`. It logs the plan ("AI image plan…"), or logs warning `image_ai` and keeps the analyzer's searches when the call fails or nothing survives `check()`.
+- **`CandidateScorer::mandatory_failure()`** refuses a file whose labels contain an `avoid` word.
+- **`Images\Openverse`** replaces `Images\Commons`, which is removed.
+  - **Search:** `/v1/images/` with `license_type=commercial,modification` and `page_size` up to 20 (the anonymous maximum). Results are cached for 6 hours and paced by `image_api_gap_seconds`. HTTP 429 sets the host cooldown. A network error, 502 or 504 is tried up to 3 times within 45 seconds.
+  - **`normalize()`** keeps only `flickr` and `wikimedia` results on `live.staticflickr.com` / `upload.wikimedia.org`. It builds a Commons-style `extmetadata` (`LicenseShortName`, `License`, `LicenseUrl`, `Artist`, tags as `Categories` without machine tags that carry an `accuracy`), so `LicenseChecker` and the scorer are unchanged.
+  - **Titles:** Wikimedia files keep their `File:` name, so files used through Commons are still blocked by `filename_norm`. Flickr titles get "(Flickr <photo id>)" so photos that share a title don't collide on the unique key.
+  - **IDs and downloads:** `page_id` is `number_for()` (52 bits of `sha1` plus 2^40, above any Commons page id). Wikimedia originals wider than 1,920 are downloaded through the `thumb/…/1920px-` copy.
+  - **Sizes:** `min_width()` / `min_height()` cap the minimum at 1,024 by 576, because Flickr reaches Openverse at most 1,024 wide. The scorer and `MediaImporter` use them.
+
+### Changed
+
+- **Credits:** `Attribution` credits Flickr or Wikimedia Commons from the page address (`Openverse::source_name()`). Older credits still say Wikimedia Commons.
+- **History:** `ImageHistory::reserve()` writes `source` as `openverse_flickr` or `openverse_wikimedia`.
+- **Admin:** The Images test tools use Openverse and the AI step, and show the AI's core. The admin wording, readme, README and PRIVACY name Openverse, Flickr and Wikimedia Commons. Filters: `zzzc_openverse_api_url` and `zzzc_image_media_hosts` replace the `zzzc_commons_*` filters.
+- **Time limit:** `set_time_limit` in `prepare()` goes from 300 to 420 seconds.
+
+### Tested
+
+- `run-images` 140 (38 new):
+  - **AI reply checks:** a fenced JSON reply is read, a date and an unmentioned festival are dropped, "film" can't be an avoid word in a film story, places are checked, and a non-JSON reply or one with no supported search is refused.
+  - **Applying the plan:** AI searches come first and stay within the limit, and nothing changes when the AI fails.
+  - **Halo and Doha:** the solar halo is refused for "sun" while the Halo game photo passes, and the real Doha Film Festival Flickr photo from the live API passes at 1,024 × 768 and names the subject.
+  - **Licenses:** BY-SA 2.0, CC0 and PDM pass, and BY-NC is refused.
+  - **Openverse files:** Wikimedia file names and 1,920-pixel copies, other hosts and look-alike hosts refused, credit names, and the Flickr number left out of alt text and credits.
+- `run-unit` 128 and `run-validator` 17, all with 0 failures. `php -l` clean.
+- **Live Openverse, 2026-11-20, outside WordPress, with the plugin's normalize, license and scorer code and a hand-written AI reply:**
+  - **Doha Film Festival:** 44 files checked and 7 passed. The top 6 were Flickr photos titled "Doha Film Festival", scoring 83 and naming the subject.
+  - **Halo: Campaign Evolved:** 60 checked and 9 passed. The best was "Halo 3: Firefight" at 74, and no sun halos.
+  - **Reliability:** 4 of 10 first tries returned HTTP 504 after 12 to 20 seconds, and all succeeded by the third try.
+- **Not verified:**
+  - The real model (`openai/gpt-6-luna`) was not called, because there is no OpenRouter key here, so the quality of its replies is untested. `check()` limits the damage of a bad reply.
+  - Not run on WordPress. `prepare()`, `with_ai()`, `MediaImporter` downloads from `live.staticflickr.com`, and the credit HTML were checked by reading only.
+  - `tests/test-5-images.php` and `tests/mock-commons.php`, the WordPress suite, still target the Commons API and will fail until they are rewritten for Openverse.
+  - The anonymous Openverse limit (200 searches a day) has not been measured against a full day of posts.
+
 ## [1.11.9] - 2026-11-17
 
 The 22:00 post of 2026-11-17, "Doha Film Festival 2026 to Open November 19 With 15 Competition Films and More Guests" (Entertainment), was published with `File:De Famberhorst 08-11-2021. (d.j.b) 03.jpg`, a focus-stacked close-up of *Laccaria amethystina* mushrooms, at score 77. Reproduced locally with the real title, headline, 20 tags, body and Commons metadata. `ArticleAnalyzer` made "November" the main subject (capitalized in every date and not in `NOT_NAMES`). `headline_pair()` paired the tag "Yemeni film" with it, because the title says "Film". The searches were "Yemeni film November" and "November" (84 million Commons hits, led by this photographer's series). The file passed the 1.11.7 two-word rule on "november" (category "Fungi of Friesland in November") and "focus" (headline "Festival In Focus", labels "Focus stacking"). Searching stopped after 2 of 5 at the 75 mark, so "Doha Film Institute" was never searched. Built on 1.11.8 at the owner's request (the site runs 1.11.8), so it has no Walter humanizer; the image files are the same as in 1.12.4. No schema change, `DB_VERSION` stays 17.

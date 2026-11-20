@@ -15,7 +15,8 @@ defined( 'ABSPATH' ) || exit;
  * Finds and imports the featured image that every post must have. No usable image means no post.
  *
  * Each article has one image_runs row, which holds progress so a retry or crash recovery
- * continues the same work. This never regenerates an article or its tags, and makes no AI calls.
+ * continues the same work. This never regenerates an article or its tags. From 1.11.10 it makes one
+ * small AI call per article to name what the picture must show (ImageQueries), and searches Openverse.
  */
 final class ImagePipeline {
 
@@ -62,6 +63,33 @@ final class ImagePipeline {
 				$extra
 			)
 		);
+	}
+
+	/**
+	 * The AI model names the article's core and writes the searches. When it cannot, the plugin's
+	 * own searches run unchanged, so the post does not wait on this.
+	 */
+	private static function with_ai( array $analysis, array $job, array $item, array $content, array $tags ): array {
+		$ai = ImageQueries::for_article( (int) $job['id'], (string) $content['title'], (string) ( $item['headline'] ?? '' ), (string) $content['body'], $tags );
+		if ( ! $ai['ok'] ) {
+			self::log( 'warning', 'The AI could not choose the image searches, so the plugin\'s own searches are used: ' . $ai['error'], $job, array( 'error_code' => 'image_ai' ) );
+			return $analysis;
+		}
+		$analysis = ImageQueries::apply( $analysis, $ai );
+		self::log(
+			'info',
+			sprintf(
+				'AI image plan%1$s. Core: %2$s. Names: %3$s. Searches: %4$s.%5$s%6$s',
+				$ai['cached'] ? ' (saved from an earlier attempt)' : '',
+				'' !== $ai['core'] ? $ai['core'] : 'not stated',
+				$ai['names'] ? implode( ', ', $ai['names'] ) : 'none',
+				implode( ' | ', $analysis['queries'] ),
+				$ai['avoid'] ? ' Refuses pictures labelled: ' . implode( ', ', $ai['avoid'] ) . '.' : '',
+				'' !== $ai['place'] ? ' Place: ' . $ai['place'] . '.' : ''
+			),
+			$job
+		);
+		return $analysis;
 	}
 
 	/**
@@ -136,13 +164,14 @@ final class ImagePipeline {
 		);
 
 		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 300 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			@set_time_limit( 420 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
 		}
 
 		$tags     = json_decode( (string) $content['tags_json'], true ) ?: array();
 		$category = Categories::get( (int) $job['category_id'] );
 		$name     = $category ? (string) $category['name'] : '';
 		$analysis = ArticleAnalyzer::analyze( (string) $content['title'], (string) $content['body'], $tags, (string) $item['headline'], $name, (string) ( $item['publisher'] ?? '' ) );
+		$analysis = self::with_ai( $analysis, $job, $item, $content, $tags );
 		$queries  = array_values( $analysis['queries'] );
 
 		$strong = max( self::STRONG_MATCH, $min );
@@ -182,7 +211,7 @@ final class ImagePipeline {
 				$search_wait  = max( $search_wait, (int) $found['retry_after'] );
 			}
 
-			// Nothing reached Wikimedia this time, because it asked for a wait, so this does not use up an attempt.
+			// Nothing reached Openverse this time, because it asked for a wait, so this does not use up an attempt.
 			if ( $first && $found['not_sent'] && 0 === $found['requests'] ) {
 				$attempts--;
 			}
@@ -212,7 +241,7 @@ final class ImagePipeline {
 			);
 			self::log(
 				'info',
-				sprintf( 'Searched Wikimedia Commons: %1$d files checked, %2$d passed. Searches: %3$s%4$s', count( $reviewed['all'] ), count( $reviewed['eligible'] ), implode( ' | ', $found['searched'] ), $found['stopped_early'] ? sprintf( ' (stopped after %1$d of %2$d, because a file scored %3$d or more)', count( $searched ), count( $queries ), $strong ) : '' ),
+				sprintf( 'Searched Openverse: %1$d files checked, %2$d passed. Searches: %3$s%4$s', count( $reviewed['all'] ), count( $reviewed['eligible'] ), implode( ' | ', $found['searched'] ), $found['stopped_early'] ? sprintf( ' (stopped after %1$d of %2$d, because a file scored %3$d or more)', count( $searched ), count( $queries ), $strong ) : '' ),
 				$job,
 				array(
 					'status'  => 'searched',
@@ -403,7 +432,7 @@ final class ImagePipeline {
 					'reason'        => '',
 				)
 			);
-			self::log( 'info', sprintf( 'Selected %1$s (score %2$d, %3$s, by %4$s). Commons page: %5$s', $candidate['title'], $candidate['score'], $candidate['license_info']['license'], $candidate['license_info']['creator'] ?: 'creator not stated', $candidate['page_url'] ), $job, array( 'status' => 'imported' ) );
+			self::log( 'info', sprintf( 'Selected %1$s (score %2$d, %3$s, by %4$s). Source page: %5$s', $candidate['title'], $candidate['score'], $candidate['license_info']['license'], $candidate['license_info']['creator'] ?: 'creator not stated', $candidate['page_url'] ), $job, array( 'status' => 'imported' ) );
 
 			return array(
 				'action'        => self::USE,
@@ -451,7 +480,7 @@ final class ImagePipeline {
 			'not_sent'    => false,
 		);
 		foreach ( $queries as $query ) {
-			$result            = Commons::search( (string) $query );
+			$result            = Openverse::search( (string) $query );
 			$out['searched'][] = (string) $query;
 			if ( empty( $result['cached'] ) && empty( $result['not_sent'] ) ) {
 				$out['requests']++;
@@ -474,7 +503,7 @@ final class ImagePipeline {
 			// subject the analyzer thought most likely, and when that subject is wrong the first
 			// query is exactly the one that finds a confident, irrelevant picture. Searching at
 			// least twice costs one more request and gives a wrong first guess something to lose
-			// to. Wikimedia Commons is free, and the comparison is on files already in hand.
+			// to. Openverse is free, and the comparison is on files already in hand.
 			$searched_enough = count( $out['searched'] ) >= 2 || count( $queries ) < 2;
 			if ( $enough && $searched_enough && $enough( array_values( $out['items'] ) ) ) {
 				$out['stopped_early'] = true;
@@ -578,7 +607,7 @@ final class ImagePipeline {
 			$out[] = array(
 				'title'    => (string) $candidate['title'],
 				'page_url' => (string) $candidate['page_url'],
-				'thumb'    => Commons::is_preview_url( (string) $candidate['thumb_url'] ) ? (string) $candidate['thumb_url'] : '',
+				'thumb'    => Openverse::is_preview_url( (string) $candidate['thumb_url'] ) ? (string) $candidate['thumb_url'] : '',
 				'size'     => $candidate['width'] . ' x ' . $candidate['height'],
 				'license'  => (string) $candidate['license_info']['license'],
 				'creator'  => (string) $candidate['license_info']['creator'],

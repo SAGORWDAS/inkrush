@@ -3,11 +3,11 @@ Tags: news, automation, ai, rss, publishing
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.11.9
+Stable tag: 1.11.10
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI-powered WordPress news automation. Finds stories, rewrites them through OpenRouter, adds Wikimedia Commons images and publishes on a schedule.
+AI-powered WordPress news automation. Finds stories, rewrites them through OpenRouter, adds openly licensed images from Openverse and publishes on a schedule.
 
 == Description ==
 
@@ -23,13 +23,13 @@ After setup, press Start Automation. The plugin keeps working in the background 
 4. Sends the source and your exact saved prompt to your OpenRouter model.
 5. Generates 20 tags with your exact saved tag prompt.
 6. Validates the result and holds anything that fails.
-7. At each publishing slot, finds a featured image on Wikimedia Commons with rules only, then creates a draft or published WordPress post.
+7. At each publishing slot, asks the AI what the picture must show, finds a featured image on Openverse (Flickr and Wikimedia Commons) and checks it with fixed rules, then creates a draft or published WordPress post.
 8. Credits each post only to a user you authorised on the Authors page. Nobody gets access through their WordPress role. In Multiple users mode, each author posts on their own schedule and is credited with those posts.
 9. Optionally stops by itself after a number of days or published posts, whichever comes first.
 
 10. Optionally distributes each published article to Facebook Pages, Instagram, X, LinkedIn, Threads and Bluesky, through those platforms' own official APIs. This is switched off until you connect an account and turn a platform on.
 
-The outside services are your news sources, OpenRouter, Wikimedia Commons, and any social media platform you choose to connect. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
+The outside services are your news sources, OpenRouter, Openverse, Flickr and Wikimedia Commons (image downloads), and any social media platform you choose to connect. There are no third-party plugins, libraries, fonts, CDNs or telemetry.
 
 Developed by: Sagor Das
 Developer Contact: das.sagorwork@gmail.com
@@ -43,11 +43,11 @@ InkRush is a tool, and you are responsible for what it publishes. A story or ima
 This plugin connects to these outside services. It sends nothing to the developer.
 
 * **OpenRouter** (https://openrouter.ai/), to write articles and tags. It receives your API key, the publisher text, your prompts, the model identifier and your site address, each time an article or its tags are written, and when you test the connection. Terms: https://openrouter.ai/terms. Privacy: https://openrouter.ai/privacy.
-* **Wikimedia Commons** (https://commons.wikimedia.org/), to find and download featured images. It receives search terms made from each article. Terms: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use. Privacy: https://foundation.wikimedia.org/wiki/Policy:Privacy_policy.
+* **Openverse** (https://openverse.org/), run by WordPress.org, to find featured images. It receives search terms chosen from each article. Terms: https://docs.openverse.org/terms_of_service.html. Pictures are downloaded from Flickr (live.staticflickr.com, https://www.flickr.com/help/terms) or Wikimedia Commons (upload.wikimedia.org, https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use).
 * **Google News RSS** (https://news.google.com/), to find stories, when "Use Google News RSS" is on. It receives your topic addresses, search queries, language and region. Terms: https://policies.google.com/terms. Privacy: https://policies.google.com/privacy.
 * **Publisher websites** you add or that Google News links to, to read feeds, robots.txt and article pages.
 
-Requests to Google News, publishers and Wikimedia Commons carry a user agent that names the plugin and your site address.
+Requests to Google News, publishers, Openverse, Flickr and Wikimedia Commons carry a user agent that names the plugin and your site address.
 
 = Social media platforms =
 
@@ -112,6 +112,21 @@ No. It has no tracking or telemetry.
 * docs/TEST-RESULTS.md: what was tested, what was not, and the first run on a real site
 
 == Changelog ==
+
+= 1.11.10 =
+Built on 1.11.9, with no humanizer. The AI now chooses the image searches, and pictures come from Openverse instead of Wikimedia Commons.
+
+**Why.** Every wrong picture so far came from the plugin guessing the story's subject from its words: "November" for a Doha film festival, "Halo" matching a halo around the sun. Commons also often has no photo of the actual event.
+
+**The AI names the core.** After an article is written, one small AI call (your current model) reads it and returns what the picture must show, the names it must be of, 3 to 5 searches, words that mean a different thing of the same name (such as "sun" for the Halo game), and where the story happens. Every search word and name must be in the article, so the AI cannot send the search anywhere the story is not. If the call fails, the plugin's own searches run as before, so no post waits on it. The call is counted in Usage as image_search and saved for three days, so retries don't pay again.
+
+**Openverse.** Openverse, run by WordPress.org, searches openly licensed pictures from Flickr and Wikimedia Commons together. Only Flickr and Wikimedia files are used, only licenses that allow commercial use and changes, and every file still passes the same license, label and safety checks. A live test on 20 November found six real photos of the Doha Film Festival on Flickr, where Commons had none.
+
+**Sizes.** Flickr pictures reach Openverse at most 1,024 pixels wide, so the minimum size is used up to 1,024 by 576. Large Wikimedia files are still downloaded at 1,920 pixels.
+
+**Credits** name Flickr or Wikimedia Commons, whichever the picture came from.
+
+Openverse allows 20 searches a minute and 200 a day without an account. It is slow and sometimes times out on a new search, so each search is tried up to three times.
 
 = 1.11.9 =
 Built on 1.11.8, with no humanizer. Better image searches, and no more pictures that only share stray words with the story.

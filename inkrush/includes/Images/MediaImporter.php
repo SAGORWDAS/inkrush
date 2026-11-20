@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Downloads an approved image, checks the real file, and adds it to the Media Library.
- * Uses the plugin's safe fetcher, which refuses any host other than the approved Wikimedia media host.
+ * Uses the plugin's safe fetcher, which refuses any host other than the approved Flickr and Wikimedia media hosts.
  */
 final class MediaImporter {
 
@@ -38,11 +38,11 @@ final class MediaImporter {
 			'mime'        => '',
 		);
 
-		// The resized copy when Commons offers one. Size checks below use the downloaded file itself.
+		// The resized copy when Wikimedia offers one. Size checks below use the downloaded file itself.
 		$url      = (string) ( $candidate['download'] ?? '' ) ?: (string) $candidate['file_url'];
 		$original = $url === (string) $candidate['file_url'];
-		if ( ! Commons::is_media_url( $url ) ) {
-			$out['reason'] = 'The file address is not on an approved Wikimedia host.';
+		if ( ! Openverse::is_media_url( $url ) ) {
+			$out['reason'] = 'The file address is not on an approved Flickr or Wikimedia host.';
 			return $out;
 		}
 
@@ -63,7 +63,7 @@ final class MediaImporter {
 				'timeout'    => 90,
 				'max_bytes'  => $max + 1,
 				'stream_to'  => $temp,
-				'only_hosts' => Commons::media_hosts(),
+				'only_hosts' => Openverse::media_hosts(),
 			)
 		);
 
@@ -100,7 +100,7 @@ final class MediaImporter {
 		if ( ! is_array( $info ) || ! isset( self::TYPES[ $info[2] ] ) ) {
 			return $fail( 'The downloaded file is not a valid JPEG, PNG or WebP image.' );
 		}
-		if ( (int) $info[0] < (int) Settings::get( 'image_min_width' ) || (int) $info[1] < (int) Settings::get( 'image_min_height' ) ) {
+		if ( (int) $info[0] < Openverse::min_width() || (int) $info[1] < Openverse::min_height() ) {
 			return $fail( sprintf( 'The real image is too small: %1$d by %2$d pixels.', $info[0], $info[1] ) );
 		}
 
@@ -268,6 +268,8 @@ final class MediaImporter {
 		);
 
 		$title         = (string) preg_replace( '/\.[a-z0-9]{2,5}$/i', '', (string) $history['image_title'] );
+		// The Flickr photo number keeps history rows apart. It is not part of the picture's name.
+		$title         = Openverse::display_title( $title );
 		$attachment_id = media_handle_sideload( $file, 0, $title );
 
 		if ( is_file( $path ) ) {

@@ -80,7 +80,7 @@ final class ImageHistory {
 		$suppress = $wpdb->suppress_errors( true );
 		$inserted = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$table} (commons_page_id, filename_norm, file_url_hash, commons_url, file_url, article_job_id, article_title, image_title, creator, creator_url, license, license_version, license_url, status, reserved_at, updated_at) VALUES (%d, %s, %s, %s, %s, %d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", // phpcs:ignore WordPress.DB
+				"INSERT IGNORE INTO {$table} (commons_page_id, filename_norm, file_url_hash, commons_url, file_url, article_job_id, article_title, image_title, creator, creator_url, license, license_version, license_url, source, status, reserved_at, updated_at) VALUES (%d, %s, %s, %s, %s, %d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", // phpcs:ignore WordPress.DB
 				(int) $candidate['page_id'],
 				self::normalize_filename( (string) $candidate['title'] ),
 				self::url_hash( (string) $candidate['file_url'] ),
@@ -94,6 +94,8 @@ final class ImageHistory {
 				$fields['license'],
 				$fields['license_version'],
 				$fields['license_url'],
+				// Where the picture is kept. Before 1.11.10 every row was wikimedia_commons.
+				'openverse_' . sanitize_key( (string) ( $candidate['source'] ?? 'wikimedia' ) ),
 				self::RESERVED,
 				$now,
 				$now
